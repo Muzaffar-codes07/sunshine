@@ -106,3 +106,12 @@ model Enquiry {
   @@index([createdAt])
   @@map("enquiries")
 }
+
+// Shared staff sessions; User is rechecked on every protected request.
+model Session {
+  sid String @id @db.VarChar(255)
+  sess Json @db.Json
+  expire DateTime @db.Timestamp(6)
+  @@index([expire], map: "staff_sessions_expire_idx")
+  @@map("staff_sessions")
+}

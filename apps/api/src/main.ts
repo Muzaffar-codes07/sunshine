@@ -4,6 +4,9 @@ import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './platform/api-exception.filter';
+import { AuthRuntime } from './auth/auth.runtime';
+import { parseTrustProxy } from './auth/trust-proxy';
+import type { Request } from 'express';
 
 // npm workspaces start this process in apps/api; also support repository-root execution.
 config({ path: [resolve(process.cwd(), '.env'), resolve(__dirname, '../../../.env')], quiet: true });
@@ -17,6 +20,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new ApiExceptionFilter());
+  app.getHttpAdapter().getInstance().set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+  app.enableCsrfProtection({
+    trustedOrigins: app.get(AuthRuntime).origins,
+    exclude: (request: Request) => request.method === 'POST' && /^\/api\/v1\/enquiries\/?$/i.test(request.path),
+  });
   app.enableShutdownHooks();
   await app.listen(port, '0.0.0.0');
 }
