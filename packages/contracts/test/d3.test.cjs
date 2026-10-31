@@ -3,6 +3,14 @@ const assert = require('node:assert/strict');
 const c = require('../dist');
 const { id, at, receipt, typedScan, completion } = require('./fixtures/d3.cjs');
 
+test('release command requires a version and explanation and rejects client-owned release facts', () => {
+  assert.deepEqual(c.releaseOrderAllocationsRequestSchema.parse({ expectedVersion: 2, reason: '  Customer rescheduled  ' }), { expectedVersion: 2, reason: 'Customer rescheduled' });
+  for (const input of [{ reason: 'Customer rescheduled' }, { expectedVersion: 0, reason: 'Customer rescheduled' },
+    { expectedVersion: 1, reason: ' ' }, { expectedVersion: 1, reason: 'Customer rescheduled', releasedById: id(1) }]) {
+    assert.equal(c.releaseOrderAllocationsRequestSchema.safeParse(input).success, false);
+  }
+});
+
 test('unit traceability needs canonical source IDs and excludes released assignments', () => {
   const unit = { id: id(1), productId: id(2), manufacturerId: id(3), manufacturer: 'Example', serial: ' inv-a ',
     normalizedSerial: 'INV-A', status: 'AVAILABLE', locationId: id(4), receiptId: id(5), activeAssignment: null };

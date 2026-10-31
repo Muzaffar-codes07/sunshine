@@ -34,6 +34,7 @@ model User {
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
   allocations Allocation[]
+  allocationsReleased Allocation[] @relation("AllocationReleaseActor")
   jobAssignments JobAssignment[] @relation("JobAssignmentTechnician")
   jobAssignmentsMade JobAssignment[] @relation("JobAssignmentMadeBy")
   commands       Command[]
@@ -959,18 +960,23 @@ model Allocation {
   actorId String @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  releasedAt DateTime? @db.Timestamptz(3)
+  releasedById String? @db.Uuid
+  releaseReason String? @db.VarChar(500)
   job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
   quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   unit Unit? @relation(fields: [unitId], references: [id], onDelete: Restrict)
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  releasedBy User? @relation("AllocationReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
   @@index([jobId, status])
   @@index([productId, locationId, status])
   @@index([quoteLineId])
   @@index([unitId])
   @@index([locationId])
   @@index([actorId])
+  @@index([releasedById])
   @@map("allocations")
 }
 
