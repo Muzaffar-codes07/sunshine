@@ -10,6 +10,27 @@
   ],
   "required": [
     {
+      "name": "units_lineage_not_self",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"replacesUnitId\" IS NULL) OR (\"replacesUnitId\" <> id)))"
+    },
+    {
+      "name": "units_guard_lineage",
+      "table": "units_guard_lineage",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.units_guard_lineage()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'UPDATE' THEN\n    IF NEW.\"replacesUnitId\" IS NOT DISTINCT FROM OLD.\"replacesUnitId\" THEN RETURN NEW; END IF;\n    IF OLD.\"replacesUnitId\" IS NOT NULL THEN\n      RAISE EXCEPTION 'equipment predecessor history cannot change'\n        USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_immutable';\n    END IF;\n  END IF;\n  IF NEW.\"replacesUnitId\" IS NULL OR NEW.\"replacesUnitId\" = NEW.\"id\" THEN RETURN NEW; END IF;\n  -- Repeatable-read snapshots cannot see an edge committed while waiting on the mutex.\n  -- Mutation callers use the repository's default READ COMMITTED transaction.\n  IF current_setting('transaction_isolation') <> 'read committed' THEN\n    RAISE EXCEPTION 'new equipment predecessor links require a READ COMMITTED transaction'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_isolation';\n  END IF;\n  PERFORM pg_advisory_xact_lock(18461029, 1);\n  IF EXISTS (\n    WITH RECURSIVE ancestors AS (\n      SELECT \"id\", \"replacesUnitId\" FROM \"units\" WHERE \"id\" = NEW.\"replacesUnitId\"\n      UNION\n      SELECT u.\"id\", u.\"replacesUnitId\" FROM \"units\" u JOIN ancestors a ON u.\"id\" = a.\"replacesUnitId\"\n    ) SELECT 1 FROM ancestors WHERE \"id\" = NEW.\"id\" OR \"replacesUnitId\" = NEW.\"id\"\n  ) THEN\n    RAISE EXCEPTION 'equipment predecessor history cannot contain a cycle'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_acyclic';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "units_lineage_guarded",
+      "table": "units",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER units_lineage_guarded BEFORE INSERT OR UPDATE OF \"replacesUnitId\" ON public.units FOR EACH ROW EXECUTE FUNCTION units_guard_lineage()"
+    },
+    {
       "name": "customers_name_not_blank",
       "table": "customers",
       "kind": "check",

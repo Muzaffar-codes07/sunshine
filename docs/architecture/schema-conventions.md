@@ -134,3 +134,7 @@ Compose currently uses a floating PostgreSQL 17 image. Before generating or refr
 ## Migration source line endings
 
 Migration SQL uses LF on every platform, enforced by .gitattributes. PostgreSQL retains source line endings inside function bodies, so a CRLF checkout changes pg_get_functiondef and fails the exact canonical manifest check even when the SQL statements read the same. Existing clean Windows worktrees must re-check out their migration files after this attribute change before replaying migrations; keep the exact checker and committed SQL contents unchanged.
+
+### Unit predecessor history
+
+`20261031290000_unit_replacement_lineage` adds nullable native UUID `Unit.replacesUnitId` with an indexed restrictive self-FK. Existing units retain null; original receipt identity/cost/status/movements are preserved. Canonical `units_lineage_not_self`, `units_guard_lineage` and `units_lineage_guarded` definitions travel with the migration. New predecessor edges are append-only history, must be acyclic and use the caller's default READ COMMITTED transaction; a graph advisory mutex serializes edge additions. Higher-isolation mutations refuse rather than inspect a stale snapshot. This guard does not replace ticket/customer/product checks or implement actual replacement orchestration.
