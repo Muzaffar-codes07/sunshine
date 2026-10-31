@@ -297,6 +297,10 @@ model ServiceTicket {
   assessmentSnapshot  Json?
   // Immutable Task 3.1 source hash and billing result, saved with costs/invoice.
   billingSnapshot     Json?
+  // Original unitId stays immutable; these links and result preserve swap history.
+  replacedUnitId      String?              @db.Uuid
+  newUnitId           String?              @db.Uuid
+  replacementSnapshot Json?
   resolutionDetails   String?
   resolvedAt          DateTime?            @db.Timestamptz(3)
   // Customer's recorded name, mapped from CustomerConfirmation.confirmerName.
@@ -315,6 +319,8 @@ model ServiceTicket {
   @@index([customerId])
   @@index([unitId, status])
   @@index([jobId, status])
+  @@index([replacedUnitId])
+  @@index([newUnitId])
   @@index([status, createdAt])
   @@map("service_tickets")
 }

@@ -94,6 +94,18 @@ test('expired and out-of-scope decisions stay charge-pending in the snapshot', a
   }
 });
 
+test('ticket responses retain replacement lineage through resolution and confirmed closure', async () => {
+  const f = setup(), ticket = await opened(f), newUnitId = randomUUID();
+  assert.equal(ticket.replacedUnitId, null); assert.equal(ticket.newUnitId, null);
+  await f.service.assessTicket(ticket.id, assess);
+  Object.assign(f.rows.get(ticket.id), { replacedUnitId: unitId, newUnitId });
+  const resolved = await f.service.resolveTicket(ticket.id, { version: 2, resolutionDetails: 'Replacement tested' });
+  assert.equal(resolved.data.unitId, unitId); assert.equal(resolved.data.replacedUnitId, unitId); assert.equal(resolved.data.newUnitId, newUnitId);
+  const closed = await f.service.confirmClosure(ticket.id, confirmation());
+  assert.equal(closed.data.replacedUnitId, unitId); assert.equal(closed.data.newUnitId, newUnitId);
+  assert.equal(serviceTicketResponseSchema.safeParse(closed).success, true);
+});
+
 test('creation rejects forged linkage/status and uninstalled, missing or mismatched equipment', async () => {
   const f = setup();
   for (const input of [null, {}, { unitId, faultDescription: ' ' }, { unitId: 'bad', faultDescription: 'fault' },

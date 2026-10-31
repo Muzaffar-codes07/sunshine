@@ -77,6 +77,12 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
   references conflict. No public billing route is added; outer actor-scoped
   authorization/command replay remains required. Both production adapters default
   to 503 pending upstream implementation. See the [service module](../../apps/api/src/service/README.md).
+  Persisted PART sources must include their existing allocation `ticketLineId`;
+  LABOUR sources omit it. Billing verifies distinct line IDs, ticket/type, exact
+  quantity/internal costs and assessed billability, then reuses PART rows and
+  inserts only LABOUR rows. The source reader locks/rechecks movement/allocation
+  linkage. Requests cannot supply line IDs. New result PART lines retain this ID;
+  legacy saved results without it remain replayable.
 - `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
 - Task 2.1 extends `WarrantyAssessmentResult` with required `asOfDate`, `policyRevision`, `scope`, `coverageStatus` (`COVERED`, `EXPIRED`, `VOID`, `NOT_STARTED`, `NO_WARRANTY`, `OUT_OF_SCOPE`), and `chargeStatus`. Policy name/revision/scope/start/expiry are null together only for `NO_WARRANTY`. Covered work returns `customerCharge: "0.00"` and `chargeStatus: "FREE"`; all other lookup outcomes return null charge and `PENDING_ASSESSMENT` until Task 3.1 assesses billable parts/labour. This is an intentional Task 1.1 contract revision; do not interpret null as a zero invoice. `isCovered` concerns only the returned saved scope; repair orchestration must evaluate its actual work scope separately.
 - `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization currently returns 503 `WARRANTY_AUTH_UNAVAILABLE`; the default equipment reader also rejects with 503. See the [warranty integration gate](../../apps/api/src/warranty/README.md).
@@ -123,6 +129,17 @@ the coordinated D4 migration are also outstanding. Missing ticket tables/columns
 return `SERVICE_SCHEMA_UNAVAILABLE`. Resolution in this task records notes only;
 Task 3.1/3.2 must orchestrate stock/finance with command idempotency and one shared
 transaction. No billing or stock effects are posted by these commands.
+
+Task 3.2 extends ticket responses with nullable `replacedUnitId` and `newUnitId`.
+The original `unitId` remains the defective unit; lineage is retained through
+resolution/closure. The internal `ReplacementService.executeReplacement(tx,
+{ticketId, oldUnitId, newUnitId, assessmentDate})` adds no public route. It invokes
+D3's stock port and Task 3.1 billing under the same caller transaction, preserves
+original warranty dates/policy/void flag and saves an immutable replay result.
+The new unit uses ALLOCATED assignment and old uses QUARANTINE. D3's unavailable
+stock adapter fails with 503 `REPLACEMENT_STOCK_UNAVAILABLE`; it requires real
+stock/source/auth/migration integration before production. See the
+[service handoff](../../apps/api/src/service/README.md#task-32-hardware-replacement).
 
 ## Task 4.1 director reports
 

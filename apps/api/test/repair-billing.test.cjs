@@ -42,16 +42,26 @@ function setup(covered = true) {
       return entry ? { ...entry, amount: new Prisma.Decimal(entry.amount) } : null;
     },
     async findUniqueOrThrow(query) { const entry = await tx.costEntry.findUnique(query); assert.ok(entry); return entry; },
-  }, ticketLine: { async createMany({ data }) { calls.push(['lines']); state.lines.push(...structuredClone(data)); } } };
+  }, ticketLine: {
+    async findUnique({ where }) {
+      const row = state.lines.find((line) => line.id === where.id);
+      return row ? { ...row, quantity: new Prisma.Decimal(row.quantity), unitCost: new Prisma.Decimal(row.unitCost), totalCost: new Prisma.Decimal(row.totalCost) } : null;
+    },
+    async createMany({ data }) { calls.push(['lines']); state.lines.push(...structuredClone(data)); },
+  } };
   const facts = refs.map((ref) => ({ ...ref, ticketId, jobId, customerId, scope: 'Component repair',
     description: ref.type === 'PART' ? 'Frozen inverter part' : 'Approved service labour',
-    quantity: '1.000', unitCost: ref.type === 'PART' ? '14000.00' : '600.00', unitPrice: ref.type === 'PART' ? '16000.00' : '800.00' }));
+    quantity: '1.000', unitCost: ref.type === 'PART' ? '14000.00' : '600.00', unitPrice: ref.type === 'PART' ? '16000.00' : '800.00',
+    ...(ref.type === 'PART' ? { ticketLineId: randomUUID() } : {}) }));
   const writer = new CostWriterService();
   const sources = { async read(received, id, items) {
     assert.strictEqual(received, tx); assert.equal(id, ticketId); calls.push(['sources']);
     // Emulate D3's consumption post inside the SAME transaction, before returning facts.
     for (const fact of facts.filter((row) => row.type === 'PART' && items.some((item) => item.sourceId === row.sourceId))) {
       const total = new Prisma.Decimal(fact.quantity).mul(fact.unitCost).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2);
+      if (!state.lines.some((line) => line.id === fact.ticketLineId)) state.lines.push({ id: fact.ticketLineId,
+        ticketId: fact.ticketId, lineType: 'PART', description: fact.description, quantity: fact.quantity,
+        unitCost: fact.unitCost, totalCost: total, billableToCustomer: !covered });
       await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${fact.sourceId}`, costType: 'REPAIR_PARTS', jobId: fact.jobId, amount: total, description: fact.description });
     }
     return facts.filter((row) => items.some((item) => item.type === row.type && item.sourceId === row.sourceId));
@@ -126,6 +136,7 @@ test('exact per-line half-up rounding, zero selling rates and max precision', as
 test('strict refs reject client prices, coverage, invalid quantities and duplicate sources before DB reads', async () => {
   const f = setup();
   for (const invalid of [null, [], {}, [{ ...refs[0], unitPrice: '0' }], [{ ...refs[0], billableToCustomer: false }],
+    [{ ...refs[0], ticketLineId: randomUUID() }],
     [{ type: 'OTHER', sourceId: partId }], [{ type: 'PART', sourceId: 'bad' }], [refs[0], refs[0]],
     Array.from({ length: 201 }, () => ({ type: 'PART', sourceId: randomUUID() }))]) {
     await assert.rejects(f.run(invalid), code(400, 'INVALID_INPUT'));
@@ -202,6 +213,41 @@ test('CAS protects concurrent billing and lifecycle transitions; database confli
     broken.tx.serviceTicket.findUnique = async () => { throw failure; };
     await assert.rejects(broken.run(), dbCode === 'P2034' ? (error) => error === failure : code(503, 'SERVICE_SCHEMA_UNAVAILABLE'));
   }
+});
+
+test('allocation PART line is required, validated and reused; missing or inconsistent linkage aborts', async () => {
+  for (const patch of [null, { ticketId: randomUUID() }, { lineType: 'LABOUR' }, { quantity: '2.000' },
+    { unitCost: '1.00' }, { totalCost: '1.00' }, { billableToCustomer: true }]) {
+    const f = setup(), read = f.sources.read, before = structuredClone(f.state);
+    f.sources.read = async (...args) => {
+      const facts = await read(...args);
+      if (patch === null) f.state.lines.length = 0; else Object.assign(f.state.lines[0], patch);
+      return facts;
+    };
+    await assert.rejects(f.run(), code(409, 'REPAIR_LINE_CONFLICT')); assert.deepEqual(f.state, before);
+  }
+  for (const change of [(facts) => { delete facts[0].ticketLineId; },
+    (facts) => { facts[1].ticketLineId = randomUUID(); }]) {
+    const f = setup(), before = structuredClone(f.state); change(f.facts);
+    await assert.rejects(f.run(), code(503, 'INVALID_REPAIR_SOURCE')); assert.deepEqual(f.state, before);
+  }
+  const duplicate = setup();
+  duplicate.facts.push({ ...duplicate.facts[0], sourceId: randomUUID() });
+  const before = structuredClone(duplicate.state);
+  await assert.rejects(duplicate.run(duplicate.facts.map(({ type, sourceId }) => ({ type, sourceId }))), code(409, 'REPAIR_LINE_CONFLICT'));
+  assert.deepEqual(duplicate.state, before);
+});
+
+test('PART-only billing keeps its existing line and legacy snapshots still replay', async () => {
+  const f = setup(); f.facts.splice(1, 1);
+  const first = await f.run([refs[0]]);
+  assert.equal(f.state.lines.length, 1); assert.equal(f.state.lines[0].id, f.facts[0].ticketLineId);
+  assert.equal(f.calls.some(([name]) => name === 'lines'), false);
+  // The added result field is optional when reading historical committed results.
+  delete f.state.ticket.billingSnapshot.result.lines[0].ticketLineId;
+  const legacy = structuredClone(f.state.ticket.billingSnapshot.result);
+  assert.deepEqual(await f.run([refs[0]]), legacy); assert.equal(f.state.lines.length, 1);
+  assert.equal(first.internalCost, '14000.00');
 });
 
 test('corrupt saved billing fails closed; unavailable production adapters do not fabricate results', async () => {

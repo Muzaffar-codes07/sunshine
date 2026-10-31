@@ -1,9 +1,9 @@
 # Service module
 
-Owner: **D4**. Status: **Tasks 2.2 lifecycle and 3.1 billing helper implemented; production integration gated**.
+Owner: **D4**. Status: **Tasks 2.2 lifecycle, 3.1 billing and 3.2 replacement helpers implemented; production integration gated**.
 
 Saved coverage decisions, resolution notes and staff-recorded customer confirmation.
-Replacement orchestration remains Task 3.2.
+Replacement orchestration preserves equipment lineage and the original warranty interval.
 
 ## Commands
 
@@ -61,6 +61,18 @@ scope and one final billing batch per ticket. It does not infer that component
 coverage also includes unrelated labour. Source data and rates are trusted only
 from that persisted adapter, never directly from the request body.
 
+Every PART source must supply its existing allocation `ticketLineId` from the
+persisted movement/allocation join; LABOUR sources must omit it. The reader must
+lock/recheck this relationship in the same transaction. One PART source maps to
+one distinct ticket line. Billing verifies the line belongs to this ticket, is
+PART, and matches frozen quantity/unit cost/total cost and assessed billability.
+Missing or conflicting rows fail with 409 `REPAIR_LINE_CONFLICT`; missing source
+IDs fail with 503 `INVALID_REPAIR_SOURCE`. Billing reuses these PART rows and
+inserts only LABOUR rows, preserving allocation references and reconciled ticket
+totals. New billing results include each PART's `ticketLineId`; the result field
+remains optional when replaying historical snapshots. Request references stay
+strict type/source IDs; clients cannot override allocation line IDs.
+
 D3 posts consumed parts first through `CostWriterService` with
 `STOCK_MOVEMENT:<sourceId>` / `REPAIR_PARTS`. The helper requires this posting,
 reuses it via the cost writer and verifies its job/type/amount. Service labour
@@ -102,6 +114,80 @@ transaction double restores staged state on errors; it is **not** PostgreSQL
 rollback/concurrency or live D2/D3 integration evidence. The independent
 [Task 3.1 review prompt](../../../../docs/reviews/d4-task-3.1-review-prompt.md)
 lists implementation scope and remaining acceptance checks.
+
+## Task 3.2 hardware replacement
+
+`ServiceModule` exports `ReplacementService.executeReplacement(tx, { ticketId,
+oldUnitId, newUnitId, assessmentDate })`. This is an internal helper with no new
+HTTP route. `assessmentDate` is a timezone-qualified occurrence string; UUIDs
+and the instant are canonicalized for durable replay. Future dates and unknown
+fields fail with 400. Authorize actor/target access and record actor-scoped
+command key/hash/result/audit in the outer transaction, exactly as for billing.
+
+An unresolved ASSESSED/IN_PROGRESS ticket must name the defective unit and have
+a saved assessment for the same IST date. Billing must not already be finalized:
+the replacement's actual consumed source must participate in that final batch.
+Ticket status/version CAS serializes replacement against billing and lifecycle
+writes. It moves to IN_PROGRESS, without resolving or closing the ticket.
+
+The D3-owned `ReplacementStockWriter.replace(tx, command)` must lock/recheck both
+units in stable order, validate old installation ownership and new availability
+and product compatibility, release the old active allocation into QUARANTINE,
+and allocate the new unit to the ticket part line. It retains the new unit's
+`replacesUnitId`, immutable RETURN/ISSUE movements and actual consumed stock cost
+under `STOCK_MOVEMENT:<id>` / REPAIR_PARTS. It returns bounded old/new serial
+projections and actual repair source references. The orchestrator checks their
+IDs, states, customer/job, predecessor and assessed serial; the persisted adapter
+must enforce real inventory eligibility and source-to-new-unit linkage.
+Create/reference the actual allocation PART line before returning stock sources;
+the source reader returns that same `ticketLineId` for billing reuse. A replacement
+with 14000.00 parts and 600.00 labour retains exactly two ticket lines totaling
+14600.00, and replay preserves both the line IDs and allocation references.
+
+The primary Task 3.2 guide specifies ALLOCATED; its sample prompt says deployed.
+This helper uses ALLOCATED to represent replacement assignment. It does not
+claim delivery occurred. D3's physical workflow must reconcile issue/consumption
+with this assignment and must not expense reservation alone. If consumption is
+deferred, invoke this orchestration at actual issue, not preliminary reservation.
+Later delivery must preserve continued coverage, never call standard new-sale
+activation and restart the clock.
+
+The original warranty is version-locked and copied exactly: **startDate,
+expiryDate, policyName, policyRevision, scope, durationMonths and active**.
+An 18-month swap in a 24-month policy therefore retains six months, and expired
+or void coverage stays expired or void. Date-only values must be UTC-midnight
+Prisma DATE encodings and are never recalculated from the replacement instant.
+The original warranty remains as history; only its concurrency version changes.
+No original warranty fails with `ORIGINAL_WARRANTY_REQUIRED`: a separate explicit
+policy decision is needed. Existing coverage on the new unit fails with
+`WARRANTY_CONFLICT`, never an upsert that overwrites unrelated history.
+
+`RepairBillingService` then uses the same transaction and saved decision. Actual
+parts and labour reduce the original job's margin; covered work has no invoice,
+uncovered work invokes D2 once. No extra replacement-total expense is posted.
+The original `ticket.unitId` stays immutable. `replacedUnitId`, `newUnitId` and
+`replacementSnapshot` save lineage and the frozen serial/warranty/billing result
+with the request hash. Public ticket responses expose the two nullable lineage
+IDs. Same input (including UUID case and equivalent offset instants) replays
+without reissuing stock, extending coverage or rebilling, even after closure.
+Changed swaps conflict; later replacements require a new ticket for the new unit.
+This helper supports one swap/final billing batch per ticket.
+
+Every error must abort the caller transaction, including late invoice or snapshot
+failure. The helper never starts/commits its own transaction. Real concurrent
+unit claims, policy edits and warranty uniqueness require outer bounded retries
+plus D3's allocation constraints. The default stock adapter returns 503
+`REPLACEMENT_STOCK_UNAVAILABLE`; no production inventory writes are simulated.
+Unit/Job, staff authorization, actual repair sources/invoice and the coordinated
+migration remain unavailable. The schema handoff includes the lineage columns,
+snapshot and pending Unit FKs/checks. No migration is applied here.
+
+`apps/api/test/replacement.test.cjs` composes the real billing/cost helpers with
+transaction doubles: six-month continuity, expired/void/leap policies, exact
+snapshot copy, lineage, covered/chargeable billing, canonical replay/conflicts,
+IST dates, CAS losses, source scope, storage errors and late-failure propagation.
+These are not real PostgreSQL isolation, rollback or D3 integration evidence.
+See the [Task 3.2 review prompt](../../../../docs/reviews/d4-task-3.2-review-prompt.md).
 
 ## Integration gate and tests
 

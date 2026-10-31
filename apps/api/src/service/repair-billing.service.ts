@@ -72,6 +72,7 @@ export class RepairBillingService {
         // A covered component scope must never silently cover other work.
         if (source.scope !== assessment.data.requestedScope) throw new ApiError(409, 'REPAIR_SCOPE_CONFLICT', 'Assess the actual repair scope before billing');
         return { type: source.type, sourceId: item.sourceId, description: source.description,
+          ...(source.type === 'PART' ? { ticketLineId: source.ticketLineId! } : {}),
           quantity: source.quantity, unitCost: source.unitCost, totalCost: lineTotal(source.quantity, source.unitCost),
           unitPrice: assessment.data.isCovered ? '0.00' : source.unitPrice,
           totalPrice: assessment.data.isCovered ? '0.00' : lineTotal(source.quantity, source.unitPrice),
@@ -81,6 +82,10 @@ export class RepairBillingService {
       const candidate = repairBillingResultSchema.safeParse({ ticketId: id, jobId: ticket.jobId, customerId: ticket.customerId,
         lines, internalCost: sum('totalCost'), customerCharge: sum('totalPrice'), invoiceId: null });
       if (!candidate.success) throw new ApiError(409, 'REPAIR_AMOUNT_OVERFLOW', 'Repair amounts exceed supported precision');
+      const partLineIds = lines.filter((line) => line.type === 'PART').map((line) => line.ticketLineId);
+      if (new Set(partLineIds).size !== partLineIds.length) {
+        throw new ApiError(409, 'REPAIR_LINE_CONFLICT', 'Consumed parts must have distinct allocation ticket lines');
+      }
       for (const line of lines) {
         const costType = line.type === 'PART' ? 'REPAIR_PARTS' : 'SERVICE_LABOUR';
         const uniqueSourceId = `${line.type === 'PART' ? 'STOCK_MOVEMENT' : 'TIME_ENTRY'}:${line.sourceId}`;
@@ -89,6 +94,12 @@ export class RepairBillingService {
         if (line.type === 'PART') {
           const posted = await tx.costEntry.findUnique({ where: { uniqueSourceId_costType: { uniqueSourceId, costType } } });
           if (!posted) throw new ApiError(409, 'REPAIR_PART_COST_REQUIRED', 'Consume and post the actual part before repair billing');
+          const allocatedLine = await tx.ticketLine.findUnique({ where: { id: line.ticketLineId! } });
+          if (!allocatedLine || allocatedLine.ticketId !== id || allocatedLine.lineType !== 'PART' ||
+              !allocatedLine.quantity.equals(line.quantity) || !allocatedLine.unitCost.equals(line.unitCost) ||
+              !allocatedLine.totalCost.equals(line.totalCost) || allocatedLine.billableToCustomer !== line.billableToCustomer) {
+            throw new ApiError(409, 'REPAIR_LINE_CONFLICT', 'Allocation ticket line differs from its assessed repair source');
+          }
         }
         const cost = await this.costs.postCost(tx, { uniqueSourceId, costType, jobId: ticket.jobId,
           amount: line.totalCost, description: line.description });
@@ -107,7 +118,10 @@ export class RepairBillingService {
         }
         result.invoiceId = checked.data.invoiceId;
       }
-      await tx.ticketLine.createMany({ data: lines.map((line) => ({ ticketId: id, lineType: line.type,
+      // PART lines already anchor inventory allocations. Preserve those IDs;
+      // creating them again would duplicate ticket costs even with correct ledger keys.
+      const newLines = lines.filter((line) => line.type === 'LABOUR');
+      if (newLines.length) await tx.ticketLine.createMany({ data: newLines.map((line) => ({ ticketId: id, lineType: line.type,
         description: line.description, quantity: line.quantity, unitCost: line.unitCost,
         totalCost: line.totalCost, billableToCustomer: line.billableToCustomer })) });
       await tx.serviceTicket.update({ where: { id }, data: {

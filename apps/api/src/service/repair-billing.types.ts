@@ -16,11 +16,17 @@ export const repairSourceSchema = repairItemSchema.extend({
   ticketId: z.uuid(), jobId: z.uuid(), customerId: z.uuid(),
   scope: z.string().trim().min(1).max(500), description: z.string().trim().min(1).max(4000),
   quantity: positiveQuantitySchema, unitCost: moneySchema, unitPrice: moneySchema,
+  // PART allocation already owns this persisted line; never accept it from clients.
+  ticketLineId: z.uuid().transform((value) => value.toLowerCase()).optional(),
+}).refine((value) => value.type === 'PART' ? value.ticketLineId !== undefined : value.ticketLineId === undefined, {
+  path: ['ticketLineId'], message: 'Only PART sources must name their existing allocation ticket line',
 });
 export type RepairSource = z.infer<typeof repairSourceSchema>;
 
 export const repairBillingLineSchema = ticketLineSchema.extend({
   sourceId: z.uuid(), unitPrice: moneySchema, totalPrice: moneySchema,
+  // Optional on saved results to retain replay of pre-integration billing snapshots.
+  ticketLineId: z.uuid().optional(),
 });
 export const repairBillingResultSchema = z.object({
   ticketId: z.uuid(), jobId: z.uuid(), customerId: z.uuid(),
@@ -37,6 +43,9 @@ export abstract class RepairSourceReader {
    * original installation and actual work scope; frozen acquisition/pay and selling
    * rates. Lock/recheck eligibility and prevent reuse by another ticket. No network IO.
    * D3 posts PART costs using STOCK_MOVEMENT:<id> before returning the source.
+   * PART ticketLineId must be the actual allocation-source line, one per consumed
+   * source, with matching frozen quantities/costs and assessed billability.
+   * Lock/recheck that line and its movement/allocation linkage in this tx.
    */
   abstract read(tx: Prisma.TransactionClient, ticketId: string, items: RepairItem[]): Promise<RepairSource[]>;
 }

@@ -49,6 +49,24 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
 
 ## Migration dependencies
 
+Task 3.2 also adds nullable native UUID `ServiceTicket.replacedUnitId` and
+`newUnitId` (indexed), plus nullable JSONB `replacementSnapshot`. The ticket's
+original `unitId` remains immutable. The snapshot stores revision 1, a canonical
+input SHA-256 and the frozen old/new serial projections, continued warranty and
+Task 3.1 billing result. Both lineage IDs and snapshot must be present together
+or all null; enforce different old/new IDs and `replacedUnitId = unitId` with
+CHECK constraints. Only the replacement helper writes these facts in the same
+transaction as stock, warranty and billing. A later swap uses a new ticket.
+
+Coordinate Restrict FKs for both lineage IDs to D3's Unit, plus D3's new-unit
+`replacesUnitId` history link, same job/customer checks and the one-active-unit
+allocation partial uniqueness constraint. The current schema has no Unit model;
+do not create placeholders or treat scalar UUIDs as referential integrity.
+Warranty creation for replacement must copy original start/expiry/policy/duration
+and active exactly; the standard new-sale delivery activation must not overwrite
+this continuation. New unit warranty uniqueness and original policy version CAS
+must be covered in real PostgreSQL concurrent replacement/rollback tests.
+
 Named `CustomerServiceTickets` and `ServiceTicketLines` relations have explicit
 foreign keys with `onDelete: Restrict`. Do not add placeholder upstream tables.
 Before generating or landing the D4 migration, coordinate with D3 to add:

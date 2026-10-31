@@ -64,6 +64,7 @@ export type TicketAssessmentSnapshot = z.infer<typeof ticketAssessmentSnapshotSc
 export const serviceTicketSchema = z.object({
   id: z.uuid(), ticketNumber: z.string().min(1),
   customerId: z.uuid(), unitId: z.uuid(), jobId: z.uuid(),
+  replacedUnitId: z.uuid().nullable(), newUnitId: z.uuid().nullable(),
   status: ticketStatusSchema, version: z.number().int().positive(),
   faultDescription: z.string().min(1),
   assessmentSnapshot: ticketAssessmentSnapshotSchema.nullable(),
