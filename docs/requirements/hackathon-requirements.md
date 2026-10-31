@@ -6,7 +6,7 @@ Reviewed 31 October 2026, 14:50 IST. This review separates what the organizers a
 
 | Key | Source | How read | Authority |
 |---|---|---|---|
-| **EV** | Event page `https://hackathon.odoo.com/hackathon/details/69158` ("Odoo x GCET Hyderabad Hackathon 2026") | Screenshots taken by the team leader while signed in on 31 Oct 2026. The page sits behind a GitHub login and could not be read by an automated fetch. Content below the "Must have / Nice to have" cards was not captured. | Organizer, current event |
+| **EV** | Event page `https://hackathon.odoo.com/hackathon/details/69158` ("Odoo x GCET Hyderabad Hackathon 2026") | Two screenshots taken by the team leader while signed in, captured 31 Oct 2026 around 14:40 IST: (1) header, timeline, team and problem statements; (2) evaluator, venue, "About Challenge" and the full "Must have / Nice to have" cards. They are kept privately and not committed because they show account, team and evaluator details. The page sits behind a GitHub login and could not be read by an automated fetch. Content below the "Must have / Nice to have" cards was not captured. | Organizer, current event |
 | **VID** | [organizer-video-deliverables.md](organizer-video-deliverables.md) | Transcript of the 2025 organizer video | Organizer, but a 2025 general briefing, not this event's page |
 | **PDF** | [solar-problem-statement.pdf](solar-problem-statement.pdf) | Full text, 4 pages | Organizer, the selected problem statement |
 
@@ -57,7 +57,7 @@ Each of these is a **MUST** from the PDF. The repository's [traceability matrix]
 | F15 | Director's month-end | Invoices to send, subsidy paperwork tracking, technician pay | R21–R23 |
 | F16 | Director's month-end | Today / this week / this month view including per-job profit and open repairs, and sharing the numbers | R24, R25 |
 
-The PDF gives no implementation details, such as which scanner, how sharing works, or tax handling. Those choices belong to the team and are recorded in [decisions and assumptions](../foundations/decisions-and-assumptions.md).
+The PDF prescribes a phone/tablet form, scanning before warehouse exit and an on-screen signature. It does not prescribe scanner integration, export or sharing format, or tax handling. Those choices belong to the team and are recorded in [decisions and assumptions](../foundations/decisions-and-assumptions.md).
 
 ### Process and submission
 
@@ -71,7 +71,7 @@ The PDF gives no implementation details, such as which scanner, how sharing work
 
 ## Event rules: verified or not stated
 
-All times are as shown on the event page; the timezone is not stated and is assumed to be IST (the venue is in Telangana).
+All times are as shown on the event page; the timezone is not printed and is assumed to be IST (the venue is in Telangana). "Verified" means verified within the captured screenshots only.
 
 | Topic | Status | Detail |
 |---|---|---|
@@ -86,9 +86,10 @@ All times are as shown on the event page; the timezone is not stated and is assu
 | Presentations and valedictory | verified (time only) | 01 Nov, 13:00 |
 | Presentation length and format | not stated | |
 | Repository link submission | verified | Portal button; no deadline shown separately |
-| Repository visibility (public or private) | not stated | Collaborator access implies a private repository is acceptable |
+| Repository visibility (public or private) | not stated | |
 | Deployment or hosting | not stated | |
-| Required language or framework | verified: none required | "All programming languages are welcome!" The Odoo framework is not required |
+| Language | verified: no restriction | "All programming languages are welcome!" |
+| Framework (including the Odoo framework) | not stated | The page doesn't name a required framework |
 | Team size | verified | Up to 4 members; cross-institution teams allowed |
 | Team 88 members | verified | Mohammed Muzaffar (leader), Nirmayi Parinitha, Bhanu Teja Gupta Vuppu, putin |
 | Eligibility | verified | Tech students, freshers and coding enthusiasts aged 18+ |
@@ -103,16 +104,17 @@ Checked against `docs/planning/submission-and-demo.md` and `docs/planning/execut
 | # | Plan says | Event page says | Effect |
 |---|---|---|---|
 | C1 | `submission-and-demo.md` cites event **69159** | The team's event is **69158** | Wrong link; fix the reference |
-| C2 | "Ignore unverified wall-clock deadlines" and a relative 24-hour budget (`submission-and-demo.md`; ADR-12) | Deadlines are now verified: H0 = 31 Oct 10:00, H24 = 01 Nov 10:00 | The relative plan maps exactly onto the real clock. H22.5 release = 01 Nov 08:30 IST |
-| C3 | Evaluator access verified "H0 and H22" (`submission-and-demo.md` artifact table) | Evaluator must be a collaborator by **H1** (31 Oct 11:00) | At 14:48 IST the GitHub collaborators API listed `vbtgongithub`, `Muzaffar-codes07`, `Tuhin-void`, `3upho`; neither `supr-odoo` nor `hackathon-odoo` was present. **The deadline has passed; the owner must add the evaluator now** |
-| C4 | "Cloud URL/video link, if required … before actual submission" (`submission-and-demo.md`) | Video links are a required milestone, due 01 Nov 10:30 | Video is MUST. Only 30 minutes separate coding end from the video deadline, so record it inside the H22.5–24 buffer, not after H24 |
-| C5 | Recovery/submission buffer H22.5–24 (`execution-plan.md`) | Coding ends at H24, video due H24.5, presentation H27 | The buffer must also absorb video recording and upload; presentation rehearsal can continue H24–H27 without code changes |
+| C2 | "Ignore unverified wall-clock deadlines" and a relative 24-hour budget (`submission-and-demo.md`; ADR-12) | Deadlines are now verified: H0 = 31 Oct 10:00, H24 = 01 Nov 10:00 | Calendar conversion only: H22.5 release = 01 Nov 08:30 IST. The team is already past H4.8 with business tasks still planned, so re-plan the remaining effort from now rather than restarting H0 |
+| C3 | Evaluator access verified "H0 and H22" (`submission-and-demo.md` artifact table) | Evaluator must be a collaborator by **H1** (31 Oct 11:00) | At 14:48 IST the GitHub collaborators API listed `vbtgongithub`, `Muzaffar-codes07`, `Tuhin-void`, `3upho`, and the invitations API returned no pending invitations; neither `supr-odoo` nor `hackathon-odoo` appeared. **The deadline has passed; a repo admin must add the evaluator now** and confirm with the helpdesk which account is required |
+| C4 | "Cloud URL/video link, if required … before actual submission" (`submission-and-demo.md`) | Video links are a required milestone, due 01 Nov 10:30 | Video is MUST; the page gives only the deadline. Team recommendation (not an organizer rule): record before H24, since only 30 minutes separate coding end from the video deadline |
+| C5 | Recovery/submission buffer H22.5–24 (`execution-plan.md`) | Coding ends at H24, video due H24.5, presentation H27 | Team recommendation: the buffer also absorbs video recording and upload; rehearse H24–H27 without code changes, subject to venue and organizer instructions |
 | C6 | "Three-minute demonstration" (`submission-and-demo.md` title, runbook) | Presentation length not stated | Three minutes is a team assumption, not an organizer rule; confirm it at the venue |
 | C7 | Local DB, custom APIs and no BaaS treated as organizer-required (ADR-03, citing VID) | EV lists backend APIs, data model and local DB under **Nice to have** | No change to the build: the team keeps them as an owner decision. Don't describe them as an organizer "must" |
-| C8 | Odoo framework requirement listed as unknown (ADR-17) | "All programming languages are welcome" | Resolved: no framework requirement |
+| C8 | Odoo framework requirement listed as unknown (ADR-17) | "All programming languages are welcome"; no framework named | Language is unrestricted. A framework requirement is still not stated; confirm at the helpdesk if it matters |
 | C9 | Offline sync is excluded (P2, `execution-plan.md`) | Nice to have: "Plan for offline or local solutions" | Partly aligned. Local deployment satisfies "local"; say so in the presentation. Offline sync stays out of scope |
-| C10 | `execution-plan.md` assumes four contributors D1–D4, each committing | EV MUST: Git used properly by more than one member. At 14:48 IST, `git log` shows only two commit authors: `Tuhin-void` and `VBTG` | Two of the four members have no commits yet. Each member needs commits on their own component |
+| C10 | `execution-plan.md` assumes four contributors D1–D4, each committing | EV MUST: proper Git use; one member managing the repository is not enough | At 14:48 IST, `git log` shows two author identities: `Tuhin-void` and `VBTG`. Contribution by all four members is unverified, because logins are not yet mapped to people. Confirm the mapping and collect each member's commits. (Every member having their own commits is the team's stricter standard, from VID and the plan, not the EV wording) |
 | C11 | Team members are only role slots D1–D4 in `docs/team/roles.md` | Portal names four people | Names and GitHub logins are not yet mapped to roles |
+| C12 | `docs/team/roles.md` and ADR-02: one frontend developer and three backend developers | Not an event rule; the owner has since asked for component-based ownership (each owner builds API and UI for their components) | The plan docs and roles still describe the layer split; reconcile them after the owner confirms the component assignments and person mapping |
 
 ## What this review does not cover
 
