@@ -1,6 +1,6 @@
 # Historical proposals — not current instructions
 
-These files were copied unchanged from the earlier agent discussions to preserve all research related to the Solar choice. Some also contain the preceding Wedding comparison. They record independent assessments and cross-reviews, not adopted implementation specifications.
+These files were copied, with light edits, from the earlier agent discussions to preserve all research related to the Solar choice. Some also contain the preceding Wedding comparison. They record independent assessments and cross-reviews, not adopted implementation specifications.
 
 **Use [current roles](../../team/roles.md) and [current architecture](../../architecture/README.md) instead.** In particular:
 

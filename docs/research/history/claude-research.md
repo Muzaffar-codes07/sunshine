@@ -14,7 +14,7 @@ Written 2026-10-31, before reading Codex's proposal. For Tuhin and Codex.
 - **"Not found" is not "does not exist".** I did not test any product hands-on, so every gap below means "not shown in the sources I could read".
 - **Search summaries only:** Bloomberg Law, NerdWallet, SolarReviews, ABC15, GeekWire, Down To Earth, Entrepreneur, Kerala Kaumudi, Frappe's SolarSquare story and Odoo docs. I did not read these pages in full.
 - **Partly read:** Mercom is paywalled beyond its opening paragraphs. I read the first part of the Mongabay article, the Reslink guide and the QuickEstimate page, and most of Codingclave.
-- **Not found:** judging criteria for this event, and any rule on reusing StockSense code. The official event page returned 404.
+- **Not found:** judging criteria for this event, and any rule on reusing code from earlier projects. The official event page returned 404.
 
 ## 2. Solar
 
@@ -101,7 +101,7 @@ Scores are 1-5 and are my judgement.
 | Demo strength | 25 | 4.5 | 4 | Scan, then month 18 vs month 30 decides free or billed. Wedding day is more emotional, but harder to make feel real. |
 | Evidence of an unserved gap | 20 | 4.5 | 3 | Scheme rules give concrete features. India wedding CRMs already claim much of this. |
 | Engineering depth | 15 | 4.5 | 3.5 | Serial traceability and warranty logic vs bill reconciliation |
-| Team fit | 15 | 4 | 3 | StockSense ledger experience, even if the code can't be reused |
+| Team fit | 15 | 4 | 3 | Inventory-ledger experience |
 | **Weighted total out of 100** | | **83.5** | **71.5** | |
 
 **Wedding wins instead if** the team's strength is mostly frontend with little backend time, or if anyone on the team has real wedding-agency contact. Either would change the scores above.
@@ -119,7 +119,7 @@ Scores are 1-5 and are my judgement.
 ## 7. To confirm with the leader or evaluator
 
 1. Which problem has the leader selected? Only the leader can select.
-2. May StockSense code be reused? The memory notes say this is unconfirmed.
+2. May code from earlier projects be reused? This is unconfirmed.
 3. Must the build be on Odoo itself? The PDFs say only "one unified software platform".
 
 ## Sources

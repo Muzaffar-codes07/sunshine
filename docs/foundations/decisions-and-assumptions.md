@@ -18,7 +18,7 @@ Current baseline, 31 October 2026. Product owner/organizer decisions are distinc
 | ADR-12 | Relative 24-hour budget, no unverified wall dates | Owner said ignore deadline | Real event constraints must still be checked by submission owner |
 | ADR-13 | Honest staged short pitch plus full evaluator path | Reviewed engineering/presentation choice, rehearsal pending | Prepared records announced; no claim one customer completed physically in minutes |
 | ADR-14 | Pre-tax synthetic worked examples | Demonstration assumption | Actual tax/subsidy law unverified; sample figures are not market pricing |
-| ADR-15 | Prior source-code reuse | Not permitted by assumption; organizer rule unknown | Fresh implementation; patterns can guide but no copied StockSense code without permission |
+| ADR-15 | Source-code origin | Owner decision, 31 Oct | All code is written fresh for Sunshine; no source is copied from earlier projects. The team applies engineering principles it already knows |
 | ADR-16 | Current repository visibility/history | Existing owner-pushed state; no change authorized/requested in this task | Do not alter visibility or rewrite history; owner controls any such decision |
 | ADR-17 | Specific event submission fields/required hosting/video/Odoo framework | Unknown; event retrieval inaccessible | D2 verifies, labels recommended artifacts separately, does not invent requirements |
 | ADR-18 | Available scanner/phone | Unknown physical resource | Choose and test at early hardware gate; typing is not successful scan proof |
