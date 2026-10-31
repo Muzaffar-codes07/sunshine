@@ -11,6 +11,17 @@ export class EnquiriesService {
    * existing record is never overwritten from public input; the enquiry keeps what they asked for.
    */
   async createFromWeb(input: PublicEnquiryRequest) {
+    // Two first-time submissions with the same phone can race on customers_phone_key.
+    // The losing transaction rolls back whole; one retry then finds the winner's customer.
+    try {
+      return await this.insertWebEnquiry(input);
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      return this.insertWebEnquiry(input);
+    }
+  }
+
+  private async insertWebEnquiry(input: PublicEnquiryRequest) {
     const enquiry = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.upsert({
         where: { phone: input.phone },
@@ -41,4 +52,8 @@ export class EnquiriesService {
       data: { id: enquiry.id, status: enquiry.status, createdAt: enquiry.createdAt.toISOString() },
     });
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2002';
 }
