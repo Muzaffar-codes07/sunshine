@@ -361,6 +361,20 @@ test('documents start as drafts, need lines to validate, and stay closed once ca
     VALUES (gen_random_uuid(), $1, $2, $3, 1, $4, $5)`, [line.id, bulk.id, main.id, staff.WAREHOUSE, line.occurredAt]), /validated document/);
 });
 
+test('an upper-case product or location ID is the same ID', async () => {
+  const held = await onHand(bulk.id);
+  const body = receipt([bulkLine('1', '10.00')], { locationId: main.id.toUpperCase() });
+  body.lines[0].productId = bulk.id.toUpperCase();
+  const response = await post(body);
+  const created = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(created));
+  assert.equal(created.data.lines[0].productId, bulk.id); assert.equal(created.data.locationId, main.id);
+  assert.equal(await onHand(bulk.id), (Number(held) + 1).toFixed(3));
+  const again = await post({ ...body, lines: [{ ...body.lines[0], productId: bulk.id }], locationId: main.id });
+  assert.equal(again.status, 201);
+  assert.equal((await again.json()).data.id, created.data.id, 'both spellings are one receipt');
+});
+
 test('stock pages are bounded, and the total survives an empty later page', async () => {
   await expectError(await get('/stock?page=10001'), 400, 'INVALID_INPUT');
   await expectError(await get('/stock?pageSize=101'), 400, 'INVALID_INPUT');
