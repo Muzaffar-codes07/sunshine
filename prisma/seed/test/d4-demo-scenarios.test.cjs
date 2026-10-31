@@ -161,6 +161,15 @@ test('late second-scenario failure rolls back both scenarios and propagates the 
   for (const table of Object.values(f.state)) assert.equal(table.size, 0);
 });
 
+test('tampered second ticket fault description rejects replay without overwriting either scenario', async () => {
+  const f = fixture();
+  const original = await seedD4Scenarios(f.prisma, { installations: f.writer, now });
+  f.state.serviceTicket.get(original[1].ticketId).faultDescription = 'Unrelated fault';
+  const before = structuredClone(f.state);
+  await assert.rejects(seedD4Scenarios(f.prisma, { installations: f.writer, now }), hasCode('D4_SEED_CONFLICT'));
+  assert.deepEqual(f.state, before);
+});
+
 test('phone/ticket-number collisions reject rather than hijack other records', async () => {
   for (const table of ['customer', 'serviceTicket']) {
     const f = fixture();

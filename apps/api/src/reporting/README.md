@@ -45,6 +45,10 @@ repair costs are posted; they are lifetime results as of the server cutoff.
 
 Period windows are half-open IST civil dates converted to UTC, independent of the
 host timezone, and additionally exclude events after the server cutoff (`asOf`).
+Cost period membership uses the source's `occurredAt`, while `postedAt <= asOf`
+limits the ledger to facts recorded by that cutoff. Lifetime costs require both
+occurrence and posting `<= asOf`. A late posting therefore belongs to its earlier
+occurrence period when queried after posting, rather than the posting period.
 Period activity is not completed-job profit. Lifetime queries have no period
 start: historical invoices/costs and current repairs stay attributed to the job.
 Only the cost ledger is expensed: ticket totals and raw time/stock rows are not

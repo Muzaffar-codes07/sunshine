@@ -50,6 +50,7 @@ function setup(covered = true) {
     async createMany({ data }) { calls.push(['lines']); state.lines.push(...structuredClone(data)); },
   } };
   const facts = refs.map((ref) => ({ ...ref, ticketId, jobId, customerId, scope: 'Component repair',
+    occurredAt: '2025-07-01T11:00:00Z',
     description: ref.type === 'PART' ? 'Frozen inverter part' : 'Approved service labour',
     quantity: '1.000', unitCost: ref.type === 'PART' ? '14000.00' : '600.00', unitPrice: ref.type === 'PART' ? '16000.00' : '800.00',
     ...(ref.type === 'PART' ? { ticketLineId: randomUUID() } : {}) }));
@@ -62,7 +63,7 @@ function setup(covered = true) {
       if (!state.lines.some((line) => line.id === fact.ticketLineId)) state.lines.push({ id: fact.ticketLineId,
         ticketId: fact.ticketId, lineType: 'PART', description: fact.description, quantity: fact.quantity,
         unitCost: fact.unitCost, totalCost: total, billableToCustomer: !covered });
-      await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${fact.sourceId}`, costType: 'REPAIR_PARTS', jobId: fact.jobId, amount: total, description: fact.description });
+      await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${fact.sourceId}`, costType: 'REPAIR_PARTS', jobId: fact.jobId, amount: total, description: fact.description, occurredAt: fact.occurredAt });
     }
     return facts.filter((row) => items.some((item) => item.type === row.type && item.sourceId === row.sourceId));
   } };
@@ -182,10 +183,24 @@ test('parts reuse D3 ledger source, missing or conflicting cost rows abort witho
   for (const change of [{ jobId: randomUUID() }, { amount: '1.00' }]) {
     const conflict = setup(); conflict.state.costs.push({ uniqueSourceId: `TIME_ENTRY:${labourId}`, costType: 'SERVICE_LABOUR', jobId, amount: '600.00', ...change });
     const before = structuredClone(conflict.state);
-    await assert.rejects(conflict.run(), code(409, 'REPAIR_COST_CONFLICT')); assert.deepEqual(conflict.state, before);
+    await assert.rejects(conflict.run(), code(409, 'IDEMPOTENCY_CONFLICT')); assert.deepEqual(conflict.state, before);
   }
   const missing = setup(); missing.sources.read = async () => missing.facts;
   await assert.rejects(missing.run(), code(409, 'REPAIR_PART_COST_REQUIRED')); assert.equal(missing.state.costs.length, 0);
+});
+
+test('billing uses warranty scope normalization and preserves source occurrence times', async () => {
+  const f = setup();
+  f.state.ticket.assessmentSnapshot.requestedScope = '  COMPONENT REPAIR  ';
+  f.facts[0].scope = 'component repair';
+  f.facts[1].scope = '  Component Repair  ';
+  f.facts[1].occurredAt = '2025-06-30T12:00:00+05:30';
+  const result = await f.run();
+  assert.equal(result.customerCharge, '0.00');
+  for (const fact of f.facts) {
+    const cost = f.state.costs.find(row => row.uniqueSourceId.endsWith(fact.sourceId));
+    assert.equal(cost.occurredAt.getTime(), new Date(fact.occurredAt).getTime());
+  }
 });
 
 test('invoice failure, invalid adapter results and late snapshot failure roll back all effects', async () => {

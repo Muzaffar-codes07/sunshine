@@ -6,6 +6,7 @@ import { warrantyAssessmentResultSchema, warrantyEquipmentSchema, warrantyLookup
 import { ApiError } from '../platform/api-error';
 import { WarrantyEquipmentReader } from './warranty-readers';
 import { WarrantyReader, type SavedWarranty } from './warranty.repository';
+import { normalizeWarrantyScope } from './warranty-scope';
 
 @Injectable()
 export class WarrantyService {
@@ -65,7 +66,7 @@ export class WarrantyService {
       coverageStatus = 'NOT_STARTED'; reason = `Warranty starts on ${startDate}`;
     } else if (date >= expiryDate!) {
       coverageStatus = 'EXPIRED'; reason = `Warranty expired on ${expiryDate}`;
-    } else if (requestedScope != null && normalizeScope(requestedScope) !== normalizeScope(warranty.scope)) {
+    } else if (requestedScope != null && normalizeWarrantyScope(requestedScope) !== normalizeWarrantyScope(warranty.scope)) {
       coverageStatus = 'OUT_OF_SCOPE'; reason = `Requested work is outside saved warranty scope: ${warranty.scope}`;
     } else {
       coverageStatus = 'COVERED'; reason = 'Under active manufacturer/installer warranty';
@@ -103,5 +104,3 @@ function savedCalendarDate(value: SavedWarranty['startDate']): string {
   }
   return value.toISOString().slice(0, 10);
 }
-
-function normalizeScope(value: string): string { return value.trim().toUpperCase(); }

@@ -30,7 +30,7 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 JobsService.ensureJob(tx, confirmedOrder)
 FinanceService.ensureSalesInvoice(tx, order)
 FinanceService.recordPayment(tx, invoice, receipt)
-FinanceService.postCost(tx, uniqueSource, job, amount)
+CostWriterService.postCost(tx, { uniqueSourceId, jobId, costType, amount, description, occurredAt, reversalOfId? })
 InventoryService.allocate(tx, sourceRequirement)
 InventoryService.dispatch(tx, allocationIds, scannedUnitIds)
 WarrantyService.activateFromDelivery(tx, delivery)
@@ -63,6 +63,14 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
 - Money is a decimal string compatible with `numeric(14,2)`: at most 12 integer digits and two fractional digits. Contribution may be negative; negative zero is rejected.
 - Ticket quantities and technician summary hours are decimal strings compatible with `numeric(12,3)`: at most nine integer digits and three fractional digits. Ticket quantities must be positive; summary hours may be zero. Use Decimal arithmetic and serialize before validation; do not coerce through JavaScript numbers.
 - `TicketLine` includes `type` (`PART`/`LABOUR`), `description`, `quantity`, `unitCost`, `totalCost`, and `billableToCustomer`. The service supplies totals and billability from saved coverage; this response/domain shape does not authorize client overrides.
+- `CreateCostEntryInput` requires the canonical source's timezone-qualified
+  `occurredAt` with at most millisecond precision. Replays compare immutable
+  job/amount/occurrence/description/reversal linkage; mismatches return 409
+  `IDEMPOTENCY_CONFLICT`. Normal amounts are nonnegative. Full signed reversals
+  use `reversalOfId`, source `REVERSAL:<original UUID>` and the original job/type
+  with its exact negated amount. Missing/wrong/partial/nested or earlier reversals
+  return 409 `INVALID_COST_REVERSAL`; posted rows are never overwritten. See the
+  [cost writer contract](../../apps/api/src/finance/README.md).
 - Task 3.1's internal `RepairBillingService.executeRepairBilling(tx, ticketId, repairItems)`
   accepts only PART/LABOUR source UUID references. A transaction-aware persisted
   source adapter supplies eligible consumed stock/approved time, actual work scope

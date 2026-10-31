@@ -29,7 +29,7 @@ function setup(covered = true) {
   const calls = [], writer = new CostWriterService();
   const facts = [{ type: 'PART', sourceId: partId, ticketLineId: randomUUID(), quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00' },
     { type: 'LABOUR', sourceId: labourId, quantity: '1.000', unitCost: '600.00', unitPrice: '800.00' }]
-    .map((ref) => ({ ...ref, ticketId, jobId, customerId, scope: 'Component replacement', description: 'Actual replacement work' }));
+    .map((ref) => ({ ...ref, ticketId, jobId, customerId, scope: 'Component replacement', description: 'Actual replacement work', occurredAt: '2025-07-01T12:00:00Z' }));
   const tx = { serviceTicket: {
     async findUnique() { calls.push('ticket'); return structuredClone(state.ticket); },
     async updateMany({ where, data }) {
@@ -81,7 +81,7 @@ function setup(covered = true) {
       quantity: part.quantity, unitCost: part.unitCost, totalCost: '14000.00', billableToCustomer: !covered }] });
     state.allocations.push({ unitId: newUnitId, ticketLineId: part.ticketLineId });
     state.movements.push({ type: 'RETURN', unitId: oldUnitId }, { id: partId, type: 'ISSUE', unitId: newUnitId });
-    await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${partId}`, jobId, costType: 'REPAIR_PARTS', amount: '14000.00', description: 'Actual replacement work' });
+    await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${partId}`, jobId, costType: 'REPAIR_PARTS', amount: '14000.00', description: 'Actual replacement work', occurredAt: part.occurredAt });
     return { oldUnit: structuredClone(old), newUnit: structuredClone(next), repairItems: facts.map(({ type, sourceId }) => ({ type, sourceId })) };
   } };
   const sources = { async read(received) { assert.strictEqual(received, tx); calls.push('sources'); return facts; } };

@@ -38,6 +38,21 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
   PENDING_DOCS and RECEIVED to DISBURSED, retaining REJECTED separately.
 - Cost idempotency is the compound key `(uniqueSourceId, costType)`, as specified
   by Task 1.2. Callers must namespace the source by its source kind and ID.
+- Cost entries now require caller-supplied `occurredAt` (`timestamptz(3)`), with
+  occurrence indexes on `(jobId, occurredAt)` and `occurredAt`. Keep `postedAt`
+  as server-recorded audit time. Period reports filter occurrence in `[start,end)`
+  and `<= asOf`, plus posting `<= asOf`; lifetime costs use both cutoffs.
+  Include this field and indexes in the initial coordinated D4 migration.
+- Full reversals use signed `amount`, unique `REVERSAL:<original UUID>` sources,
+  and nullable unique `reversalOfId` with a Restrict self-FK. Normal rows have
+  nonnegative amounts and no link. Reversals negate the original amount and keep
+  its job/type, and cannot precede its occurrence or target another reversal.
+  The writer enforces these comparisons and immutable replay, including semantic
+  Decimal equality; every conflict must abort the caller transaction.
+  The queued migration must enforce source/link/sign shape, non-self reference,
+  and immutable ledger rows; coordinate a cross-row trigger with D3 for exact
+  original job/type/amount/time and non-nesting. Zero reversals serialize as zero.
+  Do not add a blanket nonnegative amount CHECK to cost_entries.
 - Task 3.1 adds nullable `ServiceTicket.billingSnapshot` JSONB to the queued
   migration. It stores revision 1, the SHA-256 of sorted type/source references,
   and the immutable billing result, including source/cost/price lines, totals and
@@ -83,7 +98,8 @@ behavior, plus service checks for matching unit/job/customer/evidence ownership.
 
 SQL CHECK constraints cannot be expressed by these Prisma models. The later
 migration must enforce positive quantities and policy duration, nonnegative
-money, nonblank required text, ordered warranty/subsidy dates, and confirmation
+money on ordinary costs and other money columns (signed linked cost reversals
+are the explicit exception), nonblank required text, ordered warranty/subsidy dates, and confirmation
 facts for CLOSED tickets (including nonblank confirmer, channel, confirmation
 time and a closure time no earlier than confirmation). Register hand-written
 constraints in D3's required-constraints manifest when PR #4 lands, replay the

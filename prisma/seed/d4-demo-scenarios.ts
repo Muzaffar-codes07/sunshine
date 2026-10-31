@@ -155,7 +155,8 @@ export async function seedD4Scenarios(prisma: PrismaClient, options: {
         create: { id: scenario.ticketId, ticketNumber: scenario.ticketNumber, customerId: customer.id,
           unitId: scenario.unitId, jobId: scenario.jobId, status: 'OPEN', faultDescription: scenario.faultDescription } });
       if (ticket.ticketNumber !== scenario.ticketNumber || ticket.customerId !== customer.id ||
-        ticket.unitId !== scenario.unitId || ticket.jobId !== scenario.jobId) conflict();
+          ticket.unitId !== scenario.unitId || ticket.jobId !== scenario.jobId ||
+          ticket.faultDescription !== scenario.faultDescription) conflict();
       // Never reopen/reset progressed tickets, billing/confirmation, replacement or voided coverage.
       saved.push({ ...scenario, installedOn: installation.installedOn, expiryDate: expiryDate.toISOString().slice(0, 10) });
     }

@@ -74,7 +74,8 @@ function fixture() {
       async createMany({ data, skipDuplicates }: { data: PrismaTypes.CostEntryCreateManyInput[]; skipDuplicates: boolean }) {
         assert.equal(skipDuplicates, true);
         for (const entry of data) if (!costs.some(c => c.uniqueSourceId === entry.uniqueSourceId && c.costType === entry.costType)) {
-          costs.push({ ...entry, id: randomUUID(), amount: new Prisma.Decimal(String(entry.amount)), postedAt: new Date(), createdAt: new Date() });
+          costs.push({ ...entry, id: randomUUID(), amount: new Prisma.Decimal(String(entry.amount)), occurredAt: new Date(entry.occurredAt),
+            reversalOfId: entry.reversalOfId ?? null, postedAt: new Date(), createdAt: new Date() });
         }
       },
       async findUnique({ where }: CostQuery) {
@@ -121,13 +122,13 @@ function fixture() {
   async function consume(ticketId: string) {
     const covered = (await repository.findById(ticketId))!.assessmentSnapshot as { isCovered: boolean };
     const part: RepairSource = { type: 'PART', sourceId: randomUUID(), ticketLineId: randomUUID(), ticketId, jobId, customerId,
-      scope, description: 'Consumed replacement inverter', quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00' };
+      scope, description: 'Consumed replacement inverter', quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00', occurredAt: coveredInstant };
     const labour: RepairSource = { ...part, type: 'LABOUR', sourceId: randomUUID(), ticketLineId: undefined,
       description: 'Approved service time', quantity: '2.000', unitCost: '300.00', unitPrice: '400.00' };
     facts.push(part, labour);
     await delegates.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, lineType: 'PART', description: part.description,
       quantity: part.quantity, unitCost: part.unitCost, totalCost: '14000.00', billableToCustomer: !covered.isCovered }] });
-    await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${part.sourceId}`, jobId, costType: 'REPAIR_PARTS', amount: '14000.00', description: part.description });
+    await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${part.sourceId}`, jobId, costType: 'REPAIR_PARTS', amount: '14000.00', description: part.description, occurredAt: part.occurredAt });
     return [part, labour].map(({ type, sourceId }) => ({ type, sourceId }));
   }
   return { jobId, customerId, oldUnitId, newUnitId, rows, costs, lines, invoices, warranties, writer, tx, billing, service, assessed, consume };
@@ -163,7 +164,7 @@ test('IST expiry boundary drives real assessment -> saved decision -> free/charg
 test('duplicate cost source retains one posting and covered work reduces job contribution without a receivable', async () => {
   const f = fixture(), ticket = await f.assessed(), items = await f.consume(ticket.id);
   const post = { uniqueSourceId: 'TIME_ENTRY:invariant-installation', jobId: f.jobId, costType: 'INSTALLATION_LABOUR' as const,
-    amount: '2400.00', description: 'Historical installation labour' };
+    amount: '2400.00', description: 'Historical installation labour', occurredAt: '2024-01-01T12:00:00Z' };
   const first = await f.writer.postCost(f.tx, post), second = await f.writer.postCost(f.tx, post);
   assert.equal(second.id, first.id); assert.equal(f.costs.filter(c => c.uniqueSourceId === post.uniqueSourceId).length, 1);
   await f.writer.postCost(f.tx, { ...post, uniqueSourceId: 'STOCK_MOVEMENT:original-installation', costType: 'MATERIAL_DISPATCH', amount: '40000.00' });

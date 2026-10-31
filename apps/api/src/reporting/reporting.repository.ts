@@ -22,7 +22,7 @@ export class PrismaReportingReader extends ReportingReader {
       const job = await this.source.readJob(tx, jobId, asOf);
       if (!job) return null;
       const rows = await tx.costEntry.findMany({
-        where: { jobId, postedAt: { lte: asOf } }, select: { amount: true, costType: true },
+        where: { jobId, occurredAt: { lte: asOf }, postedAt: { lte: asOf } }, select: { amount: true, costType: true },
       });
       return { ...job, costs: rows.map((row) => ({ ...row, amount: row.amount.toFixed(2) })) };
     });
@@ -32,7 +32,7 @@ export class PrismaReportingReader extends ReportingReader {
     return this.read(async (tx) => {
       const activity = await this.source.readPeriod(tx, window);
       const rows = await tx.costEntry.findMany({
-        where: { postedAt: { gte: window.start, lt: window.end, lte: window.asOf } },
+        where: { occurredAt: { gte: window.start, lt: window.end, lte: window.asOf }, postedAt: { lte: window.asOf } },
         select: { amount: true, costType: true },
       });
       return { ...activity, costs: rows.map((row) => ({ ...row, amount: row.amount.toFixed(2) })) };

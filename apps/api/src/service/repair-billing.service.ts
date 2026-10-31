@@ -7,6 +7,7 @@ import { CostWriterService } from '../finance/cost-writer.service';
 import { ServiceInvoiceWriter } from '../finance/service-invoice-writer';
 import { ApiError } from '../platform/api-error';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
+import { normalizeWarrantyScope } from '../warranty/warranty-scope';
 import { RepairSourceReader, repairItemsSchema, repairSourceSchema, repairBillingResultSchema,
   repairBillingSnapshotSchema, type RepairItem, type RepairBillingResult } from './repair-billing.types';
 
@@ -70,8 +71,10 @@ export class RepairBillingService {
           throw new ApiError(409, 'REPAIR_SOURCE_CONFLICT', 'Repair source belongs to a different ticket or installation');
         }
         // A covered component scope must never silently cover other work.
-        if (source.scope !== assessment.data.requestedScope) throw new ApiError(409, 'REPAIR_SCOPE_CONFLICT', 'Assess the actual repair scope before billing');
-        return { type: source.type, sourceId: item.sourceId, description: source.description,
+        if (normalizeWarrantyScope(source.scope) !== normalizeWarrantyScope(assessment.data.requestedScope)) {
+          throw new ApiError(409, 'REPAIR_SCOPE_CONFLICT', 'Assess the actual repair scope before billing');
+        }
+        return { type: source.type, sourceId: item.sourceId, description: source.description, occurredAt: source.occurredAt,
           ...(source.type === 'PART' ? { ticketLineId: source.ticketLineId! } : {}),
           quantity: source.quantity, unitCost: source.unitCost, totalCost: lineTotal(source.quantity, source.unitCost),
           unitPrice: assessment.data.isCovered ? '0.00' : source.unitPrice,
@@ -102,7 +105,7 @@ export class RepairBillingService {
           }
         }
         const cost = await this.costs.postCost(tx, { uniqueSourceId, costType, jobId: ticket.jobId,
-          amount: line.totalCost, description: line.description });
+          amount: line.totalCost, description: line.description, occurredAt: line.occurredAt });
         if (cost.jobId !== ticket.jobId || cost.costType !== costType || cost.uniqueSourceId !== uniqueSourceId || cost.amount.toFixed(2) !== line.totalCost) {
           throw new ApiError(409, 'REPAIR_COST_CONFLICT', 'Posted repair cost differs from its frozen source');
         }

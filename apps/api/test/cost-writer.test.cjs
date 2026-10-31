@@ -6,6 +6,9 @@ const { Module, Injectable, Inject } = require('@nestjs/common');
 const { Prisma } = require('../dist/generated/prisma/client');
 const { CostWriterService } = require('../dist/finance/cost-writer.service');
 const { FinanceModule } = require('../dist/finance/finance.module');
+const { ApiError } = require('../dist/platform/api-error');
+const { randomUUID } = require('node:crypto');
+const code = (name) => (error) => error instanceof ApiError && error.getStatus() === 409 && error.code === name;
 
 const input = (overrides = {}) => ({
   uniqueSourceId: 'TIME_ENTRY:43db413a-42a9-4b77-89b1-c18c1c16a1d6',
@@ -13,6 +16,7 @@ const input = (overrides = {}) => ({
   costType: 'SERVICE_LABOUR',
   amount: '600.25',
   description: 'Covered repair labour',
+  occurredAt: '2026-10-30T12:00:00.000Z',
   ...overrides,
 });
 
@@ -34,7 +38,7 @@ function ledgerTransaction() {
           if (rows.has(source)) continue;
           const postedAt = new Date('2026-10-31T10:00:00.000Z');
           rows.set(source, Object.freeze({
-            ...item, id: `cost-${rows.size + 1}`, amount: new Prisma.Decimal(item.amount),
+            ...item, id: randomUUID(), amount: new Prisma.Decimal(item.amount),
             postedAt, createdAt: postedAt,
           }));
           count += 1;
@@ -45,6 +49,9 @@ function ledgerTransaction() {
         const row = rows.get(key(where.uniqueSourceId_costType));
         assert.ok(row, 'the returned entry must exist in the supplied transaction');
         return row;
+      },
+      async findUnique({ where }) {
+        return [...rows.values()].find(row => row.id === where.id) ?? null;
       },
     },
   };
@@ -63,17 +70,19 @@ test('posting twice returns the original entry and counts the cost only once', a
   assert.equal(first.description, input().description);
 });
 
-test('a duplicate source never changes the original amount, job or description', async () => {
+test('retries compare semantic decimals and instants, rejecting changed immutable facts', async () => {
   const ledger = ledgerTransaction();
   const service = new CostWriterService();
-  const first = await service.postCost(ledger.tx, input());
-  const second = await service.postCost(ledger.tx, input({
-    amount: '900.00', jobId: 'bcba12c5-7220-48b7-9cb5-91f82ca0df09', description: 'Changed retry',
+  const first = await service.postCost(ledger.tx, input({ amount: '600.2' }));
+  const second = await service.postCost(ledger.tx, input({ amount: '600.20',
+    jobId: input().jobId.toUpperCase(), occurredAt: '2026-10-30T17:30:00+05:30',
   }));
   assert.strictEqual(second, first);
-  assert.equal(second.amount.toFixed(2), '600.25');
-  assert.equal(second.jobId, input().jobId);
-  assert.equal(second.description, input().description);
+  for (const change of [{ amount: '900.00' }, { jobId: randomUUID() },
+    { description: 'Changed retry' }, { occurredAt: '2026-10-30T12:00:00.001Z' }]) {
+    await assert.rejects(service.postCost(ledger.tx, input({ amount: '600.20', ...change })), code('IDEMPOTENCY_CONFLICT'));
+  }
+  assert.equal(first.amount.toFixed(2), '600.20');
   assert.equal(ledger.rows.size, 1);
 });
 
@@ -102,11 +111,43 @@ test('invalid posting inputs fail before touching the ledger', async () => {
     { amount: 600.25 }, { amount: '-1.00' }, { amount: '1.001' },
     { amount: '1000000000000.00' }, { jobId: 'bad-id' },
     { costType: 'TICKET_TOTAL' }, { uniqueSourceId: ' ' }, { description: ' ' },
+    { occurredAt: undefined }, { occurredAt: '2026-10-30T12:00:00' },
+    { occurredAt: '2026-10-30T12:00:00.0001Z' },
   ]) {
     await assert.rejects(service.postCost(ledger.tx, input(override)), { name: 'ZodError' });
   }
   assert.equal(ledger.writes(), 0);
   assert.equal(ledger.rows.size, 0);
+});
+
+test('one full reversal has its own source, keeps the original and replays without another expense', async () => {
+  const ledger = ledgerTransaction(), service = new CostWriterService();
+  const original = await service.postCost(ledger.tx, input());
+  const reversal = input({ uniqueSourceId: `REVERSAL:${original.id}`, reversalOfId: original.id,
+    amount: '-600.25', description: 'Reverse incorrect labour', occurredAt: '2026-10-31T09:00:00Z' });
+  const saved = await service.postCost(ledger.tx, reversal);
+  assert.strictEqual(await service.postCost(ledger.tx, reversal), saved);
+  assert.equal(saved.reversalOfId, original.id);
+  assert.equal([...ledger.rows.values()].reduce((sum, row) => sum.plus(row.amount), new Prisma.Decimal(0)).toFixed(2), '0.00');
+  assert.equal(original.amount.toFixed(2), '600.25');
+  for (const change of [{ amount: '-1' }, { jobId: randomUUID() }, { costType: 'REPAIR_PARTS' },
+    { occurredAt: '2026-10-29T12:00:00Z' }, { reversalOfId: randomUUID(), uniqueSourceId: 'missing' }]) {
+    const command = { ...reversal, ...change };
+    command.uniqueSourceId = `REVERSAL:${command.reversalOfId}`;
+    await assert.rejects(service.postCost(ledger.tx, command), code('INVALID_COST_REVERSAL'));
+  }
+  await assert.rejects(service.postCost(ledger.tx, { ...reversal, description: 'Different retry' }), code('IDEMPOTENCY_CONFLICT'));
+  await assert.rejects(service.postCost(ledger.tx, input({ uniqueSourceId: `REVERSAL:${saved.id}`,
+    reversalOfId: saved.id, amount: '0.00' })), code('INVALID_COST_REVERSAL'));
+  assert.equal(ledger.rows.size, 2);
+});
+
+test('zero cost can be reversed once without negative zero', async () => {
+  const ledger = ledgerTransaction(), service = new CostWriterService();
+  const original = await service.postCost(ledger.tx, input({ amount: '0.00' }));
+  const reversed = await service.postCost(ledger.tx, input({ amount: '0.00', reversalOfId: original.id,
+    uniqueSourceId: `REVERSAL:${original.id}` }));
+  assert.equal(reversed.amount.toFixed(2), '0.00');
 });
 
 test('source and description whitespace is normalized before deduplication', async () => {

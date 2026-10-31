@@ -140,30 +140,37 @@ test('Prisma reader scopes costs to original job/cutoff and uses same transactio
   } }, [{ costType: 'REPAIR_PARTS', amount: { toFixed: () => '12.34' } }]);
   const snapshot = await reader.readJob(jobId, asOf);
   assert.equal(seenTx, tx);
-  assert.deepEqual(calls[0], { where: { jobId, postedAt: { lte: asOf } }, select: { amount: true, costType: true } });
+  assert.deepEqual(calls[0], { where: { jobId, occurredAt: { lte: asOf }, postedAt: { lte: asOf } }, select: { amount: true, costType: true } });
   assert.deepEqual(snapshot.costs, [cost('REPAIR_PARTS', '12.34')]);
   const missing = prismaHarness({ async readJob() { return null; } });
   assert.equal(await missing.reader.readJob(jobId, asOf), null); assert.equal(missing.calls.length, 0);
 });
 
-test('Prisma period bounds include start, exclude end and future postings beyond cutoff', async () => {
+test('period reports use occurrence boundaries and include late postings only when known at cutoff', async () => {
   const window = reportWindow('today', asOf);
   const events = [
-    [new Date(window.start.getTime() - 1), '900'], [window.start, '0.10'], [asOf, '0.20'],
-    [new Date(asOf.getTime() + 1), '800'], [window.end, '700'],
+    [new Date(window.start.getTime() - 1), asOf, '900'], [window.start, asOf, '0.10'], [asOf, asOf, '0.20'],
+    [new Date(asOf.getTime() + 1), asOf, '800'], [window.end, window.end, '700'],
+    [window.start, new Date(asOf.getTime() + 1), '600'],
   ];
   let tx;
   const reader = new PrismaReportingReader({ async $transaction(callback) {
-    tx = { costEntry: { async findMany({ where: { postedAt } }) {
-      assert.deepEqual(postedAt, { gte: window.start, lt: window.end, lte: asOf });
-      return events.filter(([date]) => date >= postedAt.gte && date < postedAt.lt && date <= postedAt.lte)
-        .map(([, value]) => ({ costType: 'SERVICE_LABOUR', amount: { toFixed: () => value } }));
+    tx = { costEntry: { async findMany({ where: { occurredAt, postedAt } }) {
+      assert.deepEqual(occurredAt, { gte: window.start, lt: window.end, lte: window.asOf });
+      assert.deepEqual(postedAt, { lte: window.asOf });
+      return events.filter(([date, recorded]) => date >= occurredAt.gte && date < occurredAt.lt && date <= occurredAt.lte && recorded <= postedAt.lte)
+        .map(([, , value]) => ({ costType: 'SERVICE_LABOUR', amount: { toFixed: () => value } }));
     } } }; return callback(tx);
   } }, { async readPeriod(transaction, passed) {
     assert.equal(transaction, tx); assert.equal(passed, window); return { invoices: [], payments: [] };
   } });
   const report = await reader.readPeriod(window);
   assert.deepEqual(report.costs, [cost('SERVICE_LABOUR', '0.10'), cost('SERVICE_LABOUR', '0.20')]);
+  // A posting recorded after this civil day appears in the earlier occurrence
+  // period on a later query; it must never move into the posting day's period.
+  window.asOf = new Date(window.end.getTime() + 1000);
+  assert.deepEqual((await reader.readPeriod(window)).costs, [cost('SERVICE_LABOUR', '0.10'),
+    cost('SERVICE_LABOUR', '0.20'), cost('SERVICE_LABOUR', '800'), cost('SERVICE_LABOUR', '600')]);
 });
 
 test('subsidies retain documents, assigned/unassigned owners and rejected records without creating cash', async () => {

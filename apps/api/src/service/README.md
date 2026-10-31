@@ -95,6 +95,13 @@ Ticket lines retain internal costs and derived billability. `billingSnapshot`
 saves the canonical reference hash and result (cost/pricing lines, pre-tax totals
 and invoice ID) atomically. Same references, regardless of order or UUID case,
 replay that frozen result without new reads/posts, including after closure.
+Trusted repair source facts must include `occurredAt` from the actual stock
+movement or performed work as a timezone-qualified ISO timestamp with at most
+millisecond precision. D3's preposted PART cost and the source adapter must return
+the same occurrence and canonical description; billing passes both to the shared
+cost writer. Scope comparison uses the same trimmed uppercase normalization as
+warranty evaluation, without treating different scopes as equivalent.
+
 Changed references conflict; adjustments need explicit reversal/new work, never
 editing posted history. Concurrent writes lose CAS and require an outer retry.
 Billing moves the ticket to IN_PROGRESS and increments its version; resolution

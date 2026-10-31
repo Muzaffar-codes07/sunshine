@@ -270,7 +270,7 @@ model Warranty {
   @@map("warranties")
 }
 
-// Immutable posted ledger entries; corrections will use reversal entries.
+// Immutable ledger: one full signed reversal per original, then a new source for corrections.
 model CostEntry {
   id             String   @id @default(uuid()) @db.Uuid
   uniqueSourceId String
@@ -278,12 +278,16 @@ model CostEntry {
   costType       CostType
   amount         Decimal  @db.Decimal(14, 2)
   description    String
+  occurredAt     DateTime @db.Timestamptz(3)
+  reversalOfId   String?  @unique @db.Uuid
+  reversalOf     CostEntry? @relation("CostReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversal       CostEntry? @relation("CostReversal")
   postedAt       DateTime @default(now()) @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
 
   @@unique([uniqueSourceId, costType])
-  @@index([jobId, postedAt])
-  @@index([postedAt])
+  @@index([jobId, occurredAt])
+  @@index([occurredAt])
   @@map("cost_entries")
 }
 
