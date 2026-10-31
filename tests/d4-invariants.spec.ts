@@ -188,17 +188,17 @@ test('replacement after 18 months preserves original expiry, physical lineage an
     assert.strictEqual(received, f.tx); stockCalls++;
     assert.equal(command.oldUnitId, f.oldUnitId); assert.equal(command.newUnitId, f.newUnitId);
     assert.equal(command.jobId, f.jobId); assert.equal(command.customerId, f.customerId);
-    stockState.oldStatus = 'QUARANTINE'; stockState.newStatus = 'ALLOCATED'; stockState.predecessor = f.oldUnitId;
-    return { oldUnit: { id: f.oldUnitId, serial: 'INV-INVARIANT-OLD', status: 'QUARANTINE', jobId: f.jobId, customerId: f.customerId },
-      newUnit: { id: f.newUnitId, serial: 'INV-INVARIANT-NEW', status: 'ALLOCATED', replacesUnitId: f.oldUnitId, jobId: f.jobId, customerId: f.customerId },
+    stockState.oldStatus = 'QUARANTINED'; stockState.newStatus = 'RESERVED'; stockState.predecessor = f.oldUnitId;
+    return { oldUnit: { id: f.oldUnitId, serial: 'INV-INVARIANT-OLD', status: 'QUARANTINED', jobId: f.jobId, customerId: f.customerId },
+      newUnit: { id: f.newUnitId, serial: 'INV-INVARIANT-NEW', status: 'RESERVED', replacesUnitId: f.oldUnitId, jobId: f.jobId, customerId: f.customerId },
       repairItems: await f.consume(ticket.id) };
   } };
   const replacement = new ReplacementService(stock, f.billing);
   const command = { ticketId: ticket.id, oldUnitId: f.oldUnitId, newUnitId: f.newUnitId, assessmentDate };
   const result = await replacement.executeReplacement(f.tx, command);
-  assert.equal(stockState.oldStatus, 'QUARANTINE'); assert.equal(stockState.newStatus, 'ALLOCATED');
+  assert.equal(stockState.oldStatus, 'QUARANTINED'); assert.equal(stockState.newStatus, 'RESERVED');
   assert.equal(stockState.predecessor, f.oldUnitId);
-  assert.equal(result.oldUnit.status, 'QUARANTINE'); assert.equal(result.newUnit.status, 'ALLOCATED');
+  assert.equal(result.oldUnit.status, 'QUARANTINED'); assert.equal(result.newUnit.status, 'RESERVED');
   assert.equal(result.warranty.startDate, '2024-01-01'); assert.equal(result.warranty.expiryDate, '2026-01-01');
   const continued = f.warranties.find(w => w.unitId === f.newUnitId)!;
   for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths', 'active'] as const) {

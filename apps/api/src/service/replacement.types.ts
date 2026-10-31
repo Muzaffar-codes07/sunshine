@@ -15,8 +15,8 @@ export type ReplacementInput = z.input<typeof replacementInputSchema>;
 
 const unit = z.object({ id: uuid, serial: z.string().trim().min(1).max(128), jobId: uuid, customerId: uuid });
 export const replacementStockResultSchema = z.object({
-  oldUnit: unit.extend({ status: z.literal('QUARANTINE') }),
-  newUnit: unit.extend({ status: z.literal('ALLOCATED'), replacesUnitId: uuid }),
+  oldUnit: unit.extend({ status: z.literal('QUARANTINED') }),
+  newUnit: unit.extend({ status: z.literal('RESERVED'), replacesUnitId: uuid }),
   repairItems: repairItemsSchema,
 }).refine((value) => value.repairItems.some((item) => item.type === 'PART'), {
   path: ['repairItems'], message: 'Replacement must include its actual consumed stock source',
@@ -33,8 +33,8 @@ export const continuedWarrantySchema = z.object({
 }).refine((value) => value.startDate < value.expiryDate, { message: 'Warranty dates must be ordered' });
 export const replacementResultSchema = z.object({
   ticketId: uuid, jobId: uuid, customerId: uuid, assessmentDate: z.iso.datetime(),
-  oldUnit: unit.extend({ status: z.literal('QUARANTINE') }),
-  newUnit: unit.extend({ status: z.literal('ALLOCATED'), replacesUnitId: uuid }),
+  oldUnit: unit.extend({ status: z.literal('QUARANTINED') }),
+  newUnit: unit.extend({ status: z.literal('RESERVED'), replacesUnitId: uuid }),
   warranty: continuedWarrantySchema, billing: repairBillingResultSchema,
 });
 export type ReplacementResult = z.infer<typeof replacementResultSchema>;

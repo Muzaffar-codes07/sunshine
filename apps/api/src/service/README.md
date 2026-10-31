@@ -139,7 +139,7 @@ writes. It moves to IN_PROGRESS, without resolving or closing the ticket.
 
 The D3-owned `ReplacementStockWriter.replace(tx, command)` must lock/recheck both
 units in stable order, validate old installation ownership and new availability
-and product compatibility, release the old active allocation into QUARANTINE,
+and product compatibility, release the old active allocation into QUARANTINED,
 and allocate the new unit to the ticket part line. It retains the new unit's
 `replacesUnitId`, immutable RETURN/ISSUE movements and actual consumed stock cost
 under `STOCK_MOVEMENT:<id>` / REPAIR_PARTS. It returns bounded old/new serial
@@ -151,8 +151,8 @@ the source reader returns that same `ticketLineId` for billing reuse. A replacem
 with 14000.00 parts and 600.00 labour retains exactly two ticket lines totaling
 14600.00, and replay preserves both the line IDs and allocation references.
 
-The primary Task 3.2 guide specifies ALLOCATED; its sample prompt says deployed.
-This helper uses ALLOCATED to represent replacement assignment. It does not
+The primary Task 3.2 guide specifies RESERVED; its sample prompt says deployed.
+This helper uses RESERVED to represent replacement assignment. It does not
 claim delivery occurred. D3's physical workflow must reconcile issue/consumption
 with this assignment and must not expense reservation alone. If consumption is
 deferred, invoke this orchestration at actual issue, not preliminary reservation.

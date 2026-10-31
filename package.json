@@ -10,6 +10,7 @@
     "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present && tsc -p prisma/tsconfig.json --noEmit && tsc -p tests/tsconfig.json",
     "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present && npm run test:seed && npm run test:invariants",
     "test:invariants": "tsc -p tests/tsconfig.json && node --experimental-strip-types --test tests/d4-invariants.spec.ts",
+    "test:d4-migration": "node --test --test-concurrency=1 tests/d4-migration-draft.test.mjs",
     "test:seed": "npm run db:generate && npm run build:seed && node --test prisma/seed/test/*.test.cjs",
     "build:seed": "tsc -p prisma/tsconfig.json",
     "db:seed": "npm run db:generate && npm run build:seed && node dist/seed/prisma/seed.js",

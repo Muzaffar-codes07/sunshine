@@ -1,13 +1,17 @@
-# D4 Task 1.2 schema handoff
+# D4 coordinated schema handoff
 
 Task 1.2 adds `Warranty`, `ServiceTicket`, `TicketLine`, `CostEntry`, and
 `SubsidyMilestone` to the Prisma schema on `d4/task-1.1-contracts`.
-This is a validated model definition, not a deployed database change or an
-implemented service. No migration is included or applied in this task.
+The initial migration is prepared at
+[`prisma/drafts/20261031260000_d4`](../../prisma/drafts/20261031260000_d4/README.md).
+It is deliberately outside the active migration queue while Files #32 is open.
+No D4 migration is deployed to the application database. A disposable PostgreSQL
+17.11 replay with the actual pending File SQL verifies the draft independently.
 
-Conventions were read from D3's open PR #4, commit
-`5ecb93f4ed50e241f1408464a266f6b21df7138e`, because
-`docs/architecture/schema-conventions.md` has not landed on this branch.
+Follow the current [schema conventions](schema-conventions.md). D3 assigned
+`20261031260000` in PR #8 comment 6547084767. D2 subsequently moved Files to
+`20261031255000` (comment 6547220769), after D3's allocation-release slot 250000.
+Keep the D4 slot unchanged and notify D3 before moving it.
 Tables use plural snake case, columns retain camel case, IDs are native UUIDs,
 money is `numeric(14,2)`, quantities are `numeric(12,3)`, occurrence timestamps
 are `timestamptz(3)`, and warranty calendar dates are SQL `date` values in IST.
@@ -60,7 +64,7 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
   ticket lines. Null means not billed; same references replay, changed references
   conflict. Billing's status/version CAS serializes against lifecycle mutations.
   Only the billing helper writes this snapshot; corrections require reversals.
-  No new migration is applied before the existing Unit/Job dependencies land.
+  Only the isolated draft test database has received the D4 SQL so far.
 
 ## Migration dependencies
 
@@ -73,10 +77,12 @@ or all null; enforce different old/new IDs and `replacedUnitId = unitId` with
 CHECK constraints. Only the replacement helper writes these facts in the same
 transaction as stock, warranty and billing. A later swap uses a new ticket.
 
-Coordinate Restrict FKs for both lineage IDs to D3's Unit, plus D3's new-unit
-`replacesUnitId` history link, same job/customer checks and the one-active-unit
-allocation partial uniqueness constraint. The current schema has no Unit model;
-do not create placeholders or treat scalar UUIDs as referential integrity.
+Both ticket lineage IDs now have Restrict FKs to the real Unit model. D3's
+`Unit.replacesUnitId` history link and actual replacement stock writer remain
+unavailable; do not add a substitute field or enable production replacement.
+Replacement result contracts use main's `QUARANTINED` and `RESERVED` unit states.
+The original job/customer association checks and D3's one-active-unit allocation
+index still apply.
 Warranty creation for replacement must copy original start/expiry/policy/duration
 and active exactly; the standard new-sale delivery activation must not overwrite
 this continuation. New unit warranty uniqueness and original policy version CAS
@@ -84,26 +90,41 @@ must be covered in real PostgreSQL concurrent replacement/rollback tests.
 
 Named `CustomerServiceTickets` and `ServiceTicketLines` relations have explicit
 foreign keys with `onDelete: Restrict`. Do not add placeholder upstream tables.
-Before generating or landing the D4 migration, coordinate with D3 to add:
+The schema and draft now include the confirmed real relationships:
 
 - `Warranty.unitId` and `ServiceTicket.unitId` relations to D3's `Unit`.
 - `CostEntry.jobId`, `ServiceTicket.jobId`, and `SubsidyMilestone.jobId`
   relations to D3's `Job`.
-- Nullable `SubsidyMilestone.evidenceFileId` relation to D2's `File`.
+- Nullable `SubsidyMilestone.evidenceFileId` references `files(id)` in the draft
+  SQL with DELETE RESTRICT / UPDATE CASCADE. Add its Prisma File relation and
+  reverse field when the actual File model merges; the branch currently retains
+  the scalar because File is not on main. The draft must not be activated first.
 
-These fields are currently indexed native UUID scalars without foreign keys;
-Prisma validation does not prove referential integrity. The queued migration
-must include the missing relations, reverse fields and explicit Restrict delete
-behavior, plus service checks for matching unit/job/customer/evidence ownership.
+The Unit/Job relations and reverse fields are implemented without placeholders.
+Prisma validation alone does not prove referential integrity; the draft tests
+inspect the actual PostgreSQL FKs. Runtime adapters must still validate matching
+unit/job/customer/evidence ownership.
+
+D3 owns the follow-up `allocations.ticketLineId` FK and quote-line XOR ticket-line
+CHECK. Request 6547139166 asks D3 for the patch and its migration slot. The existing
+quote-only allocation writer, source-check trigger and active-unit uniqueness are
+unchanged here. Repair stock cannot be enabled by adding only the new column:
+D3 must adapt its source validation and allocation behavior too.
+
+For subsidy completion, D2 requires byte verification with `FilesService.download`
+before the transaction, then `attach` and `requireEvidence` for the milestone's
+JOB inside the caller transaction. This is the agreed future integration contract;
+the present read-only subsidy reporting module does not implement completion.
 
 SQL CHECK constraints cannot be expressed by these Prisma models. The later
-migration must enforce positive quantities and policy duration, nonnegative
+draft enforces positive quantities and policy duration, nonnegative
 money on ordinary costs and other money columns (signed linked cost reversals
 are the explicit exception), nonblank required text, ordered warranty/subsidy dates, and confirmation
 facts for CLOSED tickets (including nonblank confirmer, channel, confirmation
 time and a closure time no earlier than confirmation). Register hand-written
-constraints in D3's required-constraints manifest when PR #4 lands, replay the
-migration on disposable PostgreSQL, and verify the actual constraints. Do not
+constraints are recorded in the draft's PostgreSQL 17.11 manifest. Move them into
+the active manifest only with migration activation, then replay the reviewed
+queue and run the ordinary checker. Do not
 treat this task's `prisma validate`/client generation as database or lifecycle
 acceptance evidence. The Task 2.1 warranty engine and Task 2.2 lifecycle are now
 implemented against these definitions; migration enforcement and upstream

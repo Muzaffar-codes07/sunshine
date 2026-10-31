@@ -74,8 +74,8 @@ function setup(covered = true) {
     calls.push('stock');
     const old = state.units[0], next = state.units[1];
     if (old.status !== 'INSTALLED' || next.status !== 'AVAILABLE') throw new ApiError(409, 'STOCK_CONFLICT', 'Unit already claimed');
-    Object.assign(old, { status: 'QUARANTINE' });
-    Object.assign(next, { status: 'ALLOCATED', jobId, customerId, replacesUnitId: oldUnitId });
+    Object.assign(old, { status: 'QUARANTINED' });
+    Object.assign(next, { status: 'RESERVED', jobId, customerId, replacesUnitId: oldUnitId });
     const part = facts[0];
     await tx.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, lineType: 'PART', description: part.description,
       quantity: part.quantity, unitCost: part.unitCost, totalCost: '14000.00', billableToCustomer: !covered }] });
@@ -102,8 +102,8 @@ function setup(covered = true) {
 
 test('18-month replacement keeps exactly the original 24-month warranty interval and serial lineage', async () => {
   const f = setup(), result = await f.run();
-  assert.equal(result.oldUnit.id, oldUnitId); assert.equal(result.oldUnit.serial, 'INV-OLD'); assert.equal(result.oldUnit.status, 'QUARANTINE');
-  assert.equal(result.newUnit.id, newUnitId); assert.equal(result.newUnit.serial, 'INV-NEW'); assert.equal(result.newUnit.status, 'ALLOCATED');
+  assert.equal(result.oldUnit.id, oldUnitId); assert.equal(result.oldUnit.serial, 'INV-OLD'); assert.equal(result.oldUnit.status, 'QUARANTINED');
+  assert.equal(result.newUnit.id, newUnitId); assert.equal(result.newUnit.serial, 'INV-NEW'); assert.equal(result.newUnit.status, 'RESERVED');
   assert.equal(result.newUnit.replacesUnitId, oldUnitId);
   assert.equal(f.state.ticket.unitId, oldUnitId); assert.equal(f.state.ticket.replacedUnitId, oldUnitId); assert.equal(f.state.ticket.newUnitId, newUnitId);
   const [old, next] = f.state.warranties;
@@ -218,7 +218,8 @@ test('unavailable stock, stock conflicts and invalid stock result fail atomicall
   const unavailable = setup(); unavailable.service = new ReplacementService(new UnavailableReplacementStockWriter(), unavailable.billing);
   const initial = structuredClone(unavailable.state);
   await assert.rejects(unavailable.run(), code(503, 'REPLACEMENT_STOCK_UNAVAILABLE')); assert.deepEqual(unavailable.state, initial);
-  for (const patch of [{ newUnit: { status: 'DEPLOYED' } }, { oldUnit: { id: randomUUID() } },
+  for (const patch of [{ newUnit: { status: 'DEPLOYED' } },
+    { newUnit: { status: 'ALLOCATED' } }, { oldUnit: { status: 'QUARANTINE' } }, { oldUnit: { id: randomUUID() } },
     { newUnit: { jobId: randomUUID() } }, { newUnit: { customerId: randomUUID() } }, { newUnit: { replacesUnitId: randomUUID() } },
     { oldUnit: { serial: 'OTHER-SERIAL' } }, { repairItems: [{ type: 'LABOUR', sourceId: labourId }] }]) {
     const f = setup(), stock = f.stock.replace, before = structuredClone(f.state);
@@ -228,7 +229,7 @@ test('unavailable stock, stock conflicts and invalid stock result fail atomicall
     };
     await assert.rejects(f.run(), (error) => error instanceof ApiError && [409, 503].includes(error.getStatus())); assert.deepEqual(f.state, before);
   }
-  const claimed = setup(); claimed.state.units[1].status = 'ALLOCATED'; const before = structuredClone(claimed.state);
+  const claimed = setup(); claimed.state.units[1].status = 'RESERVED'; const before = structuredClone(claimed.state);
   await assert.rejects(claimed.run(), code(409, 'STOCK_CONFLICT')); assert.deepEqual(claimed.state, before);
 });
 

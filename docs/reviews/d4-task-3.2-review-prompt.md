@@ -12,9 +12,9 @@ continuity. Verify saved context against current Git/files. Local .gitignore,
 Read README.md, docs/team/roles.md, docs/TRD.md sections 4-7 and 12,
 docs/requirements/product-requirements.md R17, backlog S08 and I08,
 docs/architecture/{data-model,d4-schema-handoff,api-contracts}.md, and
-apps/api/src/service/README.md. The primary task guide says ALLOCATED for the
+apps/api/src/service/README.md. The primary task guide says RESERVED for the
 new unit while its embedded prompt says deployed; this implementation explicitly
-uses ALLOCATED. Check the documented actual-issue/consumption boundary carefully.
+uses RESERVED. Check the documented actual-issue/consumption boundary carefully.
 
 Implementation scope (inspect git diff plus complete new/untracked files):
 - apps/api/src/service/replacement.service.ts
@@ -41,7 +41,7 @@ Check these risks with concrete inputs or interleavings:
    invoice and final snapshot failure; no nested independent commit or catch-and-
    commit path. Doubles do not prove real PostgreSQL rollback or isolation.
 2. Defective unit matches the assessed ticket/unit/job/customer and old serial.
-   Old becomes QUARANTINE; new becomes ALLOCATED with correct predecessor and
+   Old becomes QUARANTINED; new becomes RESERVED with correct predecessor and
    installation. D3 must lock/recheck availability, compatibility, allocation
    ownership, immutable movements and one-active-assignment constraints. Identify
    which checks are enforced here and which require the persisted adapter.

@@ -295,7 +295,7 @@ model PackageItem {
 
 // D4: warranty, service, cost ledger and subsidy projections (Task 1.2).
 // Unit/Job relations follow D3's reviewed handoff. The initial D4 migration at
-// 20261031260000 remains held for Files 20261031250000 and its actual evidence FK.
+// 20261031260000 remains held for Files 20261031255000 and its actual evidence FK.
 // See docs/architecture/d4-schema-handoff.md.
 
 enum TicketStatus {
@@ -348,6 +348,7 @@ model Warranty {
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
+  unit Unit @relation("UnitWarranty", fields: [unitId], references: [id], onDelete: Restrict)
   @@index([active, expiryDate])
   @@map("warranties")
 }
@@ -361,6 +362,7 @@ model CostEntry {
   amount         Decimal  @db.Decimal(14, 2)
   description    String
   occurredAt     DateTime @db.Timestamptz(3)
+  job            Job      @relation("JobCosts", fields: [jobId], references: [id], onDelete: Restrict)
   reversalOfId   String?  @unique @db.Uuid
   reversalOf     CostEntry? @relation("CostReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
   reversal       CostEntry? @relation("CostReversal")
@@ -402,6 +404,10 @@ model ServiceTicket {
 
   customer Customer     @relation("CustomerServiceTickets", fields: [customerId], references: [id], onDelete: Restrict)
   lines    TicketLine[] @relation("ServiceTicketLines")
+  unit Unit @relation("UnitServiceTickets", fields: [unitId], references: [id], onDelete: Restrict)
+  job Job @relation("JobServiceTickets", fields: [jobId], references: [id], onDelete: Restrict)
+  replacedUnit Unit? @relation("ReplacedUnitTickets", fields: [replacedUnitId], references: [id], onDelete: Restrict)
+  newUnit Unit? @relation("NewUnitTickets", fields: [newUnitId], references: [id], onDelete: Restrict)
 
   @@index([customerId])
   @@index([unitId, status])
@@ -441,6 +447,7 @@ model SubsidyMilestone {
   pendingDocuments   String[]           @default([])
   responsibleOwnerId String?             @db.Uuid
   responsibleOwner   User?               @relation("SubsidyResponsibleOwner", fields: [responsibleOwnerId], references: [id], onDelete: Restrict)
+  job            Job                    @relation("JobSubsidies", fields: [jobId], references: [id], onDelete: Restrict)
   version        Int                    @default(1)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime               @updatedAt @db.Timestamptz(3)
@@ -580,6 +587,10 @@ model Unit {
   movements UnitMovement[]
   plannedLines StockDocumentLineUnit[]
   allocations Allocation[]
+  warranty Warranty? @relation("UnitWarranty")
+  serviceTickets ServiceTicket[] @relation("UnitServiceTickets")
+  replacementTickets ServiceTicket[] @relation("ReplacedUnitTickets")
+  newUnitTickets ServiceTicket[] @relation("NewUnitTickets")
   @@unique([manufacturerId, productId, normalizedSerial], map: "units_identity_key")
   @@index([normalizedSerial])
   @@index([receiptLineId])
@@ -918,6 +929,9 @@ model Job {
   linkedBy  Order?    @relation("OrderJob")
   allocations Allocation[]
   assignments JobAssignment[]
+  costs CostEntry[] @relation("JobCosts")
+  serviceTickets ServiceTicket[] @relation("JobServiceTickets")
+  subsidyMilestones SubsidyMilestone[] @relation("JobSubsidies")
 
   @@unique([orderId, id])
   @@map("jobs")

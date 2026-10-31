@@ -56,6 +56,15 @@ independent checks and required actionable finding format.
 
 ## Domain testing plan
 
+`npm run test:d4-migration` is an explicit opt-in PostgreSQL 17.11 suite for the
+[D4 migration draft](../../prisma/drafts/20261031260000_d4/README.md). Its nine
+tests use a dedicated loopback test database with the real current-main and
+pending File migrations applied before the draft. They verify FK policies,
+concurrent cost/reversal replay, payload-conflict rollback, ledger immutability,
+period cutoffs, lifecycle SQL checks and migration atomicity. The draft is not
+activated by `db:deploy` or ordinary CI and does not establish full production
+replacement, file authorization or persisted seed acceptance.
+
 Use backend Jest/Supertest familiarity, real local PostgreSQL integration tests for concurrency, Vitest/Testing Library for important forms, and one-browser Playwright for the connected lifecycle. Pin compatible versions. Avoid a large browser matrix or tests mirroring simple component markup.
 
 | Behavior | Required result | Owner |
