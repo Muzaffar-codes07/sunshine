@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { PublicFormRateLimitGuard } from '../platform/rate-limit.guard';
 import { EnquiriesController } from './enquiries.controller';
 import { EnquiriesService } from './enquiries.service';
+import { EnquiryQueueController } from './enquiry-queue.controller';
 import { EnquiryQueueService } from './enquiry-queue.service';
 
-// The staff queue controller is added once the auth guards (X2) exist, so no staff route ships unguarded.
 @Module({
-  controllers: [EnquiriesController],
+  imports: [AuthModule],
+  controllers: [EnquiriesController, EnquiryQueueController],
   providers: [EnquiriesService, EnquiryQueueService, PublicFormRateLimitGuard],
   exports: [EnquiryQueueService],
 })

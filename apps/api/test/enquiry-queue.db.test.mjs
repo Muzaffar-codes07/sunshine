@@ -12,22 +12,39 @@ if (!testUrl || !/test/i.test(new URL(testUrl).pathname)) {
   throw new Error('Set TEST_DATABASE_URL to a disposable database whose name contains "test"; refusing to write to another database.');
 }
 process.env.DATABASE_URL = testUrl;
+process.env.SESSION_SECRET = 'enquiry-queue-tests-only-session-secret';
+process.env.AUTH_TRUSTED_ORIGINS = 'http://127.0.0.1:3001';
+process.env.SESSION_COOKIE_SECURE = 'false';
 
 const { NestFactory } = require('@nestjs/core');
 const { AppModule } = require('../dist/app.module');
+const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
 const { PrismaService } = require('../dist/platform/prisma.service');
 const { EnquiryQueueService } = require('../dist/sales/enquiry-queue.service');
+const { hashPassword } = require('../dist/auth/passwords');
 
 let app;
+let base;
 let prisma;
 let queue;
 let salesUser;
 let warehouseUser;
+const password = 'queue-test-password-2026';
+const origin = 'http://127.0.0.1:3001';
 
 const phone = () => `8${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
-const user = (role) => prisma.user.create({ data: {
-  email: `${randomUUID()}@test.local`, displayName: `${role} tester`, passwordHash: 'not-a-real-hash', role,
+const user = async (role) => prisma.user.create({ data: {
+  email: `${randomUUID()}@test.local`, displayName: `${role} tester`, passwordHash: await hashPassword(password), role,
 } });
+
+async function login(account) {
+  const response = await fetch(`${base}/auth/login`, {
+    method: 'POST', headers: { 'content-type': 'application/json', origin },
+    body: JSON.stringify({ email: account.email, password }),
+  });
+  assert.equal(response.status, 200);
+  return response.headers.get('set-cookie').split(';')[0];
+}
 
 async function enquiry(overrides = {}) {
   const customer = await prisma.customer.create({ data: {
@@ -46,7 +63,11 @@ const rejectsWith = (promise, status, code) => assert.rejects(promise, (error) =
 });
 
 before(async () => {
-  app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix('api/v1');
+  app.useGlobalFilters(new ApiExceptionFilter());
+  await app.listen(0, '127.0.0.1');
+  base = `${await app.getUrl()}/api/v1`;
   prisma = app.get(PrismaService);
   queue = app.get(EnquiryQueueService);
   salesUser = await user('SALES');
@@ -125,4 +146,29 @@ test('only an active sales or admin user can own an enquiry', async () => {
 test('an unknown enquiry is a 404', async () => {
   await rejectsWith(queue.get(randomUUID()), 404, 'NOT_FOUND');
   await rejectsWith(queue.markContacted(randomUUID(), { version: 1 }), 404, 'NOT_FOUND');
+});
+
+test('HTTP: the queue needs a staff session, and only sales or admin may use it', async () => {
+  const row = await enquiry({ ownerId: salesUser.id });
+  assert.equal((await fetch(`${base}/enquiries`)).status, 401);
+  const warehouseCookie = await login(warehouseUser);
+  assert.equal((await fetch(`${base}/enquiries`, { headers: { cookie: warehouseCookie } })).status, 403);
+
+  const salesCookie = await login(salesUser);
+  const list = await fetch(`${base}/enquiries?ownerId=${salesUser.id}&pageSize=5`, { headers: { cookie: salesCookie } });
+  assert.equal(list.status, 200);
+  assert.ok((await list.json()).data.items.some((item) => item.id === row.id));
+
+  const contacted = await fetch(`${base}/enquiries/${row.id}/contacted`, {
+    method: 'POST', headers: { cookie: salesCookie, origin, 'content-type': 'application/json' }, body: JSON.stringify({ version: 1 }),
+  });
+  assert.equal(contacted.status, 201);
+  assert.equal((await contacted.json()).data.status, 'CONTACTED');
+
+  const forged = await fetch(`${base}/enquiries/${row.id}/archive`, {
+    method: 'POST', headers: { cookie: salesCookie, origin: 'https://evil.example', 'content-type': 'application/json' },
+    body: JSON.stringify({ version: 2, reason: 'Forged request' }),
+  });
+  assert.equal(forged.status, 403);
+  assert.equal((await fetch(`${base}/enquiries/not-a-uuid`, { headers: { cookie: salesCookie } })).status, 400);
 });
