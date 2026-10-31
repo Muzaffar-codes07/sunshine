@@ -73,6 +73,24 @@ test('saved ticket read uses the authorized route and validates the complete res
   await assert.rejects(serviceApi.getTicket(ticketId), { code: 'CONTRACT_MISMATCH' });
 });
 
+test('saved ticket browse encodes bounded filters and validates complete list responses', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (...args) => {
+    calls.push(args);
+    return json({ data: { items: [ticket], page: 1, pageSize: 20, total: 1 } });
+  });
+  const result = await serviceApi.listTickets({ page: 1, pageSize: 20, unitId, status: 'OPEN' });
+  const url = new URL(`https://example.test${calls[0][0]}`);
+  assert.equal(url.pathname, '/api/v1/tickets');
+  assert.equal(url.searchParams.get('page'), '1');
+  assert.equal(url.searchParams.get('pageSize'), '20');
+  assert.equal(url.searchParams.get('unitId'), unitId);
+  assert.equal(url.searchParams.get('status'), 'OPEN');
+  assert.equal(result.data.items[0].ticketNumber, 'TEST-001');
+  globalThis.fetch.mock.mockImplementation(async () => json({ data: { items: [{ id: ticketId }], page: 1, pageSize: 20, total: 1 } }));
+  await assert.rejects(serviceApi.listTickets({ page: 1, pageSize: 20 }), { code: 'CONTRACT_MISMATCH' });
+});
+
 test('ticket view shows saved coverage, lineage and only the current lifecycle action', () => {
   const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage, {
     initialTicket: { ...ticket, status: 'ASSESSED', assessmentSnapshot: assessment, replacedUnitId: unitId, newUnitId: jobId },

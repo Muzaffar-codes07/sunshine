@@ -5,15 +5,20 @@ import {
   confirmTicketInputSchema,
   createTicketInputSchema,
   resolveTicketInputSchema,
+  ticketListQuerySchema,
+  ticketStatusSchema,
   warrantyLookupQuerySchema,
   type ServiceTicket,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketListResponse,
   type WarrantyLookupResponse,
 } from '@sunshine/contracts';
-import { DetailPattern, FormPattern, TimelinePattern } from '../../components/shared/patterns';
+import { DetailPattern, FormPattern, ListPattern, TimelinePattern } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { newIdempotencyKey } from '../../lib/api';
 import { D4RequestError, describeD4Error } from './d4-http';
-import { assessTicket, confirmTicket, createTicket, getTicket, lookupWarranty, resolveTicket } from './service-api';
+import { assessTicket, confirmTicket, createTicket, getTicket, listTickets, lookupWarranty, resolveTicket } from './service-api';
 import { coverageLabel, nextTicketAction, warrantyPeriod } from './service-model';
 
 type FormFailure = { message: string; fields: Record<string, string[]> };
@@ -47,6 +52,11 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
   const [ticketId, setTicketId] = useState(initialTicket?.id ?? '');
   const [readFailure, setReadFailure] = useState<FormFailure | null>(null);
   const [readPending, setReadPending] = useState(false);
+  const [ticketList, setTicketList] = useState<TicketListResponse['data'] | null>(null);
+  const [listUnitId, setListUnitId] = useState('');
+  const [listStatus, setListStatus] = useState<TicketStatus | ''>('');
+  const [listFailure, setListFailure] = useState<FormFailure | null>(null);
+  const [listPending, setListPending] = useState(false);
   const [unitId, setUnitId] = useState('');
   const [ticketFailure, setTicketFailure] = useState<FormFailure | null>(null);
   const [ticketPending, setTicketPending] = useState(false);
@@ -54,6 +64,7 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
   const commandPending = useRef(false);
   const lookupInFlight = useRef(false);
   const readInFlight = useRef(false);
+  const listInFlight = useRef(false);
 
   async function submitRead(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,13 +75,54 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
       setReadFailure({ message: 'Enter a valid ticket ID.', fields: { ticketId: ['Enter a valid ticket ID.'] } });
       return;
     }
+    await loadTicket(parsed.data);
+  }
+
+  async function loadTicket(id: string) {
+    if (readInFlight.current || commandPending.current) return;
     readInFlight.current = true;
     setReadPending(true);
+    setTicketId(id);
     setTicket(null);
     keyCache.current = null;
-    try { setTicket((await getTicket(parsed.data)).data); }
+    try { setTicket((await getTicket(id)).data); }
     catch (error) { setReadFailure(failure(error)); }
     finally { setReadPending(false); readInFlight.current = false; }
+  }
+
+  async function submitList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (listInFlight.current || commandPending.current) return;
+    const parsed = ticketListQuerySchema.safeParse({
+      page: 1, pageSize: 20, unitId: listUnitId.trim() || undefined, status: listStatus || undefined,
+    });
+    setListFailure(null);
+    if (!parsed.success) {
+      setListFailure({ message: 'Check the saved-ticket filters.', fields: zodFields(parsed.error.issues) });
+      return;
+    }
+    await loadTicketList(parsed.data);
+  }
+
+  async function loadTicketList(query: TicketListQuery) {
+    if (listInFlight.current || commandPending.current) return;
+    listInFlight.current = true;
+    setListPending(true);
+    try { setTicketList((await listTickets(query)).data); }
+    catch (error) { setListFailure(failure(error)); setTicketList(null); }
+    finally { setListPending(false); listInFlight.current = false; }
+  }
+
+  function retryList() {
+    const parsed = ticketListQuerySchema.safeParse({
+      page: 1, pageSize: 20, unitId: listUnitId.trim() || undefined, status: listStatus || undefined,
+    });
+    if (parsed.success) void loadTicketList(parsed.data);
+  }
+
+  function openListedTicket(id: string) {
+    setReadFailure(null);
+    void loadTicket(id);
   }
 
   async function submitLookup(event: FormEvent<HTMLFormElement>) {
@@ -187,6 +239,32 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
         {(control) => <input {...control} name="ticketId" value={ticketId} onChange={(event) => setTicketId(event.target.value)} autoComplete="off" required />}
       </Field>
     </FormPattern>
+
+    <FormPattern title="Saved tickets" submitLabel="Load saved tickets" pending={listPending}
+      error={listFailure?.message} onSubmit={(event) => void submitList(event)}>
+      <Field label="Installed unit ID (optional)" hint="Leave blank to browse all tickets you can access." error={listFailure?.fields.unitId?.[0]}>
+        {(control) => <input {...control} name="listUnitId" value={listUnitId} onChange={(event) => setListUnitId(event.target.value)} autoComplete="off" />}
+      </Field>
+      <Field label="Status (optional)" error={listFailure?.fields.status?.[0]}>
+        {(control) => <select {...control} name="listStatus" value={listStatus} onChange={(event) => {
+          const value = event.target.value;
+          if (!value) { setListStatus(''); return; }
+          const parsed = ticketStatusSchema.safeParse(value);
+          if (parsed.success) setListStatus(parsed.data);
+        }}>
+          <option value="">All statuses</option><option value="OPEN">Open</option><option value="ASSESSED">Assessed</option>
+          <option value="IN_PROGRESS">In progress</option><option value="AWAITING_CUSTOMER_CONFIRMATION">Awaiting customer confirmation</option><option value="CLOSED">Closed</option>
+        </select>}
+      </Field>
+    </FormPattern>
+    {(ticketList || listPending || listFailure) && <ListPattern title="Saved tickets" loading={listPending}
+      error={listFailure?.message} onRetry={retryList} empty="No saved tickets match these filters."
+      columns={[{ id: 'number', label: 'Ticket' }, { id: 'status', label: 'Status' }, { id: 'unit', label: 'Unit' }, { id: 'updated', label: 'Updated' }, { id: 'open', label: 'Detail' }]}
+      rows={(ticketList?.items ?? []).map((row) => ({ id: row.id, cells: {
+        number: row.ticketNumber, status: row.status, unit: row.unitId, updated: row.updatedAt,
+        open: <button type="button" onClick={() => openListedTicket(row.id)}>Open ticket</button>,
+      } }))} />}
+    {ticketList && <p role="status">Showing {ticketList.items.length} of {ticketList.total} saved tickets.</p>}
 
     {!ticketCommandsEnabled && <p role="status">Ticket commands remain unavailable until server replay and billing are connected. Saved-ticket reads can also be unavailable while their production adapter is pending.</p>}
     <fieldset disabled={!ticketCommandsEnabled} style={{ border: 0, padding: 0, minWidth: 0 }}>
