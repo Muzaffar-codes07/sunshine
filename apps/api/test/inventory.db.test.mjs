@@ -64,13 +64,16 @@ const expectError = async (response, status, code) => {
   const body = await response.json();
   assert.equal(response.status, status, JSON.stringify(body)); assert.equal(body.error.code, code); return body.error;
 };
+const draftLine = async (tx, kind, productId, quantity, locations) => {
+  const occurredAt = new Date();
+  const document = await tx.stockDocument.create({ data: { kind, reference: 'TEST-' + randomUUID(), payloadHash: 'test', actorId: staff.WAREHOUSE, occurredAt, ...locations } });
+  return { ...await tx.stockDocumentLine.create({ data: { documentId: document.id, lineNumber: 1, productId, quantity } }), occurredAt };
+};
 // Posts a movement the way later slices will: through a document line and the single writer.
 const postMovement = (kind, productId, quantity, locations) => prisma.$transaction(async (tx) => {
-  const document = await tx.stockDocument.create({ data: {
-    kind, reference: 'TEST-' + randomUUID(), payloadHash: 'test', actorId: staff.WAREHOUSE, occurredAt: new Date(), ...locations,
-  } });
-  const line = await tx.stockDocumentLine.create({ data: { documentId: document.id, lineNumber: 1, productId, quantity } });
-  return ledger.post(tx, { documentLineId: line.id, productId, quantity: new Prisma.Decimal(quantity), actorId: staff.WAREHOUSE, occurredAt: new Date(), ...locations });
+  const line = await draftLine(tx, kind, productId, quantity, locations);
+  await tx.stockDocument.update({ where: { id: line.documentId }, data: { status: 'DONE', validatedAt: new Date() } });
+  return ledger.post(tx, { documentLineId: line.id, productId, quantity: new Prisma.Decimal(quantity), actorId: staff.WAREHOUSE, occurredAt: line.occurredAt, ...locations });
 });
 
 test('one usable and one quarantine location exist, and staff can read them', async () => {
@@ -218,15 +221,79 @@ test('the database refuses edits to the ledger and malformed movements', async (
   await refused('TRUNCATE stock_movements CASCADE', [], /append-only/);
   await refused('DELETE FROM unit_movements WHERE id = $1', [link.id], /append-only/);
   await refused('TRUNCATE unit_movements', [], /append-only/);
-  const line = await prisma.stockDocument.create({ data: { kind: 'ISSUE', reference: 'TEST-' + randomUUID(), payloadHash: 'test', actorId: staff.ADMIN, occurredAt: new Date(),
-    lines: { create: { lineNumber: 1, productId: bulk.id, quantity: '1' } } }, include: { lines: true } }).then((row) => row.lines[0]);
+});
+
+test('CHECK constraints refuse malformed movements even if the source trigger is bypassed', async () => {
+  const line = (await prisma.stockDocumentLine.findFirstOrThrow({ where: { document: { status: 'DONE' } } }));
   const insert = (quantity, from, to) => sql.query(`INSERT INTO stock_movements (id, "documentLineId", "productId", "fromLocationId", "toLocationId", quantity, "actorId", "occurredAt")
     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, now())`, [line.id, bulk.id, from, to, quantity, staff.ADMIN]);
-  await assert.rejects(insert('0', main.id, null), /stock_movements_quantity_positive/);
-  await assert.rejects(insert('-1', main.id, null), /stock_movements_quantity_positive/);
-  await assert.rejects(insert('NaN', main.id, null), /stock_movements_quantity_positive/);
-  await assert.rejects(insert('1', null, null), /stock_movements_has_location/);
-  await assert.rejects(insert('1', main.id, main.id), /stock_movements_locations_differ/);
+  await sql.query('BEGIN');
+  try {
+    await sql.query('ALTER TABLE stock_movements DISABLE TRIGGER stock_movements_source_valid');
+    for (const [quantity, from, to, rule] of [
+      ['0', main.id, null, /stock_movements_quantity_positive/], ['-1', main.id, null, /stock_movements_quantity_positive/],
+      ['NaN', main.id, null, /stock_movements_quantity_positive/], ['1', null, null, /stock_movements_has_location/],
+      ['1', main.id, main.id, /stock_movements_locations_differ/],
+    ]) {
+      await sql.query('SAVEPOINT attempt');
+      await assert.rejects(insert(quantity, from, to), rule);
+      await sql.query('ROLLBACK TO SAVEPOINT attempt');
+    }
+  } finally { await sql.query('ROLLBACK'); }
+});
+
+test('a validated document, its lines and a unit identity are frozen, and a replay stays the same', async () => {
+  const taken = serial();
+  const body = receipt([serializedLine([taken], '1000.00')]);
+  const { data } = await (await post(body)).json();
+  const lineId = data.lines[0].id;
+  const refused = (statement, params) => assert.rejects(sql.query(statement, params), /validated stock document|identity and cost/);
+  await refused(`UPDATE stock_documents SET status = 'CANCELED' WHERE id = $1`, [data.id]);
+  await refused('DELETE FROM stock_documents WHERE id = $1', [data.id]);
+  await refused('UPDATE stock_document_lines SET "unitCost" = 2000 WHERE id = $1', [lineId]);
+  await refused('UPDATE stock_document_lines SET quantity = 2 WHERE id = $1', [lineId]);
+  await refused('DELETE FROM stock_document_lines WHERE id = $1', [lineId]);
+  await refused(`INSERT INTO stock_document_lines (id, "documentId", "lineNumber", "productId", quantity) VALUES (gen_random_uuid(), $1, 2, $2, 1)`, [data.id, bulk.id]);
+  const [unitId] = data.lines[0].unitIds;
+  await refused('UPDATE units SET "acquisitionCost" = 1 WHERE id = $1', [unitId]);
+  await refused(`UPDATE units SET "normalizedSerial" = 'OTHER' WHERE id = $1`, [unitId]);
+  await refused('DELETE FROM units WHERE id = $1', [unitId]);
+  const moved = await prisma.unit.update({ where: { id: unitId }, data: { status: 'RESERVED', version: { increment: 1 } } });
+  assert.equal(moved.status, 'RESERVED');
+  await prisma.unit.update({ where: { id: unitId }, data: { status: 'AVAILABLE', version: { increment: 1 } } });
+  assert.deepEqual((await (await post(body)).json()).data, data);
+});
+
+test('the ledger refuses a movement that does not match its validated document line', async () => {
+  const before = await prisma.stockMovement.count();
+  const posting = (mutate, finish = true) => prisma.$transaction(async (tx) => {
+    const line = await draftLine(tx, 'ISSUE', bulk.id, '1', { fromLocationId: main.id });
+    if (finish) await tx.stockDocument.update({ where: { id: line.documentId }, data: { status: 'DONE', validatedAt: new Date() } });
+    await ledger.post(tx, { documentLineId: line.id, productId: bulk.id, quantity: new Prisma.Decimal('1'), actorId: staff.WAREHOUSE, occurredAt: line.occurredAt, fromLocationId: main.id, ...mutate });
+  });
+  assert.equal((await post(receipt([bulkLine('5.000', '40.00')]))).status, 201);
+  const start = await prisma.stockMovement.count();
+  const refused = (promise, pattern) => assert.rejects(promise, (error) => pattern.test(error.meta?.driverAdapterError?.cause?.originalMessage ?? error.message));
+  await refused(posting({}, false), /validated document/);
+  await refused(posting({ productId: serialized.id }), /must match/);
+  await refused(posting({ quantity: new Prisma.Decimal('2') }), /must match/);
+  await refused(posting({ actorId: staff.ADMIN }), /must match/);
+  await refused(posting({ fromLocationId: quarantine.id }), /must match|Only/);
+  await refused(posting({ occurredAt: new Date(0) }), /must match/);
+  assert.equal(await prisma.stockMovement.count(), start); assert.ok(start > before);
+  await posting({});
+  assert.equal(await prisma.stockMovement.count(), start + 1);
+});
+
+test('stock pages are bounded, and the total survives an empty later page', async () => {
+  await expectError(await get('/stock?page=10001'), 400, 'INVALID_INPUT');
+  await expectError(await get('/stock?pageSize=101'), 400, 'INVALID_INPUT');
+  const first = await (await get(`/stock?productId=${serialized.id}&pageSize=1`)).json();
+  assert.ok(first.data.total >= 1); assert.equal(first.data.items.length, 1);
+  const past = await (await get(`/stock?productId=${serialized.id}&pageSize=1&page=50`)).json();
+  assert.equal(past.data.total, first.data.total); assert.deepEqual(past.data.items, []);
+  const none = await (await get(`/stock?productId=${randomUUID()}`)).json();
+  assert.equal(none.data.total, 0); assert.deepEqual(none.data.items, []);
 });
 
 test('only warehouse and admin staff reach inventory routes', async () => {

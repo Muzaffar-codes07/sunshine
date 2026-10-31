@@ -238,6 +238,67 @@ CREATE TRIGGER "unit_movements_append_only" BEFORE UPDATE OR DELETE ON "unit_mov
 CREATE TRIGGER "unit_movements_no_truncate" BEFORE TRUNCATE ON "unit_movements"
   FOR EACH STATEMENT EXECUTE FUNCTION "stock_ledger_refuse_change"();
 
+-- A movement must match the validated document line it posts. This is the database's copy of the writer's contract.
+CREATE FUNCTION "stock_movements_check_source"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  source RECORD;
+BEGIN
+  SELECT d."status", d."actorId", d."occurredAt", d."fromLocationId", d."toLocationId", l."productId", l."quantity" INTO source
+  FROM "stock_document_lines" l JOIN "stock_documents" d ON d."id" = l."documentId"
+  WHERE l."id" = NEW."documentLineId";
+  IF NOT FOUND OR source."status" <> 'DONE' THEN
+    RAISE EXCEPTION 'a stock movement needs a validated document' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF source."productId" <> NEW."productId" OR source."quantity" <> NEW."quantity" OR source."actorId" <> NEW."actorId"
+    OR source."occurredAt" <> NEW."occurredAt" OR source."fromLocationId" IS DISTINCT FROM NEW."fromLocationId"
+    OR source."toLocationId" IS DISTINCT FROM NEW."toLocationId" THEN
+    RAISE EXCEPTION 'a stock movement must match its document line' USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER "stock_movements_source_valid" BEFORE INSERT ON "stock_movements"
+  FOR EACH ROW EXECUTE FUNCTION "stock_movements_check_source"();
+
+-- A validated document is evidence: its header and lines never change. Corrections are new documents.
+CREATE FUNCTION "stock_documents_freeze_done"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD."status" = 'DONE' THEN
+    RAISE EXCEPTION 'a validated stock document cannot change' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER "stock_documents_frozen_when_done" BEFORE UPDATE OR DELETE ON "stock_documents"
+  FOR EACH ROW EXECUTE FUNCTION "stock_documents_freeze_done"();
+CREATE FUNCTION "stock_document_lines_freeze_done"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF (TG_OP <> 'INSERT' AND EXISTS (SELECT 1 FROM "stock_documents" WHERE "id" = OLD."documentId" AND "status" = 'DONE'))
+    OR (TG_OP <> 'DELETE' AND EXISTS (SELECT 1 FROM "stock_documents" WHERE "id" = NEW."documentId" AND "status" = 'DONE')) THEN
+    RAISE EXCEPTION 'lines of a validated stock document cannot change' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER "stock_document_lines_frozen_when_done" BEFORE INSERT OR UPDATE OR DELETE ON "stock_document_lines"
+  FOR EACH ROW EXECUTE FUNCTION "stock_document_lines_freeze_done"();
+
+-- A unit's identity and acquisition cost are fixed at receipt. Only its lifecycle status moves on.
+CREATE FUNCTION "units_freeze_identity"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' OR NEW."productId" <> OLD."productId" OR NEW."manufacturerId" <> OLD."manufacturerId"
+    OR NEW."rawSerial" <> OLD."rawSerial" OR NEW."normalizedSerial" <> OLD."normalizedSerial"
+    OR NEW."acquisitionCost" <> OLD."acquisitionCost" OR NEW."receiptLineId" <> OLD."receiptLineId" THEN
+    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER "units_identity_frozen" BEFORE UPDATE OR DELETE ON "units"
+  FOR EACH ROW EXECUTE FUNCTION "units_freeze_identity"();
+
 -- On-hand per product and location: movements in minus movements out. Includes quarantine; readers filter on kind.
 CREATE VIEW "stock_on_hand" AS
   SELECT "productId", "locationId", SUM("delta") AS "quantity"

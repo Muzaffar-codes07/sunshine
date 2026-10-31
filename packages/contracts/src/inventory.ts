@@ -129,7 +129,7 @@ export const stockLocationViewSchema = z.object({
 export const stockLocationListResponseSchema = z.object({ data: z.array(stockLocationViewSchema) });
 export const stockLevelListQuerySchema = z.object({
   productId: z.uuid().optional(), locationId: z.uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  page: z.coerce.number().int().min(1).max(10000).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25),
 }).strict();
 export const stockLevelViewSchema = z.object({
   productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1), locationId: z.uuid(),

@@ -18,11 +18,15 @@ export class StockReadService {
     const productId = query.productId ?? null;
     const locationId = query.locationId ?? null;
     const offset = (query.page - 1) * query.pageSize;
+    const [{ total }] = await this.prisma.$queryRaw<[{ total: bigint }]>`
+      SELECT COUNT(*) AS "total" FROM "stock_on_hand" s
+      WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
+        AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)`;
     const rows = await this.prisma.$queryRaw<{
-      productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal; total: bigint;
+      productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal;
     }[]>`
       SELECT s."productId", p."sku", p."name" AS "productName", s."locationId", l."code" AS "locationCode", l."kind"::text AS "locationKind",
-             s."quantity" AS "onHand", COUNT(*) OVER () AS "total"
+             s."quantity" AS "onHand"
       FROM "stock_on_hand" s
       JOIN "products" p ON p."id" = s."productId"
       JOIN "stock_locations" l ON l."id" = s."locationId"
@@ -31,8 +35,8 @@ export class StockReadService {
       ORDER BY p."sku", l."code"
       LIMIT ${query.pageSize}::int OFFSET ${offset}::int`;
     return stockLevelListResponseSchema.parse({ data: {
-      items: rows.map(({ total: _total, onHand, ...row }) => ({ ...row, onHand: onHand.toFixed(3) })),
-      total: Number(rows[0]?.total ?? 0), page: query.page, pageSize: query.pageSize,
+      items: rows.map(({ onHand, ...row }) => ({ ...row, onHand: onHand.toFixed(3) })),
+      total: Number(total), page: query.page, pageSize: query.pageSize,
     } });
   }
 

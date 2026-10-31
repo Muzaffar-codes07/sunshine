@@ -323,6 +323,62 @@
       "kind": "view",
       "owner": "D3",
       "definition": " SELECT DISTINCT ON (um.\"unitId\") um.\"unitId\",\n    m.\"toLocationId\" AS \"locationId\"\n   FROM (unit_movements um\n     JOIN stock_movements m ON ((m.id = um.\"movementId\")))\n  ORDER BY um.\"unitId\", m.sequence DESC;"
+    },
+    {
+      "name": "stock_document_lines_freeze_done",
+      "table": "stock_document_lines_freeze_done",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_document_lines_freeze_done()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF (TG_OP <> 'INSERT' AND EXISTS (SELECT 1 FROM \"stock_documents\" WHERE \"id\" = OLD.\"documentId\" AND \"status\" = 'DONE'))\n    OR (TG_OP <> 'DELETE' AND EXISTS (SELECT 1 FROM \"stock_documents\" WHERE \"id\" = NEW.\"documentId\" AND \"status\" = 'DONE')) THEN\n    RAISE EXCEPTION 'lines of a validated stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_documents_freeze_done",
+      "table": "stock_documents_freeze_done",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_documents_freeze_done()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF OLD.\"status\" = 'DONE' THEN\n    RAISE EXCEPTION 'a validated stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_movements_check_source",
+      "table": "stock_movements_check_source",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_movements_check_source()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  source RECORD;\nBEGIN\n  SELECT d.\"status\", d.\"actorId\", d.\"occurredAt\", d.\"fromLocationId\", d.\"toLocationId\", l.\"productId\", l.\"quantity\" INTO source\n  FROM \"stock_document_lines\" l JOIN \"stock_documents\" d ON d.\"id\" = l.\"documentId\"\n  WHERE l.\"id\" = NEW.\"documentLineId\";\n  IF NOT FOUND OR source.\"status\" <> 'DONE' THEN\n    RAISE EXCEPTION 'a stock movement needs a validated document' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF source.\"productId\" <> NEW.\"productId\" OR source.\"quantity\" <> NEW.\"quantity\" OR source.\"actorId\" <> NEW.\"actorId\"\n    OR source.\"occurredAt\" <> NEW.\"occurredAt\" OR source.\"fromLocationId\" IS DISTINCT FROM NEW.\"fromLocationId\"\n    OR source.\"toLocationId\" IS DISTINCT FROM NEW.\"toLocationId\" THEN\n    RAISE EXCEPTION 'a stock movement must match its document line' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "units_freeze_identity",
+      "table": "units_freeze_identity",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.units_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"productId\" <> OLD.\"productId\" OR NEW.\"manufacturerId\" <> OLD.\"manufacturerId\"\n    OR NEW.\"rawSerial\" <> OLD.\"rawSerial\" OR NEW.\"normalizedSerial\" <> OLD.\"normalizedSerial\"\n    OR NEW.\"acquisitionCost\" <> OLD.\"acquisitionCost\" OR NEW.\"receiptLineId\" <> OLD.\"receiptLineId\" THEN\n    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_document_lines_frozen_when_done",
+      "table": "stock_document_lines",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_document_lines_frozen_when_done BEFORE INSERT OR DELETE OR UPDATE ON public.stock_document_lines FOR EACH ROW EXECUTE FUNCTION stock_document_lines_freeze_done()"
+    },
+    {
+      "name": "stock_documents_frozen_when_done",
+      "table": "stock_documents",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_documents_frozen_when_done BEFORE DELETE OR UPDATE ON public.stock_documents FOR EACH ROW EXECUTE FUNCTION stock_documents_freeze_done()"
+    },
+    {
+      "name": "stock_movements_source_valid",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_source_valid BEFORE INSERT ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_movements_check_source()"
+    },
+    {
+      "name": "units_identity_frozen",
+      "table": "units",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER units_identity_frozen BEFORE DELETE OR UPDATE ON public.units FOR EACH ROW EXECUTE FUNCTION units_freeze_identity()"
     }
   ]
 }

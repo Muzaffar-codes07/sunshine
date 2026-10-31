@@ -13,6 +13,8 @@ type ReceiveStockInput = {
   lines: { productId: string; quantity: string; unitCost: string; zeroCostReason?: string; serials: string[] }[];
 };
 
+type LockedProduct = { id: string; kind: string; trackingMode: string; active: boolean; manufacturerId: string | null };
+
 const notReceivable = (reason: string, nextAction: string): RefusalReason => ({ code: 'NOT_RECEIVABLE', reason, source: 'INVENTORY', nextAction });
 
 @Injectable()
@@ -37,10 +39,13 @@ export class StockReceiptsService {
       });
       if (claimed.count === 0) return { data: await this.replay(tx, input.reference, payloadHash) };
       await this.assertLocationReceivable(tx, input.locationId);
-      await tx.stockDocument.update({ where: { id }, data: { status: 'DONE', validatedAt: new Date(), version: { increment: 1 } } });
+      // Lines first, because a DONE document is frozen; then validate; then post, because only DONE documents can post.
+      const lines = [];
       for (const [index, line] of input.lines.entries()) {
-        await this.receiveLine(tx, { id, actorId, occurredAt, locationId: input.locationId, lineNumber: index + 1, line, product: products.get(line.productId) });
+        lines.push(await this.createLine(tx, id, index + 1, line, products.get(line.productId)));
       }
+      await tx.stockDocument.update({ where: { id }, data: { status: 'DONE', validatedAt: new Date(), version: { increment: 1 } } });
+      for (const line of lines) await this.postLine(tx, { actorId, occurredAt, locationId: input.locationId, ...line });
       return { data: await this.view(tx, id) };
     }, { timeout: 20_000 });
   }
@@ -48,7 +53,7 @@ export class StockReceiptsService {
   /** Product rows first, in sorted order: the start of the global lock order. No KEY lock, so FK inserts aren't blocked. */
   private async lockProducts(tx: Prisma.TransactionClient, ids: string[]) {
     const unique = [...new Set(ids)].sort();
-    const rows = await tx.$queryRaw<{ id: string; kind: string; trackingMode: string; active: boolean; manufacturerId: string | null }[]>`
+    const rows = await tx.$queryRaw<LockedProduct[]>`
       SELECT "id", "kind"::text AS "kind", "trackingMode"::text AS "trackingMode", "active", "manufacturerId" FROM "products"
       WHERE "id" = ANY(${unique}::uuid[]) ORDER BY "id" FOR NO KEY UPDATE`;
     return new Map(rows.map((row) => [row.id, row]));
@@ -61,34 +66,37 @@ export class StockReceiptsService {
     }
   }
 
-  private async receiveLine(tx: Prisma.TransactionClient, args: {
-    id: string; actorId: string; occurredAt: Date; locationId: string; lineNumber: number; line: ReceiveStockInput['lines'][number];
-    product: { kind: string; trackingMode: string; active: boolean; manufacturerId: string | null } | undefined;
-  }) {
-    const { line, product } = args;
+  private async createLine(tx: Prisma.TransactionClient, documentId: string, lineNumber: number, line: ReceiveStockInput['lines'][number], product: LockedProduct | undefined) {
     if (!product?.active || product.kind !== 'HARDWARE' || product.trackingMode === 'NONE') {
-      throw refusal(notReceivable(`Line ${args.lineNumber}: this product is not active stocked hardware.`, 'Choose an active hardware product.'));
+      throw refusal(notReceivable(`Line ${lineNumber}: this product is not active stocked hardware.`, 'Choose an active hardware product.'));
     }
     const serialized = product.trackingMode === 'SERIALIZED';
     if (serialized && line.serials.length === 0) {
-      throw refusal(notReceivable(`Line ${args.lineNumber}: this product needs a serial for each unit.`, 'Enter or scan every serial, then try again.'));
+      throw refusal(notReceivable(`Line ${lineNumber}: this product needs a serial for each unit.`, 'Enter or scan every serial, then try again.'));
     }
     if (!serialized && line.serials.length > 0) {
-      throw refusal(notReceivable(`Line ${args.lineNumber}: this product is tracked by quantity and takes no serials.`, 'Remove the serials, then try again.'));
+      throw refusal(notReceivable(`Line ${lineNumber}: this product is tracked by quantity and takes no serials.`, 'Remove the serials, then try again.'));
     }
     const quantity = new Prisma.Decimal(line.quantity);
     const unitCost = new Prisma.Decimal(line.unitCost);
     const created = await tx.stockDocumentLine.create({ data: {
-      documentId: args.id, lineNumber: args.lineNumber, productId: line.productId, quantity, unitCost, zeroCostReason: line.zeroCostReason,
+      documentId, lineNumber, productId: line.productId, quantity, unitCost, zeroCostReason: line.zeroCostReason,
     } });
-    if (!serialized) await this.updateAverageCost(tx, line.productId, quantity, unitCost);
+    return { lineId: created.id, productId: line.productId, quantity, unitCost, serials: line.serials, manufacturerId: product.manufacturerId };
+  }
+
+  private async postLine(tx: Prisma.TransactionClient, args: {
+    actorId: string; occurredAt: Date; locationId: string; lineId: string; productId: string; quantity: Prisma.Decimal; unitCost: Prisma.Decimal;
+    serials: string[]; manufacturerId: string | null;
+  }) {
+    if (args.serials.length === 0) await this.updateAverageCost(tx, args.productId, args.quantity, args.unitCost);
     const movement = await this.ledger.post(tx, {
-      documentLineId: created.id, productId: line.productId, toLocationId: args.locationId, quantity, actorId: args.actorId, occurredAt: args.occurredAt,
+      documentLineId: args.lineId, productId: args.productId, toLocationId: args.locationId, quantity: args.quantity, actorId: args.actorId, occurredAt: args.occurredAt,
     });
-    if (!serialized) return;
-    const units = line.serials.map((rawSerial) => ({
-      id: randomUUID(), productId: line.productId, manufacturerId: product.manufacturerId!, rawSerial,
-      normalizedSerial: normalizeEquipmentSerial(rawSerial), acquisitionCost: unitCost, receiptLineId: created.id,
+    if (args.serials.length === 0) return;
+    const units = args.serials.map((rawSerial) => ({
+      id: randomUUID(), productId: args.productId, manufacturerId: args.manufacturerId!, rawSerial,
+      normalizedSerial: normalizeEquipmentSerial(rawSerial), acquisitionCost: args.unitCost, receiptLineId: args.lineId,
     }));
     await tx.unit.createMany({ data: units });
     await tx.unitMovement.createMany({ data: units.map((unit) => ({ unitId: unit.id, movementId: movement.id })) });
