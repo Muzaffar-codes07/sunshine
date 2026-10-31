@@ -2,8 +2,8 @@
 
 Owner: **D2**. Read APIs, catalogue facts, and the disposable demonstration seed are implemented.
 
-SALES and ADMIN sessions may read GET /api/v1/products, /products/:id,
-/packages, and /packages/:id. Lists return active records and support bounded
+SALES, ADMIN and WAREHOUSE sessions may read GET /api/v1/products and /products/:id.
+Package list/detail routes permit SALES and ADMIN. Lists return active records and support bounded
 pagination. Package filters are capacityKw (1–5) and systemType. Product
 filters are kind, trackingMode, manufacturerId, and exact sku.
 

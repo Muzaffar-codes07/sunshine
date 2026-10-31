@@ -6,7 +6,7 @@ postings belong to their respective modules.
 
 ## Read contracts
 
-Authenticated SALES/ADMIN may use:
+Authenticated SALES/ADMIN may use all routes below. WAREHOUSE may use product list/detail for stock receipts; package list/detail remain SALES/ADMIN.
 
 | Route | Result |
 | --- | --- |
