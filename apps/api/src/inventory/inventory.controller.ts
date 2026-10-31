@@ -55,4 +55,6 @@ export class InventoryController {
   levels(@Query(new ZodValidationPipe(stockLevelListQuerySchema)) query: StockLevelListQuery) { return this.reads.listLevels(query); }
   @Get('units')
   units(@Query(new ZodValidationPipe(unitLookupQuerySchema)) query: UnitLookupQuery) { return this.reads.lookupUnits(query); }
+  @Get('units/:id')
+  unit(@Param('id', ParseUUIDPipe) id: string) { return this.reads.getUnit(id); }
 }

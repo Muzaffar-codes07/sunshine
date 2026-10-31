@@ -156,6 +156,16 @@ export const unitLookupQuerySchema = z.object({ serial: equipmentSerialSchema, p
 // Location comes from the unit's latest movement; null means the unit has left company stock.
 export const unitLocationViewSchema = unitViewSchema.extend({ locationId: z.uuid().nullable() });
 export const unitLookupResponseSchema = z.object({ data: z.array(unitLocationViewSchema) });
+// Assignment is derived from Allocation -> Job -> Order, rather than copying customer identity onto a unit.
+export const unitDetailViewSchema = unitLocationViewSchema.extend({
+  receiptId: z.uuid(),
+  activeAssignment: z.object({
+    allocationId: z.uuid(), status: allocationStatusSchema.exclude(['RELEASED']),
+    jobId: z.uuid(), orderId: z.uuid(), customerId: z.uuid(),
+  }).nullable(),
+});
+export const unitDetailResponseSchema = z.object({ data: unitDetailViewSchema });
+export type UnitDetailView = z.infer<typeof unitDetailViewSchema>;
 export type StockLocationView = z.infer<typeof stockLocationViewSchema>;
 export type StockLevelListQuery = z.infer<typeof stockLevelListQuerySchema>;
 export type StockLevelView = z.infer<typeof stockLevelViewSchema>;

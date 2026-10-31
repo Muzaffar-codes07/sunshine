@@ -3,6 +3,18 @@ const assert = require('node:assert/strict');
 const c = require('../dist');
 const { id, at, receipt, typedScan, completion } = require('./fixtures/d3.cjs');
 
+test('unit traceability needs canonical source IDs and excludes released assignments', () => {
+  const unit = { id: id(1), productId: id(2), manufacturerId: id(3), manufacturer: 'Example', serial: ' inv-a ',
+    normalizedSerial: 'INV-A', status: 'AVAILABLE', locationId: id(4), receiptId: id(5), activeAssignment: null };
+  assert.ok(c.unitDetailResponseSchema.safeParse({ data: unit }).success);
+  for (const status of ['RESERVED', 'DISPATCHED', 'DELIVERED', 'INSTALLED']) {
+    const activeAssignment = { allocationId: id(6), jobId: id(7), orderId: id(8), customerId: id(9), status };
+    assert.ok(c.unitDetailResponseSchema.safeParse({ data: { ...unit, activeAssignment } }).success);
+    assert.equal(c.unitDetailResponseSchema.safeParse({ data: { ...unit, activeAssignment: { ...activeAssignment, customerId: 'fake' } } }).success, false);
+    assert.equal(c.unitDetailResponseSchema.safeParse({ data: { ...unit, activeAssignment: { ...activeAssignment, status: 'RELEASED' } } }).success, false);
+  }
+});
+
 test('receipt preserves exact costs/quantities and original serial text', () => {
   const result = c.receiveStockRequestSchema.parse(receipt);
   assert.equal(result.lines[0].unitCost, '14000.00');
