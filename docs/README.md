@@ -1,5 +1,12 @@
 # Documentation index and precedence
 
+## Latest research and ownership update
+
+- [Reviewed 38-feature selection report](research/feature-selection/report.md) and [publication status](research/feature-selection/README.md).
+- [Latest role-division brief from Claude](team/role-division-brief.md): Tuhin-confirmed component owners, proposed handoffs and open decisions.
+
+The latest role brief supersedes earlier assignments in `team/roles.md`, PRD/TRD, the consolidated product requirements section 7 and the task plan/backlog. Those files have not been rewritten for the new division. Their earlier schedule is not a validated schedule for the new owners. The feature report is a proposal, not approved tasks or a stack decision.
+
 ## Foundational documents
 
 - [PRD — Product Requirements](PRD.md): product goals, users, R1–R25 scope, acceptance, unhappy paths and communication.
@@ -8,7 +15,7 @@
 - [Decision/assumption register](foundations/decisions-and-assumptions.md): authority, provisional defaults and external questions.
 - [Delivery contract](foundations/delivery-contract.md): ready/code-ready/integrated done, ownership and evidence.
 
-The consolidated [team product brief](requirements/product-requirements.md) complements the PRD: it summarizes module acceptance and shares the same PDF authority, stack and four-owner boundaries. The PRD adds requirement-level traceability; the PDR/TRD specify design and technical decisions.
+The consolidated [team product brief](requirements/product-requirements.md) complements the PRD: it summarizes module acceptance and shares the same PDF authority; its earlier stack and four-owner boundaries need reconciliation with the latest role brief. The PRD adds requirement-level traceability; the PDR/TRD specify design and technical decisions.
 
 These document the planned product. They do not turn the current scaffold into a completed application.
 
@@ -17,7 +24,7 @@ These document the planned product. They do not turn the current scaffold into a
 1. [Solar PDF](requirements/solar-problem-statement.pdf): authoritative functional brief.
 2. [Supplied organizer-video document](requirements/organizer-video-deliverables.md): user-required local DB/custom API/no-BaaS constraints. It is a 2025 video extraction, not independently verified current event rules.
 3. [Product requirements](requirements/product-requirements.md): consolidated team brief, MVP boundaries and module acceptance criteria; does not override the supplied problem statement.
-4. [Roles](team/roles.md): **one frontend developer and three backend developers**, the latest owner decision.
+4. [Latest role division](team/role-division-brief.md): **one frontend developer and three component-based backend developers**. The [earlier detailed role plan](team/roles.md) has stale component assignments.
 5. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [API contracts](architecture/api-contracts.md).
 6. [Execution plan](planning/execution-plan.md), [testing](planning/testing.md), [submission and demo](planning/submission-and-demo.md).
 
