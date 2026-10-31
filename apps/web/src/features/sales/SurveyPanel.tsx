@@ -5,7 +5,7 @@ import {
 import { DetailPattern } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { CommandButton, CommandDrawer } from './CommandDrawer';
-import { describeProblem, formatWhen, humanize, localToIso, useAssignedSurveys, useEnquirySurveys, useStaff } from './queries';
+import { describeProblem, formatWhen, humanize, isoToLocal, localToIso, useAssignedSurveys, useEnquirySurveys, useStaff } from './queries';
 
 const OPEN_SURVEY = ['SCHEDULED', 'SUBMITTED'];
 
@@ -57,19 +57,27 @@ function SurveyFacts({ survey }: { survey: Survey }) {
 
 function SchedulingDrawer({ enquiryId, survey, label }: { enquiryId: string; survey?: Survey; label: string }) {
   const technicians = useStaff('TECHNICIAN');
+  // The picker must show the current technician before the form opens, or a reschedule would lose it.
+  if (!technicians.isSuccess) {
+    return <button type="button" disabled title={technicians.isError ? describeProblem(technicians.error).message : undefined}>
+      {technicians.isError ? `${label} (technician list unavailable)` : label}
+    </button>;
+  }
   return <CommandDrawer label={label} title={survey ? 'Reschedule the survey' : 'Schedule a site survey'} submitLabel={survey ? 'Reschedule' : 'Schedule'}
     enquiryId={enquiryId} path={survey ? `/surveys/${survey.id}/reschedule` : `/enquiries/${enquiryId}/surveys`}
     schema={survey ? rescheduleSurveySchema : scheduleSurveySchema} responseSchema={surveyResponseSchema}
     build={(form) => ({ ...(survey && { version: survey.version }), technicianId: form.get('technicianId'), scheduledFor: localToIso(form.get('scheduledFor')) })}>
     {(fields) => <>
-      <Field label="Technician" error={fields.technicianId?.[0] ?? (technicians.error ? describeProblem(technicians.error).message : undefined)}>
+      <Field label="Technician" error={fields.technicianId?.[0]}>
         {(control) => <select {...control} name="technicianId" required defaultValue={survey?.technician.id ?? ''}>
-          <option value="">{technicians.isPending ? 'Loading technicians…' : 'Choose a technician'}</option>
-          {technicians.data?.data.items.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
+          <option value="">Choose a technician</option>
+          {survey && !technicians.data.data.items.some((person) => person.id === survey.technician.id) &&
+            <option value={survey.technician.id}>{survey.technician.displayName} (no longer active)</option>}
+          {technicians.data.data.items.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
         </select>}
       </Field>
       <Field label="Date and time" error={fields.scheduledFor?.[0]}>
-        {(control) => <input {...control} name="scheduledFor" type="datetime-local" required />}
+        {(control) => <input {...control} name="scheduledFor" type="datetime-local" required defaultValue={isoToLocal(survey?.scheduledFor ?? null)} />}
       </Field>
     </>}
   </CommandDrawer>;

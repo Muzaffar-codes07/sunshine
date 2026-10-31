@@ -7,7 +7,7 @@ import { Field } from '../../components/ui/Field';
 import { CommandButton, CommandDrawer } from './CommandDrawer';
 import { SummaryPanel } from './SummaryPanel';
 import { SurveyPanel } from './SurveyPanel';
-import { describeProblem, formatWhen, humanize, localToIso, useEnquiry, useStaff } from './queries';
+import { describeProblem, formatWhen, humanize, isoToLocal, localToIso, useEnquiry, useStaff } from './queries';
 
 const OPEN = ['NEW', 'CONTACTED', 'QUALIFIED'];
 const yesNo = (value: boolean | null) => (value === null ? '—' : value ? 'Yes' : 'No');
@@ -90,7 +90,14 @@ function QualifyDrawer({ enquiry }: { enquiry: EnquiryDetail }) {
 
 function AssignDrawer({ enquiry }: { enquiry: EnquiryDetail }) {
   const staff = useStaff();
-  const owners = staff.data?.data.items.filter((person) => person.role === 'SALES' || person.role === 'ADMIN') ?? [];
+  // Without the staff list the current owner can't be shown, and saving would silently unassign it.
+  if (!staff.isSuccess) {
+    return <button type="button" disabled title={staff.isError ? describeProblem(staff.error).message : undefined}>
+      {staff.isError ? 'Assign (staff list unavailable)' : 'Assign'}
+    </button>;
+  }
+  const owners = staff.data.data.items.filter((person) => person.role === 'SALES' || person.role === 'ADMIN');
+  const currentMissing = enquiry.ownerId && !owners.some((person) => person.id === enquiry.ownerId);
   return <CommandDrawer label="Assign" title="Owner and follow-up" submitLabel="Save" enquiryId={enquiry.id}
     path={`/enquiries/${enquiry.id}/assign`} schema={assignEnquirySchema} responseSchema={enquiryDetailResponseSchema}
     build={(form) => ({ version: enquiry.version, ownerId: form.get('ownerId') || null, nextFollowUpAt: localToIso(form.get('nextFollowUpAt')) || null })}>
@@ -98,11 +105,12 @@ function AssignDrawer({ enquiry }: { enquiry: EnquiryDetail }) {
       <Field label="Owner" error={fields.ownerId?.[0]}>
         {(control) => <select {...control} name="ownerId" defaultValue={enquiry.ownerId ?? ''}>
           <option value="">Unassigned</option>
+          {currentMissing && <option value={enquiry.ownerId!}>Current owner (no longer active)</option>}
           {owners.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
         </select>}
       </Field>
-      <Field label="Next follow-up (optional)" error={fields.nextFollowUpAt?.[0]}>
-        {(control) => <input {...control} name="nextFollowUpAt" type="datetime-local" />}
+      <Field label="Next follow-up" hint="Leave blank to clear the follow-up." error={fields.nextFollowUpAt?.[0]}>
+        {(control) => <input {...control} name="nextFollowUpAt" type="datetime-local" defaultValue={isoToLocal(enquiry.nextFollowUpAt)} />}
       </Field>
     </>}
   </CommandDrawer>;

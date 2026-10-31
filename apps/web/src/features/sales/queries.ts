@@ -73,5 +73,11 @@ export function validate<T>(schema: ZodType<T>, input: unknown): { data: T } | {
 
 /** `<input type="datetime-local">` value as an ISO instant, or '' when empty. */
 export const localToIso = (value: FormDataEntryValue | null) => (typeof value === 'string' && value ? new Date(value).toISOString() : '');
+/** An ISO instant as a local `<input type="datetime-local">` value, so a saved time can prefill a form. */
+export function isoToLocal(iso: string | null) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
 export const formatWhen = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 export const humanize = (value: string) => value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, ' ');
