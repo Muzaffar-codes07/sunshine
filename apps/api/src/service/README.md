@@ -85,7 +85,7 @@ Line and batch amounts must fit numeric(14,2); overflow aborts with 409.
 Covered work has zero customer prices and no invoice call. Uncovered work calls
 the exported finance port `ServiceInvoiceWriter.ensureServiceInvoice(tx, input)`
 with `TICKET:<ticketId>:REPAIR`, customer/job and selling-price lines (distinct
-from internal costs). D2 must implement it through the official invoice helper,
+from internal costs). D2 implements it through the official invoice helper (see the [repair invoice handoff](../../../../docs/architecture/repair-invoice-handoff.md)),
 posting once, rejecting changed facts and calculating tax separately. Billing's
 `customerCharge` is the pre-tax invoice subtotal; payment/outstanding calculations
 belong to finance. Even an uncovered zero-subtotal batch calls the invoice port.
