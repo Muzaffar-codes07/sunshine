@@ -424,3 +424,22 @@ test('only warehouse and admin staff reach inventory routes', async () => {
   const crossSite = await fetch(base + '/stock/receipts', { method: 'POST', headers: { 'content-type': 'application/json', cookie: cookies.WAREHOUSE, origin: 'https://evil.example' }, body: JSON.stringify(receipt([bulkLine('1', '10.00')])) });
   assert.equal(crossSite.status, 403);
 });
+
+test('unit UUID lookup retains raw serial, receipt lineage and location and protects access', async () => {
+  const raw = ` ${serial().toLowerCase()} `;
+  const response = await post(receipt([serializedLine([raw])]));
+  assert.equal(response.status, 201);
+  const received = (await response.json()).data;
+  const id = received.lines[0].unitIds[0];
+  for (const role of ['WAREHOUSE', 'ADMIN']) {
+    const reloaded = await get(`/units/${id}`, role);
+    assert.equal(reloaded.status, 200);
+    const { data } = await reloaded.json();
+    assert.equal(data.id, id); assert.equal(data.serial, raw); assert.equal(data.normalizedSerial, raw.trim().toUpperCase());
+    assert.equal(data.receiptId, received.id); assert.equal(data.locationId, main.id); assert.equal(data.activeAssignment, null);
+  }
+  await expectError(await get(`/units/${id}`, 'SALES'), 403, 'FORBIDDEN');
+  await expectError(await get(`/units/${id}`, null), 401, 'UNAUTHENTICATED');
+  await expectError(await get(`/units/${randomUUID()}`), 404, 'NOT_FOUND');
+  await expectError(await get('/units/not-a-uuid'), 400, 'INVALID_INPUT');
+});

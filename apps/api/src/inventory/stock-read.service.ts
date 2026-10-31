@@ -1,12 +1,38 @@
-import { Injectable } from '@nestjs/common';
-import { normalizeEquipmentSerial, stockLevelListResponseSchema, stockLocationListResponseSchema, unitLookupResponseSchema,
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { normalizeEquipmentSerial, stockLevelListResponseSchema, stockLocationListResponseSchema, unitDetailResponseSchema, unitLookupResponseSchema,
   type StockLevelListQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { PrismaService } from '../platform/prisma.service';
+import { ApiError } from '../platform/api-error';
 import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class StockReadService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Identity, physical location and customer assignment must describe one database snapshot. */
+  async getUnit(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const unit = await tx.unit.findUnique({ where: { id }, include: {
+        manufacturer: { select: { name: true } }, receiptLine: { select: { documentId: true } },
+        allocations: { where: { status: { not: 'RELEASED' } }, take: 1, select: {
+          id: true, status: true, jobId: true, job: { select: { order: { select: { id: true, customerId: true } } } },
+        } },
+      } });
+      if (!unit) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Equipment unit not found');
+      const locations = await tx.$queryRaw<{ locationId: string | null }[]>`
+        SELECT "locationId" FROM "unit_locations" WHERE "unitId" = ${id}::uuid`;
+      const assignment = unit.allocations[0];
+      return unitDetailResponseSchema.parse({ data: {
+        id: unit.id, productId: unit.productId, manufacturerId: unit.manufacturerId, manufacturer: unit.manufacturer.name,
+        serial: unit.rawSerial, normalizedSerial: unit.normalizedSerial, status: unit.status,
+        locationId: locations[0]?.locationId ?? null, receiptId: unit.receiptLine.documentId,
+        activeAssignment: assignment ? {
+          allocationId: assignment.id, status: assignment.status, jobId: assignment.jobId,
+          orderId: assignment.job.order.id, customerId: assignment.job.order.customerId,
+        } : null,
+      } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
 
   async listLocations() {
     const rows = await this.prisma.stockLocation.findMany({ where: { active: true }, orderBy: { code: 'asc' }, select: { id: true, code: true, name: true, kind: true } });

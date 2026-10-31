@@ -15,6 +15,7 @@ The rules are in the [data model](../../../../docs/architecture/data-model.md#st
 - Free stock is usable on-hand minus RESERVED allocations, and `GET /stock` shows both. A bulk transfer can't leave a location below what's reserved there. A reserved unit can't be transferred at all.
 - One warehouse (ADR-06): allocation refuses if there isn't exactly one active usable location.
 - `GET /api/v1/stock`, `/stock/locations` and `/units?serial=` are the other reads. All routes need WAREHOUSE or ADMIN.
+- `GET /api/v1/units/:id` traces a stable unit UUID to its receipt and current allocation/job/order/customer IDs. Identity, ledger-derived location and assignment are read in one REPEATABLE READ snapshot. Active assignments include RESERVED, DISPATCHED, DELIVERED and INSTALLED; RELEASED history is retained but excluded from the current assignment. This read does not implement dispatch or installation commands.
 - The database enforces the ledger: a movement must match a validated (DONE) document line, a DONE or CANCELED document and its lines can't change, a line change and validation wait for each other, and a unit's identity and cost are fixed. Only unit status and version can change.
 - A retry must resend the original body: `2` and `2.000` count as different requests.
 - Receipts need an `Idempotency-Key`. Their reference and payload hash are the permanent guard, so a new key can't receive the same delivery twice.

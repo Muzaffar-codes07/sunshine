@@ -307,3 +307,41 @@ test('the database holds one active allocation per unit and matches each one to 
   await sql.query(`UPDATE allocations SET status = 'RELEASED' WHERE id = $1`, [serial.id]);
   await assert.rejects(sql.query(`UPDATE allocations SET status = 'RESERVED' WHERE id = $1`, [serial.id]), /identity cannot change/);
 });
+
+test('unit traceability retains its customer and exclusive assignment through installed state', async () => {
+  const [owner, other] = [await confirmedOrder(), await confirmedOrder()];
+  const received = await stock(owner, 2);
+  const products = await productsOf(owner);
+  const chosen = products.filter((p) => p.trackingMode === 'SERIALIZED').flatMap((p) => {
+    const needed = owner.packing.filter((line) => line.productId === p.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+    return received[p.id].slice(0, needed);
+  });
+  const allocations = await ok(allocate(owner, { unitIds: chosen }));
+  const heldUnit = allocations.find((row) => row.unitId);
+  const receiptLine = await prisma.unit.findUniqueOrThrow({ where: { id: heldUnit.unitId }, include: { receiptLine: true } });
+  const otherLine = other.packing.find((line) => line.productId === heldUnit.productId);
+  // These direct state fixtures test identity/index coverage, not execution of the future dispatch/delivery commands.
+  for (const status of ['RESERVED', 'DISPATCHED', 'DELIVERED', 'INSTALLED']) {
+    await prisma.$transaction(async (tx) => {
+      await tx.allocation.update({ where: { id: heldUnit.id }, data: { status } });
+      await tx.unit.update({ where: { id: heldUnit.unitId }, data: { status } });
+    });
+    const trace = await ok(get(`/units/${heldUnit.unitId}`), 200);
+    assert.equal(trace.receiptId, receiptLine.receiptLine.documentId);
+    assert.equal(trace.id, heldUnit.unitId); assert.equal(trace.status, status);
+    assert.deepEqual(trace.activeAssignment, {
+      allocationId: heldUnit.id, status, jobId: owner.jobId, orderId: owner.id, customerId: owner.customerId,
+    });
+    await refused(allocate(other, { unitIds: chosen }), 409, 'NOT_ALLOCATABLE');
+    assert.equal((await held(other)).length, 0);
+    await assert.rejects(sql.query(`INSERT INTO allocations
+      (id,"jobId","quoteLineId","productId","unitId","locationId",quantity,"actorId","updatedAt")
+      VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,1,$6,now())`,
+    [other.jobId, otherLine.quoteLineId, heldUnit.productId, heldUnit.unitId, main.id, staff.WAREHOUSE.id]), /allocations_one_active_unit/);
+    await assert.rejects(sql.query('UPDATE allocations SET "jobId"=$1,"quoteLineId"=$2 WHERE id=$3',
+      [other.jobId, otherLine.quoteLineId, heldUnit.id]), /identity cannot change/);
+  }
+  await sql.query(`UPDATE allocations SET status='RELEASED' WHERE id=$1`, [heldUnit.id]);
+  assert.equal((await ok(get(`/units/${heldUnit.unitId}`), 200)).activeAssignment, null);
+  assert.equal(await prisma.allocation.count({ where: { id: heldUnit.id } }), 1, 'released assignment history remains');
+});
