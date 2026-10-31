@@ -31,6 +31,8 @@ Stated foreign-key exceptions (keep the reason next to the relation in `schema.p
 
 The D3 release-audit follow-up uses `20261031250000_allocation_release`, after job scheduling (`240000`). It adds audit fields and a guarded release transition to the existing Allocation model; it does not add placeholder ticket relations.
 
+`20261031260000_d4` remains reserved for D4’s coordinated migration; it is not included in this branch. `20261031270000_dispatch_scans` follows release audit and adds the actual Dispatch draft and DispatchScan evidence models. Posting status, issue/cost linkage and delivery are not implemented by this migration. New scans reference real allocations, retain immutable source identity and require their order's reserved unit.
+
 One shared `prisma/schema.prisma`, with each owner's models kept in their own section. Migrations land in foreign-key order, so a later table can reference an earlier one. Two items with no link between them can swap.
 
 | # | Migration | Owner | Status |

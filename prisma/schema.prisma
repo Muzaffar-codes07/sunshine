@@ -36,6 +36,8 @@ model User {
   stockMovements StockMovement[]
   allocations Allocation[]
   allocationsReleased Allocation[] @relation("AllocationReleaseActor")
+  dispatchesCreated Dispatch[]
+  dispatchScans DispatchScan[]
   jobAssignments JobAssignment[] @relation("JobAssignmentTechnician")
   jobAssignmentsMade JobAssignment[] @relation("JobAssignmentMadeBy")
   commands       Command[]
@@ -782,6 +784,7 @@ model Order {
   ownJob      Job?     @relation("JobOrder")
   packing     PackingRequirement[]
   invoices    Invoice[]
+  dispatch    Dispatch?
 
   @@unique([id, jobId])
   @@index([customerId])
@@ -972,6 +975,7 @@ model Allocation {
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
   releasedBy User? @relation("AllocationReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
+  scans DispatchScan[]
   @@index([jobId, status])
   @@index([productId, locationId, status])
   @@index([quoteLineId])
@@ -980,6 +984,43 @@ model Allocation {
   @@index([actorId])
   @@index([releasedById])
   @@map("allocations")
+}
+
+// I06 draft/scans only. Posting status and stock/cost linkage are added with the actual dispatch writer.
+model Dispatch {
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @unique @db.Uuid
+  createdById String @db.Uuid
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  scans DispatchScan[]
+  @@index([createdById])
+  @@map("dispatches")
+}
+enum ScanMethod {
+  CAMERA
+  SCANNER
+  TYPED
+}
+model DispatchScan {
+  id String @id @default(uuid()) @db.Uuid
+  dispatchId String @db.Uuid
+  allocationId String @db.Uuid
+  rawValue String @db.VarChar(512)
+  normalizedSerial String @db.VarChar(128)
+  method ScanMethod
+  actorId String @db.Uuid
+  recordedAt DateTime @default(now()) @db.Timestamptz(3)
+  dispatch Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Restrict)
+  allocation Allocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@unique([dispatchId, allocationId, method])
+  @@index([allocationId])
+  @@index([actorId])
+  @@map("dispatch_scans")
 }
 
 // D3: who is on a job. A removed assignment stays as history, so only rows without removedAt are active.
