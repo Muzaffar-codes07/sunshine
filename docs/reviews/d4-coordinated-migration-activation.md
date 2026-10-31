@@ -1,5 +1,30 @@
 # D4 migration activation — verified 1 November 2026 (IST)
 
+## Dispatch integration follow-up
+
+Final code head `304efecbb213012ebc3d017b8930cd65b82a30ae` integrates main
+`502b599` and D3 dispatch scans at migration 270000. The complete queue now has
+**19 migrations**, **165 verified canonical rules**, and an empty Prisma diff.
+The full repository check passes **204 tests** (99 API, 88 contracts, 13 seed,
+4 invariants). Nine D4 database regressions and 26 checker scenarios pass again.
+Both Scaffold checks and GitGuardian pass at this code head.
+
+The complete API database suite passes **206/206** on a freshly created test
+database with all 19 migrations. An initial rerun on the previous populated test
+database failed two fixed catalogue-count assertions and a moving-average fixture
+assertion; these did not reproduce on the clean database. Keep full-suite reruns
+on fresh disposable databases, and run D4 fixtures separately or afterwards.
+
+Fresh final Linux image config:
+`sha256:4c6bcadec11ed7408848f16bb5244ecc5948f23259655a110c3e266b420e3d7d`.
+UID1000, upload write permission, Prisma generation, the 19-migration deployment,
+container HTTP smoke and native healthy/offline smoke all pass.
+
+GitHub currently reports DIRTY/CONFLICTING despite its own compare API showing
+ahead 24 / behind 0 and merge-base `502b599`, matching local ancestry. Re-check
+this server result before eventual merge; no local source conflict is present.
+The earlier activation-head results below retain their exact source provenance.
+
 Code head: `5916cf14e308255ee6364e252246e689ae41e0a5`, including main
 `bd7b97e` and the merged File implementation. The earlier conditional-draft
 [record](d4-coordinated-migration-verification.md) remains historical evidence;
