@@ -25,7 +25,7 @@ export class StockReadService {
       return unitDetailResponseSchema.parse({ data: {
         id: unit.id, productId: unit.productId, manufacturerId: unit.manufacturerId, manufacturer: unit.manufacturer.name,
         serial: unit.rawSerial, normalizedSerial: unit.normalizedSerial, status: unit.status,
-        locationId: locations[0]?.locationId ?? null, receiptId: unit.receiptLine.documentId,
+        locationId: locations[0]?.locationId ?? null, receiptId: unit.receiptLine.documentId, replacesUnitId: unit.replacesUnitId,
         activeAssignment: assignment ? {
           allocationId: assignment.id, status: assignment.status, jobId: assignment.jobId,
           orderId: assignment.job.order.id, customerId: assignment.job.order.customerId,

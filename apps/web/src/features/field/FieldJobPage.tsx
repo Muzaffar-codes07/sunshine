@@ -68,18 +68,23 @@ function CompleteJob({ job }: { job: JobView }) {
   const checks = job.systemType === 'OFF_GRID'
     ? ['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION', 'BATTERY'] : ['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION'];
   const { fields } = command.problem;
-  const now = isoToLocal(new Date().toISOString());
+  // Date fields hold whole minutes. Left as suggested they mean the exact times, or the first default would be refused for
+  // falling just outside the job. Rounded down, a crew member's "from" would come before the job's real start.
+  const [now] = useState(() => isoToLocal(new Date().toISOString()));
+  const started = isoToLocal(job.startedAt);
   function update(next: Evidence) { setEvidence(next); saveEvidence(job.id, next); }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const finishedAt = form.get('finishedAt') === now ? new Date().toISOString() : toIso(form.get('finishedAt'));
     const timeRecords = job.crew.flatMap((member) => {
       const from = form.get(`from:${member.id}`), to = form.get(`to:${member.id}`);
-      return from || to ? [{ technicianId: member.id, startedAt: toIso(from), finishedAt: toIso(to) }] : [];
+      if (!from && !to) return [];
+      return [{ technicianId: member.id, startedAt: from === started ? job.startedAt : toIso(from), finishedAt: to === now ? finishedAt : toIso(to) }];
     });
     const checked = checkInput(completeInstallationRequestSchema, {
-      expectedVersion: job.version, startedAt: job.startedAt, finishedAt: toIso(form.get('finishedAt')), installedCapacityKw: Number(form.get('installedCapacityKw')),
+      expectedVersion: job.version, startedAt: job.startedAt, finishedAt, installedCapacityKw: Number(form.get('installedCapacityKw')),
       photoFileIds: evidence.photos.map((photo) => photo.id), signatureFileId: evidence.signatureId ?? '', signerName: form.get('signerName'),
       completedChecks: form.getAll('check'), timeRecords,
     }, {
@@ -104,7 +109,7 @@ function CompleteJob({ job }: { job: JobView }) {
         </fieldset>
         <fieldset><legend>Crew time</legend>
           {job.crew.map((member) => <div key={member.id}>
-            <Field label={`${member.displayName}: from`}>{(control) => <input {...control} name={`from:${member.id}`} type="datetime-local" defaultValue={isoToLocal(job.startedAt)} />}</Field>
+            <Field label={`${member.displayName}: from`}>{(control) => <input {...control} name={`from:${member.id}`} type="datetime-local" defaultValue={started} />}</Field>
             <Field label={`${member.displayName}: to`}>{(control) => <input {...control} name={`to:${member.id}`} type="datetime-local" defaultValue={now} />}</Field>
           </div>)}
           {fields.timeRecords && <p className="form-error">{fields.timeRecords}</p>}

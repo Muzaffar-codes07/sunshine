@@ -38,8 +38,8 @@ export class InstallationService {
       if (!(await this.invoices.getOrderPaymentFacts(tx, job.orderId)).released) {
         reasons.push(notReady('ORDER_NOT_RELEASED', 'No payment has been recorded for this order.', 'Record the customer payment first.'));
       }
-      if ((await tx.allocation.count({ where: { jobId: id, status: { not: 'RELEASED' } } })) === 0) {
-        reasons.push(notReady('JOB_MATERIAL_NOT_ALLOCATED', 'No equipment is allocated to this job.', 'Allocate the order\'s stock first.'));
+      if ((await tx.dispatch.findUnique({ where: { orderId: job.orderId }, select: { status: true } }))?.status !== 'DELIVERED') {
+        reasons.push(notReady('JOB_MATERIAL_NOT_DELIVERED', 'The equipment hasn\'t been delivered to this job.', 'Dispatch and deliver the order\'s equipment first.'));
       }
       if (startedAt < job.order.confirmedAt) reasons.push(notReady('INSTALLATION_TIME_INVALID', 'Work can\'t start before the order was confirmed.', 'Enter the actual start time.'));
       refuseAll(reasons);
@@ -80,6 +80,10 @@ export class InstallationService {
         status: 'COMPLETED', finishedAt, completedAt: new Date(), completedById: actor.id, installedCapacityKw: input.installedCapacityKw,
         signatureFileId: input.signatureFileId, signerName: input.signerName, completedChecks: input.completedChecks,
       } });
+      // Installation changes status only. The stock left the ledger at dispatch, so nothing is deducted again.
+      const installed = await tx.allocation.findMany({ where: { jobId: id, status: 'DELIVERED' }, select: { unitId: true } });
+      await tx.allocation.updateMany({ where: { jobId: id, status: 'DELIVERED' }, data: { status: 'INSTALLED', version: { increment: 1 } } });
+      await tx.unit.updateMany({ where: { id: { in: installed.flatMap((row) => row.unitId ? [row.unitId] : []) } }, data: { status: 'INSTALLED', version: { increment: 1 } } });
       return this.view(tx, id);
     });
   }

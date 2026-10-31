@@ -10,6 +10,27 @@
   ],
   "required": [
     {
+      "name": "units_lineage_not_self",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"replacesUnitId\" IS NULL) OR (\"replacesUnitId\" <> id)))"
+    },
+    {
+      "name": "units_guard_lineage",
+      "table": "units_guard_lineage",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.units_guard_lineage()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'UPDATE' THEN\n    IF NEW.\"replacesUnitId\" IS NOT DISTINCT FROM OLD.\"replacesUnitId\" THEN RETURN NEW; END IF;\n    IF OLD.\"replacesUnitId\" IS NOT NULL THEN\n      RAISE EXCEPTION 'equipment predecessor history cannot change'\n        USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_immutable';\n    END IF;\n  END IF;\n  IF NEW.\"replacesUnitId\" IS NULL OR NEW.\"replacesUnitId\" = NEW.\"id\" THEN RETURN NEW; END IF;\n  -- Repeatable-read snapshots cannot see an edge committed while waiting on the mutex.\n  -- Mutation callers use the repository's default READ COMMITTED transaction.\n  IF current_setting('transaction_isolation') <> 'read committed' THEN\n    RAISE EXCEPTION 'new equipment predecessor links require a READ COMMITTED transaction'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_isolation';\n  END IF;\n  PERFORM pg_advisory_xact_lock(18461029, 1);\n  IF EXISTS (\n    WITH RECURSIVE ancestors AS (\n      SELECT \"id\", \"replacesUnitId\" FROM \"units\" WHERE \"id\" = NEW.\"replacesUnitId\"\n      UNION\n      SELECT u.\"id\", u.\"replacesUnitId\" FROM \"units\" u JOIN ancestors a ON u.\"id\" = a.\"replacesUnitId\"\n    ) SELECT 1 FROM ancestors WHERE \"id\" = NEW.\"id\" OR \"replacesUnitId\" = NEW.\"id\"\n  ) THEN\n    RAISE EXCEPTION 'equipment predecessor history cannot contain a cycle'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_acyclic';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "units_lineage_guarded",
+      "table": "units",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER units_lineage_guarded BEFORE INSERT OR UPDATE OF \"replacesUnitId\" ON public.units FOR EACH ROW EXECUTE FUNCTION units_guard_lineage()"
+    },
+    {
       "name": "customers_name_not_blank",
       "table": "customers",
       "kind": "check",
@@ -938,7 +959,7 @@
       "table": "dispatches_guard_identity",
       "kind": "function",
       "owner": "D3",
-      "definition": "CREATE OR REPLACE FUNCTION public.dispatches_guard_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR ROW(NEW.\"id\",NEW.\"orderId\",NEW.\"createdById\",NEW.\"createdAt\")\n    IS DISTINCT FROM ROW(OLD.\"id\",OLD.\"orderId\",OLD.\"createdById\",OLD.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1 THEN\n    RAISE EXCEPTION 'dispatch identity is fixed and changes need the next version' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.dispatches_guard_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR ROW(NEW.\"id\",NEW.\"orderId\",NEW.\"createdById\",NEW.\"createdAt\")\n    IS DISTINCT FROM ROW(OLD.\"id\",OLD.\"orderId\",OLD.\"createdById\",OLD.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1 THEN\n    RAISE EXCEPTION 'dispatch identity is fixed and changes need the next version' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"status\" <> OLD.\"status\" AND NOT ((OLD.\"status\" = 'DRAFT' AND NEW.\"status\" = 'DISPATCHED') OR (OLD.\"status\" = 'DISPATCHED' AND NEW.\"status\" = 'DELIVERED')) THEN\n    RAISE EXCEPTION 'a dispatch cannot move from % to %', OLD.\"status\", NEW.\"status\" USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF (OLD.\"status\" <> 'DRAFT' AND ROW(NEW.\"dispatchedAt\",NEW.\"dispatchedById\",NEW.\"issueDocumentId\") IS DISTINCT FROM ROW(OLD.\"dispatchedAt\",OLD.\"dispatchedById\",OLD.\"issueDocumentId\"))\n    OR (OLD.\"status\" = 'DELIVERED' AND ROW(NEW.\"deliveredAt\",NEW.\"deliveredById\") IS DISTINCT FROM ROW(OLD.\"deliveredAt\",OLD.\"deliveredById\")) THEN\n    RAISE EXCEPTION 'dispatch facts are final' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"issueDocumentId\" IS NOT NULL AND OLD.\"issueDocumentId\" IS NULL AND NOT EXISTS (\n    SELECT 1 FROM \"stock_documents\" WHERE \"id\" = NEW.\"issueDocumentId\" AND \"kind\" = 'ISSUE' AND \"status\" = 'DONE'\n  ) THEN\n    RAISE EXCEPTION 'a dispatch needs its issue document posted' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
     },
     {
       "name": "dispatches_identity_frozen",
@@ -967,6 +988,202 @@
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER dispatch_scans_no_truncate BEFORE TRUNCATE ON public.dispatch_scans FOR EACH STATEMENT EXECUTE FUNCTION dispatch_scans_refuse_change()"
+    },
+    {
+      "name": "cost_entries_amount_finite",
+      "table": "cost_entries",
+      "kind": "check",
+      "definition": "CHECK ((amount <> 'NaN'::numeric))",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_no_truncate",
+      "table": "cost_entries",
+      "kind": "trigger",
+      "definition": "CREATE TRIGGER cost_entries_no_truncate BEFORE TRUNCATE ON public.cost_entries FOR EACH STATEMENT EXECUTE FUNCTION cost_entries_refuse_mutation()",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_no_update_delete",
+      "table": "cost_entries",
+      "kind": "trigger",
+      "definition": "CREATE TRIGGER cost_entries_no_update_delete BEFORE DELETE OR UPDATE ON public.cost_entries FOR EACH ROW EXECUTE FUNCTION cost_entries_refuse_mutation()",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_reversal_guard",
+      "table": "cost_entries",
+      "kind": "trigger",
+      "definition": "CREATE TRIGGER cost_entries_reversal_guard BEFORE INSERT ON public.cost_entries FOR EACH ROW EXECUTE FUNCTION cost_entries_check_reversal()",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_reversal_shape",
+      "table": "cost_entries",
+      "kind": "check",
+      "definition": "CHECK ((((\"reversalOfId\" IS NULL) AND (amount >= (0)::numeric) AND (upper(\"uniqueSourceId\") !~~ 'REVERSAL:%'::text)) OR ((\"reversalOfId\" IS NOT NULL) AND (\"reversalOfId\" <> id) AND (amount <= (0)::numeric) AND (\"uniqueSourceId\" = ('REVERSAL:'::text || (\"reversalOfId\")::text)))))",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_text_not_blank",
+      "table": "cost_entries",
+      "kind": "check",
+      "definition": "CHECK (((length(btrim(\"uniqueSourceId\")) > 0) AND (length(btrim(description)) > 0)))",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_check_reversal",
+      "table": "cost_entries_check_reversal",
+      "kind": "function",
+      "definition": "CREATE OR REPLACE FUNCTION public.cost_entries_check_reversal()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  original RECORD;\nBEGIN\n  IF NEW.\"reversalOfId\" IS NULL THEN RETURN NEW; END IF;\n  SELECT * INTO original FROM \"cost_entries\" WHERE \"id\" = NEW.\"reversalOfId\" FOR SHARE;\n  IF NOT FOUND OR original.\"reversalOfId\" IS NOT NULL OR\n    NEW.\"jobId\" <> original.\"jobId\" OR NEW.\"costType\" <> original.\"costType\" OR\n    NEW.\"amount\" <> -original.\"amount\" OR NEW.\"occurredAt\" < original.\"occurredAt\" THEN\n    RAISE EXCEPTION 'a reversal must negate one original cost on its job and type at or after its occurrence'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'cost_entries_valid_reversal';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n",
+      "owner": "D4"
+    },
+    {
+      "name": "cost_entries_refuse_mutation",
+      "table": "cost_entries_refuse_mutation",
+      "kind": "function",
+      "definition": "CREATE OR REPLACE FUNCTION public.cost_entries_refuse_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'posted costs are immutable; append a linked reversal'\n    USING ERRCODE = 'check_violation', CONSTRAINT = 'cost_entries_immutable';\nEND;\n$function$\n",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_assessment_required",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK (((status = 'OPEN'::\"TicketStatus\") OR ((\"assessmentSnapshot\" IS NOT NULL) AND (jsonb_typeof(\"assessmentSnapshot\") = 'object'::text))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_billing_object",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK (((\"billingSnapshot\" IS NULL) OR (jsonb_typeof(\"billingSnapshot\") = 'object'::text)))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_confirmation_complete",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK ((((status <> 'CLOSED'::\"TicketStatus\") AND (\"confirmedBy\" IS NULL) AND (\"confirmationChannel\" IS NULL) AND (\"confirmedAt\" IS NULL) AND (\"closedAt\" IS NULL)) OR ((status = 'CLOSED'::\"TicketStatus\") AND (\"confirmedBy\" IS NOT NULL) AND (length(btrim(\"confirmedBy\")) > 0) AND (\"confirmationChannel\" IS NOT NULL) AND (\"confirmedAt\" IS NOT NULL) AND (\"closedAt\" IS NOT NULL))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_confirmation_ordered",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK (((\"confirmedAt\" IS NULL) OR ((\"resolvedAt\" IS NOT NULL) AND (\"confirmedAt\" >= \"resolvedAt\") AND (\"closedAt\" >= \"confirmedAt\"))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_replacement_complete",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK ((((\"replacedUnitId\" IS NULL) AND (\"newUnitId\" IS NULL) AND (\"replacementSnapshot\" IS NULL)) OR ((\"replacedUnitId\" IS NOT NULL) AND (\"newUnitId\" IS NOT NULL) AND (\"replacementSnapshot\" IS NOT NULL) AND (jsonb_typeof(\"replacementSnapshot\") = 'object'::text) AND (\"replacedUnitId\" = \"unitId\") AND (\"newUnitId\" <> \"replacedUnitId\"))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_resolution_required",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK (((status <> ALL (ARRAY['AWAITING_CUSTOMER_CONFIRMATION'::\"TicketStatus\", 'CLOSED'::\"TicketStatus\"])) OR ((\"resolutionDetails\" IS NOT NULL) AND (length(btrim(\"resolutionDetails\")) > 0) AND (\"resolvedAt\" IS NOT NULL))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_text_not_blank",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK (((length(btrim(\"ticketNumber\")) > 0) AND (length(btrim(\"faultDescription\")) > 0)))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_version_positive",
+      "table": "service_tickets",
+      "kind": "check",
+      "definition": "CHECK ((version >= 1))",
+      "owner": "D4"
+    },
+    {
+      "name": "subsidy_milestones_amount_nonnegative",
+      "table": "subsidy_milestones",
+      "kind": "check",
+      "definition": "CHECK (((amount >= (0)::numeric) AND (amount <> 'NaN'::numeric)))",
+      "owner": "D4"
+    },
+    {
+      "name": "subsidy_milestones_dates_ordered",
+      "table": "subsidy_milestones",
+      "kind": "check",
+      "definition": "CHECK (((\"approvalDate\" IS NULL) OR ((\"submissionDate\" IS NOT NULL) AND (\"approvalDate\" >= \"submissionDate\"))))",
+      "owner": "D4"
+    },
+    {
+      "name": "subsidy_milestones_stage_not_blank",
+      "table": "subsidy_milestones",
+      "kind": "check",
+      "definition": "CHECK ((length(btrim(stage)) > 0))",
+      "owner": "D4"
+    },
+    {
+      "name": "subsidy_milestones_version_positive",
+      "table": "subsidy_milestones",
+      "kind": "check",
+      "definition": "CHECK ((version >= 1))",
+      "owner": "D4"
+    },
+    {
+      "name": "ticket_lines_cost_nonnegative",
+      "table": "ticket_lines",
+      "kind": "check",
+      "definition": "CHECK (((\"unitCost\" >= (0)::numeric) AND (\"unitCost\" <> 'NaN'::numeric) AND (\"totalCost\" >= (0)::numeric) AND (\"totalCost\" <> 'NaN'::numeric)))",
+      "owner": "D4"
+    },
+    {
+      "name": "ticket_lines_description_not_blank",
+      "table": "ticket_lines",
+      "kind": "check",
+      "definition": "CHECK ((length(btrim(description)) > 0))",
+      "owner": "D4"
+    },
+    {
+      "name": "ticket_lines_quantity_positive",
+      "table": "ticket_lines",
+      "kind": "check",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))",
+      "owner": "D4"
+    },
+    {
+      "name": "ticket_lines_total_matches",
+      "table": "ticket_lines",
+      "kind": "check",
+      "definition": "CHECK ((\"totalCost\" = round((quantity * \"unitCost\"), 2)))",
+      "owner": "D4"
+    },
+    {
+      "name": "warranties_dates_ordered",
+      "table": "warranties",
+      "kind": "check",
+      "definition": "CHECK ((\"expiryDate\" > \"startDate\"))",
+      "owner": "D4"
+    },
+    {
+      "name": "warranties_duration_positive",
+      "table": "warranties",
+      "kind": "check",
+      "definition": "CHECK ((\"durationMonths\" > 0))",
+      "owner": "D4"
+    },
+    {
+      "name": "warranties_policy_not_blank",
+      "table": "warranties",
+      "kind": "check",
+      "definition": "CHECK (((length(btrim(\"policyName\")) > 0) AND (length(btrim(\"policyRevision\")) > 0) AND (length(btrim(scope)) > 0)))",
+      "owner": "D4"
+    },
+    {
+      "name": "warranties_version_positive",
+      "table": "warranties",
+      "kind": "check",
+      "definition": "CHECK ((version >= 1))",
+      "owner": "D4"
     },
     {
       "name": "installation_time_records_ordered",
@@ -1100,6 +1317,27 @@
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER jobs_guarded BEFORE UPDATE ON public.jobs FOR EACH ROW EXECUTE FUNCTION jobs_guard()"
+    },
+    {
+      "name": "dispatches_delivered_facts",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status <> 'DELIVERED'::\"DispatchStatus\") OR ((\"deliveredAt\" IS NOT NULL) AND (\"deliveredById\" IS NOT NULL))))"
+    },
+    {
+      "name": "dispatches_delivery_ordered",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"deliveredAt\" IS NULL) OR (\"deliveredAt\" >= \"dispatchedAt\")))"
+    },
+    {
+      "name": "dispatches_dispatched_facts",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status = 'DRAFT'::\"DispatchStatus\") OR ((\"dispatchedAt\" IS NOT NULL) AND (\"dispatchedById\" IS NOT NULL) AND (\"issueDocumentId\" IS NOT NULL))))"
     }
   ]
 }

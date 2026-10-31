@@ -96,6 +96,10 @@ export type CreateDispatchRequest = z.infer<typeof createDispatchRequestSchema>;
 // Scan completeness does not imply dispatch posting or cost integration is available.
 export const dispatchResponseSchema = z.object({ data: dispatchViewSchema.extend({
   scanReadiness: z.object({ reservationValid: z.boolean(), requiredUnitIds: z.array(z.uuid()), missingUnitIds: z.array(z.uuid()), complete: z.boolean() }),
+  // One row per serial unit once delivered. NO_POLICY means the accepted quote froze no warranty terms for that product.
+  coverage: z.array(z.object({
+    unitId: z.uuid(), status: z.enum(['ACTIVE', 'NO_POLICY']), startDate: z.iso.date().nullable(), expiryDate: z.iso.date().nullable(), policyName: z.string().nullable(),
+  })),
 }) });
 export const returnUnitRequestSchema = z.object({
   expectedVersion: version, unitId: z.uuid(), ticketLineId: z.uuid(),
@@ -172,6 +176,7 @@ export const unitLookupResponseSchema = z.object({ data: z.array(unitLocationVie
 // Assignment is derived from Allocation -> Job -> Order, rather than copying customer identity onto a unit.
 export const unitDetailViewSchema = unitLocationViewSchema.extend({
   receiptId: z.uuid(),
+  replacesUnitId: z.uuid().nullable(),
   activeAssignment: z.object({
     allocationId: z.uuid(), status: allocationStatusSchema.exclude(['RELEASED']),
     jobId: z.uuid(), orderId: z.uuid(), customerId: z.uuid(),

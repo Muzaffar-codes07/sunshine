@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
-import { allocationListResponseSchema, dispatchResponseSchema, recordScanRequestSchema, type AllocationView, type OrderFulfilment } from '@sunshine/contracts';
+import { allocationListResponseSchema, deliverDispatchRequestSchema, dispatchResponseSchema, recordScanRequestSchema, type AllocationView, type OrderFulfilment } from '@sunshine/contracts';
 import { DetailPattern, ListPattern, TimelinePattern } from '../../components/shared/patterns';
 import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
-import { describeProblem, formatWhen, humanize } from '../sales/queries';
+import { describeProblem, formatWhen, humanize, localToIso } from '../sales/queries';
 import { checkInput, useAllocations, useDispatch, useFulfilment, useJob, useStockCommand, useUnit } from './queries';
 
 type Dispatch = z.infer<typeof dispatchResponseSchema>['data'];
@@ -27,6 +27,55 @@ function Reserved({ order, allocations, dispatch }: { order: OrderFulfilment; al
       serial: <Serial unitId={row.unitId} />, quantity: row.quantity,
       scan: !row.unitId ? 'Not needed' : !dispatch ? 'Waiting for dispatch' : scanned.has(row.unitId) ? 'Scanned' : 'Needs scan',
     } }))} />;
+}
+
+function PostDispatch({ dispatch }: { dispatch: Dispatch }) {
+  const command = useStockCommand(dispatchResponseSchema);
+  return <>
+    <p>Every required unit is scanned. Posting takes the goods out of stock and records their cost.</p>
+    <button type="button" disabled={command.busy || command.uncertain} onClick={() => command.run(`/dispatches/${dispatch.id}/dispatch`, { expectedVersion: dispatch.version })}>{command.busy ? 'Posting…' : 'Post dispatch'}</button>
+    <CommandFeedback problem={command.problem} uncertain={command.uncertain} busy={command.busy} onRetry={command.retry} />
+  </>;
+}
+
+const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+
+function Deliver({ dispatch }: { dispatch: Dispatch }) {
+  const command = useStockCommand(dispatchResponseSchema);
+  const [suggested] = useState(nowLocal);
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const entered = new FormData(event.currentTarget).get('deliveredAt');
+    // The field only holds whole minutes, which could fall before a dispatch posted moments ago. Left as suggested, it means now.
+    let deliveredAt = new Date().toISOString();
+    if (entered !== suggested) { try { deliveredAt = localToIso(entered); } catch { deliveredAt = ''; } }
+    const checked = checkInput(deliverDispatchRequestSchema, { expectedVersion: dispatch.version, deliveredAt }, { deliveredAt: 'Enter a valid date and time.' });
+    if ('problem' in checked) { command.setProblem(checked.problem); return; }
+    command.run(`/dispatches/${dispatch.id}/deliver`, checked.data);
+  }
+  return <section className="pattern-card"><h2>Delivery</h2>
+    <p role="status">Left the warehouse on {formatWhen(dispatch.dispatchedAt)}.</p>
+    <form onSubmit={submit} noValidate aria-busy={command.busy}>
+      <fieldset disabled={command.busy || command.uncertain}>
+        <legend>Handed over at the site</legend>
+        <Field label="Delivered at (local time)" hint="This starts each unit's warranty, and can't be changed later." error={command.problem.fields.deliveredAt}>{(control) => <input {...control} name="deliveredAt" type="datetime-local" defaultValue={suggested} required />}</Field>
+        <button type="submit">{command.busy ? 'Recording…' : 'Record delivery'}</button>
+      </fieldset>
+    </form>
+    <CommandFeedback problem={command.problem} uncertain={command.uncertain} busy={command.busy} onRetry={command.retry} />
+  </section>;
+}
+
+function Delivered({ dispatch }: { dispatch: Dispatch }) {
+  return <section className="pattern-card"><h2>Delivered</h2>
+    <p role="status">Delivered on {formatWhen(dispatch.deliveredAt)}.</p>
+    <ListPattern title="Warranty cover" empty="No serial units on this order."
+      columns={[{ id: 'serial', label: 'Serial' }, { id: 'cover', label: 'Cover' }, { id: 'from', label: 'From' }, { id: 'to', label: 'Until' }]}
+      rows={dispatch.coverage.map((row) => ({ id: row.unitId, cells: {
+        serial: <Serial unitId={row.unitId} />, cover: row.status === 'ACTIVE' ? row.policyName : 'No warranty terms on the quote',
+        from: row.startDate ?? 'Not started', to: row.expiryDate ?? 'Not started',
+      } }))} />
+  </section>;
 }
 
 function ScanForm({ dispatch }: { dispatch: Dispatch }) {
@@ -56,7 +105,7 @@ function ScanForm({ dispatch }: { dispatch: Dispatch }) {
     <p role="status">{done} of {required} required units scanned.</p>
     {!dispatch.scanReadiness.reservationValid && <p role="alert">The reservation has changed. Check the stock before scanning.</p>}
     {dispatch.scanReadiness.complete
-      ? <p>Every required unit is scanned. Posting the dispatch isn't available yet, so this order stays in draft.</p>
+      ? <PostDispatch dispatch={dispatch} />
       : <form onSubmit={submit} noValidate aria-busy={command.busy}>
         <fieldset disabled={command.busy || command.uncertain}>
           <legend>Next unit</legend>
@@ -89,6 +138,8 @@ function Actions({ order, version, hasAllocations, dispatch }: { order: OrderFul
       <CommandFeedback problem={prepare.problem} uncertain={prepare.uncertain} busy={prepare.busy} onRetry={prepare.retry} />
     </section>;
   }
+  if (dispatch.status === 'DELIVERED') return <Delivered dispatch={dispatch} />;
+  if (dispatch.status === 'DISPATCHED') return <Deliver dispatch={dispatch} />;
   return <ScanForm key={dispatch.id} dispatch={dispatch} />;
 }
 

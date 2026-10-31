@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { allocateOrderRequestSchema, createDispatchRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, recordScanRequestSchema, releaseOrderAllocationsRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
-  type AllocateOrderRequest, type CreateDispatchRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type RecordScanRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
+import { allocateOrderRequestSchema, deliverDispatchRequestSchema, dispatchRequestSchema, createDispatchRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, recordScanRequestSchema, releaseOrderAllocationsRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
+  type AllocateOrderRequest, type DeliverDispatchRequest, type DispatchRequest, type CreateDispatchRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type RecordScanRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,6 +8,7 @@ import type { AuthenticatedStaffRequest } from '../auth/auth.types';
 import { IdempotencyKey } from '../platform/idempotency';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { AllocationsService } from './allocations.service';
+import { DispatchPostingService } from './dispatch-posting.service';
 import { DispatchScansService } from './dispatch-scans.service';
 import { StockDocumentsService } from './stock-documents.service';
 import { StockIntegrityService } from './stock-integrity.service';
@@ -18,7 +19,7 @@ import { StockReceiptsService } from './stock-receipts.service';
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('WAREHOUSE', 'ADMIN')
 export class InventoryController {
-  constructor(private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService, private readonly dispatchScans: DispatchScansService, private readonly integrity: StockIntegrityService) {}
+  constructor(private readonly posting: DispatchPostingService, private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService, private readonly dispatchScans: DispatchScansService, private readonly integrity: StockIntegrityService) {}
   @Post('orders/:id/dispatches')
   createDispatch(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(createDispatchRequestSchema)) body: CreateDispatchRequest) { return this.dispatchScans.create(request.user.id, key, id, body); }
@@ -29,6 +30,14 @@ export class InventoryController {
   @Post('dispatches/:id/scans')
   scan(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(recordScanRequestSchema)) body: RecordScanRequest) { return this.dispatchScans.record(request.user.id, key, id, body); }
+  @Post('dispatches/:id/dispatch')
+  @HttpCode(200)
+  postDispatch(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(dispatchRequestSchema)) body: DispatchRequest) { return this.posting.dispatch(request.user.id, key, id, body); }
+  @Post('dispatches/:id/deliver')
+  @HttpCode(200)
+  deliver(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(deliverDispatchRequestSchema)) body: DeliverDispatchRequest) { return this.posting.deliver(request.user.id, key, id, body); }
   @Post('stock/receipts')
   receive(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Body(new ZodValidationPipe(receiveStockRequestSchema)) body: ReceiveStockRequest) {
     return this.receipts.receive(request.user.id, key, body);
