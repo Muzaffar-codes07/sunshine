@@ -1,21 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Route, Routes } from 'react-router-dom';
 import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
 import { apiGet } from '../lib/api';
-import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
 export function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      {import.meta.env.DEV && <Route path="/spike" element={<CapabilitySpikePage />} />}
-    </Routes>
-  );
-}
-
-function Home() {
   const health = useQuery({ queryKey: ['health'], queryFn: ({ signal }) => apiGet('/health', healthResponseSchema, signal) });
   const database = useQuery({ queryKey: ['readiness'], queryFn: ({ signal }) => apiGet('/health/ready', readinessResponseSchema, signal) });
   return (
