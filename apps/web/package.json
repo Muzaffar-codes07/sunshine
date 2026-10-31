@@ -7,7 +7,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p test/tsconfig.json && node --experimental-strip-types --test test/*.test.mjs"
+    "test": "tsc -p test/tsconfig.json && node --experimental-strip-types --test test/*.unit.test.mjs",
+    "test:db": "node --test --test-concurrency=1 test/*.db.test.mjs"
   },
   "dependencies": {
     "@sunshine/contracts": "*",
