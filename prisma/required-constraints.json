@@ -32,7 +32,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR (\"monthlyBillInr\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR ((\"monthlyBillInr\" >= (0)::numeric) AND (\"monthlyBillInr\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_capacity_range",
@@ -53,7 +53,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR (\"shadowFreeRoofAreaSqm\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR ((\"shadowFreeRoofAreaSqm\" >= (0)::numeric) AND (\"shadowFreeRoofAreaSqm\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_site_pincode_format",
