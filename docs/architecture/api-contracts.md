@@ -1,6 +1,12 @@
 # API contracts and module handoffs
 
-Health/readiness, public enquiries, staff authentication, the staff enquiry queue, and catalogue/package reads are implemented. Other routes below remain planned and need shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
+Health/readiness, public enquiries, staff authentication, the staff enquiry queue,
+and catalogue/package reads are implemented. Warranty assessment and
+`GET /api/v1/warranties/lookup` are implemented with injected interfaces;
+production lookup returns 503 until staff authorization, Unit/Job reads and the
+coordinated warranty migration are integrated. Other routes below remain planned
+and need shared schemas and tests before use. The readiness endpoint checks DB
+connectivity, not completion of migrations or business workflows.
 
 ## Response convention
 
@@ -50,12 +56,14 @@ Valid email/phone/address; finite nonnegative measurements and bill values; capa
 
 The D4 schemas and inferred TypeScript types are exported by `@sunshine/contracts`.
 Schema names use lower camel case (`warrantyPolicySchema`, `subsidyMilestoneSchema`);
-types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). Domain endpoints remain planned.
+types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementation status above before using domain endpoints.
 
 - Money is a decimal string compatible with `numeric(14,2)`: at most 12 integer digits and two fractional digits. Contribution may be negative; negative zero is rejected.
 - Ticket quantities and technician summary hours are decimal strings compatible with `numeric(12,3)`: at most nine integer digits and three fractional digits. Ticket quantities must be positive; summary hours may be zero. Use Decimal arithmetic and serialize before validation; do not coerce through JavaScript numbers.
 - `TicketLine` includes `type` (`PART`/`LABOUR`), `description`, `quantity`, `unitCost`, `totalCost`, and `billableToCustomer`. The service supplies totals and billability from saved coverage; this response/domain shape does not authorize client overrides.
 - `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
+- Task 2.1 extends `WarrantyAssessmentResult` with required `asOfDate`, `policyRevision`, `scope`, `coverageStatus` (`COVERED`, `EXPIRED`, `VOID`, `NOT_STARTED`, `NO_WARRANTY`, `OUT_OF_SCOPE`), and `chargeStatus`. Policy name/revision/scope/start/expiry are null together only for `NO_WARRANTY`. Covered work returns `customerCharge: "0.00"` and `chargeStatus: "FREE"`; all other lookup outcomes return null charge and `PENDING_ASSESSMENT` until Task 3.1 assesses billable parts/labour. This is an intentional Task 1.1 contract revision; do not interpret null as a zero invoice. `isCovered` concerns only the returned saved scope; repair orchestration must evaluate its actual work scope separately.
+- `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization currently returns 503 `WARRANTY_AUTH_UNAVAILABLE`; the default equipment reader also rejects with 503. See the [warranty integration gate](../../apps/api/src/warranty/README.md).
 - Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
 - `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
 - `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.

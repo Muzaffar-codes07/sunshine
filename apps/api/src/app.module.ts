@@ -6,6 +6,7 @@ import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { WarrantyModule } from './warranty/warranty.module';
 import { FinanceModule } from './finance/finance.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { FinanceModule } from './finance/finance.module';
     AuthModule,
     SalesModule,
     CatalogModule,
+    WarrantyModule,
     FinanceModule,
   ],
   controllers: [HealthController],
