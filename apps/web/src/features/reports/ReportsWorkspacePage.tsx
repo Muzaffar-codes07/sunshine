@@ -6,6 +6,7 @@ import { Field } from '../../components/ui/Field';
 import { readOverview, readPay, readProfitability, readSubsidies } from './report-api';
 import { formatMoney, overviewCsvUrl, payCsvUrl, profitabilityCsvUrl, subsidyNextAction } from './report-model';
 import { describeD4Error as errorMessage } from '../service/d4-http';
+import { OperationsReport } from './OperationsReport';
 import { CsvDownload } from './CsvDownload';
 
 export function ReportsWorkspacePage() {
@@ -58,7 +59,8 @@ export function ReportsWorkspacePage() {
 
   return <section aria-labelledby="reports-workspace-title">
     <h1 id="reports-workspace-title">Reports</h1>
-    <p>Posted invoices, cash, costs and technician pay. Periods use Asia/Kolkata calendar boundaries.</p>
+    <p>Posted invoices, cash and costs. Periods use Asia/Kolkata calendar boundaries. Labour costing and pay remain unavailable until approved rates are configured; job contribution stays provisional when costs are incomplete.</p>
+    <OperationsReport />
 
     <Field label="Report period" hint="Today, week and month use IST calendar boundaries.">
       {(control) => <select {...control} value={period} onChange={(event) => {

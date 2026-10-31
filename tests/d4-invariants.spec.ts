@@ -173,7 +173,7 @@ test('duplicate cost source retains one posting and covered work reduces job con
   const reports = new ReportingService({ async readJob() {
     return { jobId: f.jobId, isCompleted: true, unfinishedSteps: [], invoices: [{ amount: '55000.00' }], payments: [{ amount: '55000.00' }],
       costs: f.costs.map(c => ({ costType: c.costType, amount: c.amount.toFixed(2) })) };
-  }, async readPeriod() { throw new Error('Unexpected period read'); }, async readSubsidies() { return []; }, async readTimeEntries() { return []; } });
+  }, async readOperations() { throw new Error('Unexpected operations read'); }, async readPeriod() { throw new Error('Unexpected period read'); }, async readSubsidies() { return []; }, async readTimeEntries() { return []; } });
   const report = await reports.getJobProfitability(f.jobId);
   assert.equal(report.actualCost, '57000.00'); assert.equal(report.contribution, '-2000.00');
   assert.equal(report.outstanding, '0.00'); assert.equal(report.invoicedRevenue, '55000.00');

@@ -270,7 +270,7 @@ test('production reports are registered and reject forged admin headers without 
     await app.listen(0, '127.0.0.1');
     for (const path of [`profitability?jobId=${jobId}`, 'overview?period=month', 'subsidies', 'pay-summary', 'export.csv?report=pay', 'export-csv?report=overview']) {
       const response = await fetch(`${await app.getUrl()}/api/v1/reports/${path}`, { headers: { 'x-role': 'ADMIN' } });
-      assert.equal(response.status, 503); assert.equal((await response.json()).error.code, 'REPORTING_AUTH_UNAVAILABLE');
+      assert.equal(response.status, 401); assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
     }
   } finally { await app.close(); }
 });

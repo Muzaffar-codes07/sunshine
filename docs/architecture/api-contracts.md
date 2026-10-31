@@ -210,3 +210,7 @@ storage, approval timestamps and frozen rate snapshots exist, the production tim
 reader throws `REPORTING_TIME_SOURCE_UNAVAILABLE` (503) after authorization. The
 default authorization still throws `REPORTING_AUTH_UNAVAILABLE`. Injected unit/HTTP
 tests do not prove real PostgreSQL integration. See the reporting handoff above.
+
+### Reporting runtime follow-up
+
+ADMIN-only `GET /reports/operations?jobsPage=1&ticketsPage=1&pageSize=20` returns `{data:{asOf,jobs:{items,total,page,pageSize},tickets:{items,total,page,pageSize}}}`. Lists contain current unfinished jobs/open tickets, with separate page controls (1–10000), page size 1–50 and deterministic ordering. This portfolio queue is independent of financial period filters. Financial overview/profitability/CSV now consume persisted sources; payroll remains unavailable until approved frozen rates are configured. Completed jobs with incomplete labour/service costing remain explicitly provisional.

@@ -1,5 +1,5 @@
 import { CanActivate, Controller, ExecutionContext, Get, Header, Injectable, Query, StreamableFile, UseGuards } from '@nestjs/common';
-import { emptyReportQuerySchema, overviewQuerySchema, profitabilityQuerySchema, reportExportQuerySchema } from '@sunshine/contracts';
+import { operationsQuerySchema, emptyReportQuerySchema, overviewQuerySchema, profitabilityQuerySchema, reportExportQuerySchema } from '@sunshine/contracts';
 import { Readable } from 'node:stream';
 import type { z } from 'zod';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
@@ -20,6 +20,11 @@ export class ReportingGuard implements CanActivate {
 @UseGuards(ReportingGuard)
 export class ReportingController {
   constructor(private readonly reporting: ReportingService, private readonly csv: CsvExporterService) {}
+  @Get('operations')
+  @Header('Cache-Control', 'no-store')
+  async operations(@Query(new ZodValidationPipe(operationsQuerySchema)) query: z.infer<typeof operationsQuerySchema>) {
+    return { data: await this.reporting.getOperations(query) };
+  }
   @Get('pay-summary')
   @Header('Cache-Control', 'no-store')
   async paySummary(@Query(new ZodValidationPipe(overviewQuerySchema)) query: z.infer<typeof overviewQuerySchema>) {
@@ -36,14 +41,17 @@ export class ReportingController {
     });
   }
   @Get('profitability')
+  @Header('Cache-Control', 'no-store')
   async profitability(@Query(new ZodValidationPipe(profitabilityQuerySchema)) query: z.infer<typeof profitabilityQuerySchema>) {
     return { data: await this.reporting.getJobProfitability(query.jobId) };
   }
   @Get('overview')
+  @Header('Cache-Control', 'no-store')
   async overview(@Query(new ZodValidationPipe(overviewQuerySchema)) query: z.infer<typeof overviewQuerySchema>) {
     return { data: await this.reporting.getPeriodSummary(query.period) };
   }
   @Get('subsidies')
+  @Header('Cache-Control', 'no-store')
   async subsidies(@Query(new ZodValidationPipe(emptyReportQuerySchema)) _query: Record<string, never>) {
     return { data: await this.reporting.getSubsidyMilestones() };
   }

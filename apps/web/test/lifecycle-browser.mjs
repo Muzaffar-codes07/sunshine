@@ -222,8 +222,29 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'desktop fits');
   // Real unavailable adapters stay visible as errors, never as fabricated coverage or finance.
   await page.goto('/workspace/reports');
-  await page.getByText(/await.*integration/i).first().waitFor();
-  assert.equal(await page.getByRole('button', { name: /Download/ }).count(), 0);
+  await page.getByRole('heading', { name: /Period summary/ }).waitFor();
+  await page.getByRole('heading', { name: 'Open work across all dates' }).waitFor();
+  const reportResponse = await context.request.get('/api/v1/reports/overview?period=today'); assert.equal(reportResponse.status(),200);
+  const summary = (await reportResponse.json()).data;
+  const cutoff = new Date(summary.asOf), start = new Date(summary.startUtc), end = new Date(summary.endUtc);
+  const rawInvoices = await prisma.invoice.aggregate({where:{postedAt:{gte:start,lt:end,lte:cutoff},createdAt:{lte:cutoff}},_sum:{total:true}});
+  const rawPayments = await prisma.payment.aggregate({where:{receivedAt:{gte:start,lt:end,lte:cutoff},createdAt:{lte:cutoff},invoice:{postedAt:{lte:cutoff},createdAt:{lte:cutoff}}},_sum:{amount:true}});
+  const rawCosts = await prisma.costEntry.aggregate({where:{occurredAt:{gte:start,lt:end,lte:cutoff},postedAt:{lte:cutoff}},_sum:{amount:true}});
+  assert.equal(summary.invoicedRevenue,rawInvoices._sum.total?.toFixed(2) ?? '0.00');
+  assert.equal(summary.cashReceived,rawPayments._sum.amount?.toFixed(2) ?? '0.00');
+  assert.equal(summary.actualCost,rawCosts._sum.amount?.toFixed(2) ?? '0.00');
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', {name:'Download this period as CSV',exact:true}).click();
+  const download = await downloading, stream = await download.createReadStream(); const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const csvRows = Buffer.concat(chunks).toString('utf8').trim().split(/\r?\n/).map(row => row.split(','));
+  const exported = Object.fromEntries(csvRows[0].map((name,i)=>[name.replaceAll('"',''),csvRows[1][i].replaceAll('"','')]));
+  for (const field of ['invoicedRevenue','cashReceived','actualCost']) assert.equal(exported[field],summary[field]);
+  await page.getByRole('textbox',{name:'Job ID',exact:true}).fill(lastTicket.jobId);
+  await page.getByRole('button',{name:'Load job',exact:true}).click();
+  await page.getByText('Provisional — unfinished',{exact:true}).waitFor();
+  await page.getByRole('alert').filter({hasText:/approved time entries and frozen rates/}).waitFor();
+  console.log('PASS persisted report JSON/CSV/source reconciliation',JSON.stringify(summary));
   await page.goto('/workspace/service');
   assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), true);
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill('TEST-UNAVAILABLE');
@@ -234,7 +255,7 @@ try {
   await page.waitForFunction(() => document.activeElement?.id === 'workspace-content');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; D4 unavailable gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; Live reports and CSV reconcile; payroll/warranty gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
 } catch (error) {
   console.error('FAIL', error);
   if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));

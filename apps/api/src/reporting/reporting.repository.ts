@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SubsidyReportMilestone } from '@sunshine/contracts';
+import type { OperationsQuery, SubsidyReportMilestone } from '@sunshine/contracts';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../platform/api-error';
 import { PrismaService } from '../platform/prisma.service';
@@ -7,6 +7,7 @@ import { ReportingSourceReader, type FinancialActivity, type JobFinancialSnapsho
   type ReportCost, type ReportWindow, type ReportTimeEntry } from './reporting-readers';
 
 export abstract class ReportingReader {
+  abstract readOperations(query: OperationsQuery): Promise<unknown>;
   abstract readJob(jobId: string, asOf: Date): Promise<(JobFinancialSnapshot & { costs: ReportCost[] }) | null>;
   abstract readPeriod(window: ReportWindow): Promise<FinancialActivity & { costs: ReportCost[] }>;
   abstract readSubsidies(): Promise<SubsidyReportMilestone[]>;
@@ -16,6 +17,24 @@ export abstract class ReportingReader {
 @Injectable()
 export class PrismaReportingReader extends ReportingReader {
   constructor(private readonly prisma: PrismaService, private readonly source: ReportingSourceReader) { super(); }
+
+  readOperations(query: OperationsQuery) {
+    return this.read(async tx => {
+      const jobsWhere = { status: { in: ['SCHEDULED', 'IN_PROGRESS'] as ('SCHEDULED' | 'IN_PROGRESS')[] } };
+      const ticketsWhere = { status: { in: ['OPEN','ASSESSED','IN_PROGRESS','AWAITING_CUSTOMER_CONFIRMATION'] as ('OPEN' | 'ASSESSED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER_CONFIRMATION')[] } };
+      const [jobs, jobsTotal, tickets, ticketsTotal] = await Promise.all([
+        tx.job.findMany({ where: jobsWhere, orderBy: [{ scheduledStart: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }], skip: (query.jobsPage-1)*query.pageSize, take: query.pageSize,
+          select: { id: true, orderId: true, status: true, scheduledStart: true } }),
+        tx.job.count({ where: jobsWhere }),
+        tx.serviceTicket.findMany({ where: ticketsWhere, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip: (query.ticketsPage-1)*query.pageSize, take: query.pageSize,
+          select: { id: true, ticketNumber: true, jobId: true, status: true } }),
+        tx.serviceTicket.count({ where: ticketsWhere }),
+      ]);
+      return { asOf: new Date().toISOString(),
+        jobs: { total: jobsTotal, page: query.jobsPage, pageSize: query.pageSize, items: jobs.map(row => ({ ...row, scheduledStart: row.scheduledStart?.toISOString() ?? null })) },
+        tickets: { total: ticketsTotal, page: query.ticketsPage, pageSize: query.pageSize, items: tickets } };
+    });
+  }
 
   readJob(jobId: string, asOf: Date) {
     return this.read(async (tx) => {
