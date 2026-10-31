@@ -4,9 +4,10 @@
 
 1. [Solar PDF](requirements/solar-problem-statement.pdf): authoritative functional brief.
 2. [Supplied organizer-video document](requirements/organizer-video-deliverables.md): user-required local DB/custom API/no-BaaS constraints. It is a 2025 video extraction, not independently verified current event rules.
-3. [Roles](team/roles.md): **one frontend developer and three backend developers**, the latest owner decision.
-4. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [API contracts](architecture/api-contracts.md).
-5. [Execution plan](planning/execution-plan.md), [testing](planning/testing.md), [submission and demo](planning/submission-and-demo.md).
+3. [Product requirements](requirements/product-requirements.md): consolidated team brief, MVP boundaries and module acceptance criteria; does not override the supplied problem statement.
+4. [Roles](team/roles.md): **one frontend developer and three backend developers**, the latest owner decision.
+5. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [API contracts](architecture/api-contracts.md).
+6. [Execution plan](planning/execution-plan.md), [testing](planning/testing.md), [submission and demo](planning/submission-and-demo.md).
 
 ## Research
 

@@ -7,6 +7,7 @@ SunPower Solutions' enquiry-to-installation-to-service platform for the Odoo hac
 ## Start here
 
 - [Documentation index](docs/README.md)
+- [Product requirements and acceptance criteria](docs/requirements/product-requirements.md)
 - [Four developer roles — one frontend, three backend](docs/team/roles.md)
 - [Current architecture](docs/architecture/README.md)
 - [Data model and transaction rules](docs/architecture/data-model.md)
