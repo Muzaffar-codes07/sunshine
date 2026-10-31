@@ -48,7 +48,19 @@ Enquiry → Qualification → Survey/Approval → Quote/Frozen BOM → Acceptanc
 | Support and repair | R16–R19 | Correct saved coverage decision, free/charged repair or replacement, customer-confirmed closure |
 | Director and sharing | R20–R25 | Contribution/unfinished work, invoices, subsidy, technician pay, periods/open repairs and CSV |
 
-[The traceability matrix](planning/requirements-traceability.csv) provides one row per requirement, accountable backend owner, frontend owner, tickets, proof and status. All rows are currently PLANNED. No requirement is silently reclassified as optional.
+Accountable owners under the owner-selected [role division](team/role-division-brief.md). D1 builds the UI for every row. The owner columns in [the traceability matrix](planning/requirements-traceability.csv) are superseded by this table until reconciled; its tickets, proof and PLANNED status still apply. No requirement is silently reclassified as optional.
+
+| Rows | Accountable backend owner | Supporting |
+|---|---|---|
+| R1–R8 | D2 | D3 (packing needs from R8) |
+| R9 | D3 (job helper) | D2 calls it at confirmation |
+| R10–R11 | D3 | |
+| R12 | D3 (delivery) | D4 (warranty activation helper) |
+| R13–R15 | D3 | D2 (file transport) |
+| R16–R19 | D4 | D3 (stock, replacement primitives), D2 (chargeable invoice) |
+| R20 | D4 | |
+| R21 | D2 (invoices, receivables) | D4 (report view) |
+| R22–R25 | D4 | D3 (installation time for R23) |
 
 ## 5. P0/P1/P2 boundaries
 
@@ -71,8 +83,10 @@ Coverage needs start/expiry/policy/scope and a saved decision. Supplier claim, i
 - Follow the PDF's fictional package catalogue, including its on-grid controller listing; do not present it as engineering advice.
 - Panels are also serialized to support their specified warranty; delivery and commissioning are separate dates.
 - Customer repair confirmation can be recorded by staff with confirmer/channel/time; never imply the customer authenticated when they did not.
-- [Supplied video instructions](requirements/organizer-video-deliverables.md) require local relational DB/custom APIs/no BaaS and whole-team participation. This 2025 extraction is not independently confirmed current event policy. Exact current event fields and rules remain unverified.
-- One dedicated frontend and three backend owners; relative 24-hour budget; no copied prior source without organizer permission.
+- Event rules come from the event page for 69158, captured 31 Oct (`docs/requirements/hackathon-requirements.md`, added in PR #1); see section 11. Local DB, custom APIs and no BaaS come from the [2025 organizer video](requirements/organizer-video-deliverables.md). The event page lists them as nice-to-have, but the team has adopted them as mandatory (ADR-03).
+- One dedicated frontend owner and three component-based backend owners (owner decision, 31 Oct). No copied prior source without organizer permission.
+- Stack: keep the existing React/Vite + NestJS + Prisma + PostgreSQL scaffold (decision M1, see [TRD](TRD.md) section 1).
+- Feature-report upgrades: only minimal refusal reasons and command readiness guards are in scope. The exception queue, cost variance, second-person installation check and every other enhancement are deferred. They can be reopened only after R1–R25, device and release checks pass, and before 01 Nov 05:00.
 
 See [decision/assumption register](foundations/decisions-and-assumptions.md). Only the owner/organizer can settle external restrictions or team assignments.
 
@@ -105,3 +119,26 @@ Admin represents the director in the staff role enum. Sales edits intake/survey/
 | Serial unknown/wrong | Record needs-review ticket; do not infer coverage. Allocated/installed serial identity cannot be edited casually |
 
 Use English UI, INR with Indian digit grouping and explicit IST date labels. Retain in-memory form/signature input after a failed request and reuse idempotency key; full offline/reload persistence remains P2. Public form states the purpose of contact-data collection. Private photos/signatures/addresses do not appear in public listings, logs or default financial CSV; the demo uses synthetic people and licensed/team-created sample images only.
+
+
+## 11. Event delivery constraints
+
+Source: event page 69158, captured 31 Oct 2026 (`docs/requirements/hackathon-requirements.md`, added in PR #1). Times are assumed IST; the page prints no timezone.
+
+| When | Required |
+|---|---|
+| 31 Oct 11:00 | Evaluator added as GitHub collaborator (missed; a repo admin must fix it now) |
+| As soon as possible | Repository link submitted on the portal |
+| 01 Nov 10:00 | Coding ends |
+| 01 Nov 10:30 | Video links submitted. Length, format and hosting are not stated; ask the helpdesk |
+| 01 Nov 13:00 | Presentation. Duration is not stated; the three-minute pitch is our assumption |
+
+Event MUSTs and how this product proves them:
+
+| Event MUST | Acceptance in this product |
+|---|---|
+| Dynamic data, no static JSON in the final app | Every screen reads persisted PostgreSQL data through our APIs; fixtures exist only in tests |
+| Responsive, clean UI with consistent colours and layout | Six shared page patterns; forms usable at 360px; field flow tested on a real phone |
+| Robust input validation | Shared Zod schemas on client and server; field errors without losing input; invalid transitions return a 409 with a reason |
+| Intuitive navigation and menu placement | Six top-level areas (Overview, Sales, Orders, Warehouse, Field & Service, Reports), each showing the current status and next action |
+| Proper Git use by the whole team | Each of the four members commits their own component work through small reviewed PRs |

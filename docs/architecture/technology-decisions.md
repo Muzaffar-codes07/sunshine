@@ -4,7 +4,7 @@ Decision date: 31 October 2026. This document explains the current scaffold and 
 
 ## Constraints first
 
-The [supplied organizer-video extraction](../requirements/organizer-video-deliverables.md) asks for a local MySQL/PostgreSQL database, custom APIs, dynamic persisted data, validation, clean UI, and all-member Git/presentation participation. It explicitly excludes BaaS. These are user-required planning constraints. The extraction is from a 2025 video; the specific current event rules are not independently verified. No claim that Odoo itself is required or that a public cloud URL/video is mandatory is justified by that document.
+The [supplied organizer-video extraction](../requirements/organizer-video-deliverables.md) asks for a local MySQL/PostgreSQL database, custom APIs, dynamic persisted data, validation, clean UI, and all-member Git/presentation participation. It explicitly excludes BaaS. These are user-required planning constraints (ADR-03). The extraction is from a 2025 video. The current event page (69158) lists backend APIs, data modelling and a local database as **nice-to-have**; its Must have list is dynamic data, a responsive clean UI, validation, navigation and whole-team Git. No claim that Odoo itself is required or that a public cloud URL/video is mandatory is justified by that document.
 
 ## Decisions and alternatives
 
@@ -24,7 +24,9 @@ The [supplied organizer-video extraction](../requirements/organizer-video-delive
 
 ## Familiarity is qualified, not overstated
 
-StockSense used NestJS 10 and Prisma 5. Sunshine uses NestJS 12 and Prisma 7: the architecture and service/schema concepts are familiar, but the pinned majors are not identical. Prisma 7 introduces the driver adapter/configuration arrangement visible in this repo; Nest's module/runtime compatibility was checked in the scaffold. Earlier Nest 11 dependencies retained an audit finding, so the scaffold moved to the patched Nest release and was rebuilt and runtime-checked on Node 22. This is evidence of **foundation compatibility**, not proof of unimplemented domain behavior.
+**Decision M1 (31 Oct, Bridge thread 13): keep this stack.** The reason is schedule, not familiarity. The scaffold already passes `npm run check`, and Next.js/Drizzle would discard verified integration with about 18 hours left. The four members' current familiarity with these pinned majors is **unknown and not claimed**. Where the table above says the team "knows" or "has used" a tool, read that as a reference to an earlier project, not verified current skill.
+
+StockSense, an earlier project, used NestJS 10 and Prisma 5. Sunshine uses NestJS 12 and Prisma 7, so the pinned majors differ. Prisma 7 introduces the driver adapter/configuration arrangement visible in this repo; Nest's module/runtime compatibility was checked in the scaffold. Earlier Nest 11 dependencies retained an audit finding, so the scaffold moved to the patched Nest release and was rebuilt and runtime-checked on Node 22. This is evidence of **foundation compatibility**, not proof of unimplemented domain behavior.
 
 Do not change majors again during feature development without a concrete blocker. Freeze the lockfile and use `npm ci`. If a domain developer cannot use a selected API, inspect the pinned version's official documentation before proposing a framework change.
 
@@ -37,7 +39,7 @@ The supplied material emphasizes database design, logic, validation, modularity 
 | Source | What it supports | Recheck / limit |
 |---|---|---|
 | [Official Odoo homepage](https://hackathon.odoo.com/) | General hiring/teamwork context and 24-hour final | Read 2026-10-31; not the specific event's scoring weights |
-| [Specific event](https://hackathon.odoo.com/hackathon/details/69159) | Current event information would be authoritative | Retrieval unavailable on recheck; no new official submission claims |
+| [Specific event](https://hackathon.odoo.com/hackathon/details/69158) (69158; earlier docs wrongly cited 69159) | Timeline, evaluator, Must have / Nice to have, team rules | Behind a GitHub login; captured from the team leader's screenshots on 2026-10-31. See `docs/requirements/hackathon-requirements.md` (PR #1). No language restriction; framework and hosting not stated |
 | [Next self-hosting](https://nextjs.org/docs/app/guides/self-hosting) | Next can run outside Vercel | Read 2026-10-31; alternative is viable |
 | [Vite guide](https://vite.dev/guide/) | Development/build tooling | Latest docs can differ from pinned Vite 7; use the lockfile |
 | [Nest static serving](https://docs.nestjs.com/recipes/serve-static) | One Nest origin can serve the SPA | Earlier source read; latest re-fetch timed out. Scaffold runtime provides local evidence |
