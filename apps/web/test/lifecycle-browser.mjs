@@ -81,7 +81,7 @@ try {
   for (let run = 1; run <= 3; run++) {
     // Transparent synthetic fixture: approved survey, accepted quote, paid order and physical stock.
     let order, customer;
-    if (run === 1) ({ order, customer } = await createSalesOrderFromBrowser({ browser, adminPage: page, staff, password, prisma, origin, contexts, errors, registerContext: (role, scoped) => roleContexts.set(role, scoped) }));
+    if (run === 1) ({ order, customer } = await createSalesOrderFromBrowser({ browser, adminPage: page, staff, password, prisma, origin, contexts, errors, onPage: current => { activePage = current; }, registerContext: (role, scoped) => roleContexts.set(role, scoped) }));
     else {
     customer = await prisma.customer.create({ data: { name: `Browser Customer ${run}`, phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '44 Solar Road', city: 'Nagpur', pincode: '440001' } });
     const enquiry = await prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'QUALIFIED', contactName: customer.name, siteAddressLine: customer.addressLine, siteCity: customer.city, sitePincode: customer.pincode } });
