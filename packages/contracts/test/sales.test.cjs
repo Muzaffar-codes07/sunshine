@@ -107,3 +107,11 @@ test('response requires a generated UUID, NEW status and ISO creation time', () 
     assert.equal(publicEnquiryResponseSchema.safeParse({ data: { ...data, ...overrides } }).success, false);
   }
 });
+
+test('pincode trims surrounding whitespace and blank messages become absent', () => {
+  for (const message of ['', '   ', undefined]) {
+    const parsed = publicEnquiryRequestSchema.parse(enquiry({ pincode: ' 500001 ', message }));
+    assert.equal(parsed.pincode, '500001');
+    assert.equal(parsed.message, undefined);
+  }
+});

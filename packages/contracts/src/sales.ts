@@ -44,13 +44,14 @@ export const publicEnquiryRequestSchema = z.object({
   city: z.string({ error: 'Enter your city' }).trim()
     .min(2, 'City must contain at least 2 characters')
     .max(80, 'City must be at most 80 characters'),
-  pincode: z.string({ error: 'Enter a valid 6-digit Indian pincode' })
+  pincode: z.string({ error: 'Enter a valid 6-digit Indian pincode' }).trim()
     .regex(/^[1-9][0-9]{5}$/, 'Enter a valid 6-digit Indian pincode'),
   requestedCapacityKw: capacitySchema,
   systemType: systemTypeSchema.optional(),
   subsidyInterest: z.boolean({ error: 'Choose whether you are interested in a subsidy' }).default(false),
   message: z.string({ error: 'Enter a text message' }).trim()
-    .max(1000, 'Message must be at most 1000 characters').optional(),
+    .max(1000, 'Message must be at most 1000 characters')
+    .transform((value) => value === '' ? undefined : value).optional(),
 }, { error: 'Only send the fields allowed on the enquiry form' }).strict();
 
 export type PublicEnquiryRequest = z.output<typeof publicEnquiryRequestSchema>;
