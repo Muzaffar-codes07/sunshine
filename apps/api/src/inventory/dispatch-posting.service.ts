@@ -7,7 +7,7 @@ import { IdempotencyService } from '../platform/idempotency';
 import { Prisma } from '../generated/prisma/client';
 import { DispatchScansService } from './dispatch-scans.service';
 import { StockLedgerService } from './stock-ledger.service';
-import { activateFromDelivery } from './warranty-activation';
+import { activateFromDelivery } from '../warranty/warranty-activation';
 
 const notFound = () => new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Dispatch not found');
 const stale = () => new ApiError(HttpStatus.CONFLICT, 'STALE_VERSION', 'This dispatch was changed by someone else. Reload it and try again.');
@@ -93,7 +93,7 @@ export class DispatchPostingService {
       const units = await tx.allocation.findMany({ where: { jobId, status: 'DISPATCHED' }, select: { unitId: true } });
       await tx.allocation.updateMany({ where: { jobId, status: 'DISPATCHED' }, data: { status: 'DELIVERED', version: { increment: 1 } } });
       await tx.unit.updateMany({ where: { id: { in: units.flatMap((row) => row.unitId ? [row.unitId] : []) } }, data: { status: 'DELIVERED', version: { increment: 1 } } });
-      await activateFromDelivery(tx, jobId, deliveredAt);
+      await activateFromDelivery(tx, { jobId, deliveredAt });
       await tx.dispatch.update({ where: { id }, data: { status: 'DELIVERED', deliveredAt, deliveredById: actorId, version: { increment: 1 } } });
       return this.scans.view(tx, id);
     });

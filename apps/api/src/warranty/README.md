@@ -1,6 +1,6 @@
 # Warranty module
 
-Owners: **D3** activation; **D4** assessment. Status: **assessment implemented;
+Owners: **D4** assessment and the activation helper; **D3** calls the helper from delivery. Status: **assessment implemented;
 production lookup awaits upstream integration**.
 
 Delivery-triggered coverage activation and equipment history. D4 owns coverage decisions.

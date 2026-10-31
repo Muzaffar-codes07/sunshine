@@ -18,8 +18,9 @@ export function addCalendarMonths(date: string, months: number): string {
 /**
  * Starts each delivered unit's warranty from the terms frozen on its accepted quote line. Runs once per delivery, in
  * its transaction. An existing warranty is left alone, so a replacement's continued coverage is never restarted.
+ * D4 owns this helper (#53). D3's delivery command only calls it.
  */
-export async function activateFromDelivery(tx: Prisma.TransactionClient, jobId: string, deliveredAt: Date) {
+export async function activateFromDelivery(tx: Prisma.TransactionClient, { jobId, deliveredAt }: { jobId: string; deliveredAt: Date }) {
   const rows = await tx.allocation.findMany({
     where: { jobId, status: 'DELIVERED', unitId: { not: null } },
     select: { unitId: true, quoteLine: { select: { policyStatus: true, warrantyPolicySnapshot: true } } },
