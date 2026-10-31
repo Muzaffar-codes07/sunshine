@@ -486,6 +486,13 @@
       "definition": "CREATE TRIGGER quotes_preserve_frozen_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quotes FOR EACH ROW EXECUTE FUNCTION quotes_preserve_frozen_terms()"
     },
     {
+      "name": "jobs_version_positive",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
       "name": "product_cost_bases_average_nonnegative",
       "table": "product_cost_bases",
       "kind": "check",

@@ -583,7 +583,7 @@ model Order {
   quoteId       String   @unique @db.Uuid
   enquiryId     String   @unique @db.Uuid
   customerId    String   @db.Uuid
-  // Set by D3's job helper when it is wired; null means the job is still to be created by D3.
+  // Set by D3's job helper in the confirming transaction. Null only on a row that hasn't reached that step.
   jobId         String?  @unique @db.Uuid
   confirmedById String   @db.Uuid
   confirmedAt   DateTime @default(now()) @db.Timestamptz(3)
@@ -595,9 +595,13 @@ model Order {
   enquiry     Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   confirmedBy User     @relation("OrderConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  // The composite key means an order can only point at its own job.
+  job         Job?     @relation("OrderJob", fields: [id, jobId], references: [orderId, id], onDelete: Restrict, onUpdate: Restrict)
+  ownJob      Job?     @relation("JobOrder")
   packing     PackingRequirement[]
   invoices    Invoice[]
 
+  @@unique([id, jobId])
   @@index([customerId])
   @@index([confirmedById])
   @@map("orders")
@@ -722,4 +726,27 @@ model Payment {
   @@index([invoiceId])
   @@index([recordedById])
   @@map("payments")
+}
+
+// D3: jobs. One per confirmed order, created in the confirming transaction. Customer, capacity and system type stay
+// on the order and its accepted quote, read through this relation instead of being copied here.
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  AWAITING_ACCEPTANCE
+  COMPLETED
+}
+model Job {
+  id        String    @id @default(uuid()) @db.Uuid
+  orderId   String    @unique @db.Uuid
+  status    JobStatus @default(SCHEDULED)
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  order     Order     @relation("JobOrder", fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  linkedBy  Order?    @relation("OrderJob")
+
+  @@unique([orderId, id])
+  @@map("jobs")
 }
