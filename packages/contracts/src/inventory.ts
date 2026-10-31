@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { moneySchema, positiveQuantitySchema, quantitySchema } from './shared';
+import { moneySchema, positiveQuantitySchema, quantitySchema, signedMoneySchema } from './shared';
 
 const version = z.number().int().positive();
 // PostgreSQL returns UUIDs in lower case, so a request's IDs are made to match before they're compared or hashed.
@@ -226,3 +226,57 @@ export type CreateStockTransferRequest = z.infer<typeof createStockTransferReque
 export type CreateStockCountRequest = z.infer<typeof createStockCountRequestSchema>;
 export type StockDocumentCommandRequest = z.infer<typeof stockDocumentCommandRequestSchema>;
 export type StockDocumentView = z.infer<typeof stockDocumentViewSchema>;
+
+const timestamp = z.iso.datetime({ offset: true });
+const paging = {
+  page: z.coerce.number().int().min(1).max(10000).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25),
+};
+const pageOf = <T extends z.ZodType>(item: T) => z.object({ data: z.object({
+  items: z.array(item), total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),
+}) });
+
+// `from` is inclusive and `to` exclusive, on the movement's occurredAt. locationId matches either end of a movement.
+export const stockMovementListQuerySchema = z.object({
+  productId: canonicalId.optional(), locationId: canonicalId.optional(), kind: stockDocumentKindSchema.optional(),
+  from: timestamp.optional(), to: timestamp.optional(), ...paging,
+}).strict().refine((query) => !query.from || !query.to || Date.parse(query.from) < Date.parse(query.to), {
+  path: ['to'], message: 'The end must be after the start',
+});
+export const stockMovementViewSchema = z.object({
+  id: z.uuid(), productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1),
+  fromLocationId: z.uuid().nullable(), toLocationId: z.uuid().nullable(), quantity: positiveQuantitySchema, actorId: z.uuid(),
+  occurredAt: timestamp, recordedAt: timestamp, documentId: z.uuid(), documentKind: stockDocumentKindSchema, reference: z.string().min(1),
+});
+export const stockMovementListResponseSchema = pageOf(stockMovementViewSchema);
+
+// As-of goes by occurredAt, so a receipt recorded late with an earlier date changes past answers. The service refuses a future time.
+export const stockAsOfQuerySchema = z.object({ at: timestamp, productId: canonicalId.optional(), locationId: canonicalId.optional(), ...paging }).strict();
+export const stockAsOfViewSchema = z.object({
+  productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1), locationId: z.uuid(),
+  locationCode: z.string().min(1), locationKind: stockLocationKindSchema, onHand: signedQuantity,
+});
+export const stockAsOfResponseSchema = z.object({ data: pageOf(stockAsOfViewSchema).shape.data.extend({ at: timestamp }) });
+
+// Usable and quarantine are kept apart, because quarantined stock can't be sold. Serial units count at their actual cost,
+// and bulk at today's moving average. costKnown is false when a bulk product has stock but no cost, which then counts as zero.
+export const stockValueQuerySchema = z.object({ productId: canonicalId.optional(), ...paging }).strict();
+export const stockValueViewSchema = z.object({
+  productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1),
+  usableQuantity: signedQuantity, quarantineQuantity: signedQuantity, usableValue: signedMoneySchema, quarantineValue: signedMoneySchema, costKnown: z.boolean(),
+});
+export const stockValueResponseSchema = z.object({ data: pageOf(stockValueViewSchema).shape.data.extend({
+  usableValue: signedMoneySchema, quarantineValue: signedMoneySchema, uncostedProducts: z.number().int().nonnegative(),
+}) });
+
+export const stockIntegrityCheckSchema = z.object({
+  code: z.string().min(1), description: z.string().min(1), ok: z.boolean(), count: z.number().int().nonnegative(), samples: z.array(z.string()).max(20),
+});
+export const stockIntegrityResponseSchema = z.object({ data: z.object({ checkedAt: timestamp, ok: z.boolean(), checks: z.array(stockIntegrityCheckSchema) }) });
+
+export type StockMovementListQuery = z.infer<typeof stockMovementListQuerySchema>;
+export type StockMovementView = z.infer<typeof stockMovementViewSchema>;
+export type StockAsOfQuery = z.infer<typeof stockAsOfQuerySchema>;
+export type StockAsOfView = z.infer<typeof stockAsOfViewSchema>;
+export type StockValueQuery = z.infer<typeof stockValueQuerySchema>;
+export type StockValueView = z.infer<typeof stockValueViewSchema>;
+export type StockIntegrityCheck = z.infer<typeof stockIntegrityCheckSchema>;
