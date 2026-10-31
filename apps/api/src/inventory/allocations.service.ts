@@ -40,8 +40,9 @@ export class AllocationsService {
       for (const productId of [...products.keys()].sort()) await this.ledger.lockStock(tx, productId, locationId);
       const serialized = requirements.filter((line) => this.stocked(products.get(line.productId)).trackingMode === 'SERIALIZED');
       const bulk = requirements.filter((line) => products.get(line.productId)!.trackingMode !== 'SERIALIZED');
-      const reasons = await this.bulkShortages(tx, bulk, locationId);
-      const units = await this.chooseUnits(tx, serialized, locationId, input.unitIds, reasons);
+      const names = new Map((await tx.product.findMany({ where: { id: { in: [...products.keys()] } }, select: { id: true, name: true } })).map((row) => [row.id, row.name]));
+      const reasons = await this.bulkShortages(tx, bulk, locationId, names);
+      const units = await this.chooseUnits(tx, serialized, locationId, input.unitIds, reasons, names);
       if (reasons.length) throw refusal(reasons[0]!, ...reasons.slice(1));
       await this.lockAndCheckUnits(tx, [...units.values()].flat(), locationId);
       for (const line of serialized) {
@@ -128,19 +129,19 @@ export class AllocationsService {
   }
 
   /** Runs under the stock lock. Quantities add up per product, because a product can appear on more than one line. */
-  private async bulkShortages(tx: Prisma.TransactionClient, lines: Requirement[], locationId: string) {
+  private async bulkShortages(tx: Prisma.TransactionClient, lines: Requirement[], locationId: string, names: Map<string, string>) {
     const needed = new Map<string, Prisma.Decimal>();
     for (const line of lines) needed.set(line.productId, (needed.get(line.productId) ?? new Prisma.Decimal(0)).plus(line.quantity));
     const reasons: RefusalReason[] = [];
     for (const [productId, quantity] of needed) {
       const free = (await this.ledger.onHand(tx, productId, locationId)).minus(await this.ledger.reserved(tx, productId, locationId));
-      if (free.lessThan(quantity)) reasons.push(short(`Product ${productId}: needs ${quantity.toFixed(3)}, but only ${free.toFixed(3)} is free.`));
+      if (free.lessThan(quantity)) reasons.push(short(`${names.get(productId)}: needs ${quantity.toFixed(3)}, but only ${free.toFixed(3)} is free.`));
     }
     return reasons;
   }
 
   /** Under the Product lock nothing else can reserve or move these products, so the choice stays valid. */
-  private async chooseUnits(tx: Prisma.TransactionClient, lines: Requirement[], locationId: string, unitIds: string[] | undefined, reasons: RefusalReason[]) {
+  private async chooseUnits(tx: Prisma.TransactionClient, lines: Requirement[], locationId: string, unitIds: string[] | undefined, reasons: RefusalReason[], names: Map<string, string>) {
     const needed = new Map<string, number>();
     for (const line of lines) {
       if (!line.quantity.isInteger()) throw refusal(notAllocatable('A serialized requirement must be a whole number.', 'Check the accepted quote.'));
@@ -155,7 +156,7 @@ export class AllocationsService {
       for (const row of rows) chosen.set(row.productId, [...(chosen.get(row.productId) ?? []), row.id]);
       for (const [productId, count] of needed) {
         if ((chosen.get(productId)?.length ?? 0) !== count) {
-          throw refusal(notAllocatable(`Product ${productId}: choose exactly ${count} unit(s).`, 'Choose every unit this order needs, or leave the choice to the system.'));
+          throw refusal(notAllocatable(`${names.get(productId)}: choose exactly ${count} unit(s).`, 'Choose every unit this order needs, or leave the choice to the system.'));
         }
       }
       return chosen;
@@ -165,7 +166,7 @@ export class AllocationsService {
         SELECT u."id" FROM "units" u JOIN "unit_locations" l ON l."unitId" = u."id"
         WHERE u."productId" = ${productId}::uuid AND u."status" = 'AVAILABLE' AND l."locationId" = ${locationId}::uuid
         ORDER BY u."createdAt", u."id" LIMIT ${count}::int`;
-      if (rows.length < count) reasons.push(short(`Product ${productId}: needs ${count} unit(s), but only ${rows.length} are free.`));
+      if (rows.length < count) reasons.push(short(`${names.get(productId)}: needs ${count} unit(s), but only ${rows.length} are free.`));
       chosen.set(productId, rows.map((row) => row.id));
     }
     return chosen;
