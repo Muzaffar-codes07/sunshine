@@ -239,3 +239,21 @@ test('closing an approved enquiry prevents new quote terms',async()=>{
   await refuses(quotes.create(f.enquiry.id,f.command,staff(sales)),409,'ENQUIRY_NOT_QUALIFIED');
   assert.equal(await prisma.quote.count({where:{enquiryId:f.enquiry.id}}),0);
 });
+
+test('accepted-quote confirmation helper refuses archived or disqualified enquiries while preserving history', async () => {
+  const { EnquiryQueueService } = require('../dist/sales/enquiry-queue.service');
+  const queue = app.get(EnquiryQueueService);
+  for (const status of ['ARCHIVED', 'DISQUALIFIED']) {
+    const f = await accepted();
+    if (status === 'ARCHIVED') {
+      await queue.archive(f.enquiry.id, { version: 1, reason: 'Customer cancelled before confirmation' });
+    } else {
+      await queue.qualify(f.enquiry.id, {
+        version: 1, outcome: 'DISQUALIFIED', reason: 'Site no longer suitable',
+        shadowFreeRoofAreaSqm: '0.00', monthlyBillInr: '2500.00', gridConnectionSuitable: false,
+      });
+    }
+    await refuses(prisma.$transaction(tx => quotes.requireAcceptedQuote(tx, f.quote.id)), 409, 'ENQUIRY_NOT_QUALIFIED');
+    assert.equal((await quotes.get(f.quote.id)).data.status, 'ACCEPTED', 'saved customer terms remain readable');
+  }
+});
