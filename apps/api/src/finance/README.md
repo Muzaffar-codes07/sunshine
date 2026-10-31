@@ -47,14 +47,9 @@ nullable self-link permits only one full reversal per original. A changed retry
 still conflicts. A corrected positive expense uses a new canonical business
 source after reversal; neither entry overwrites the original.
 
-Task 3.1 exports `ServiceInvoiceWriter` as an explicit D2 integration port.
-Its default implementation returns 503 `SERVICE_INVOICE_UNAVAILABLE`; it does
-not implement invoice persistence. D2 must delegate `ensureServiceInvoice(tx,
-input)` to its official finance helper using the supplied transaction and unique
-ticket repair source. See the [repair billing contract](../service/README.md).
+Task 3.1 exports `ServiceInvoiceWriter`. `FinanceModule` now aliases it to D2's official `InvoicesService` through `InvoicingModule`. It posts chargeable repairs in the caller transaction, retains canonical sources privately and rejects changed facts. See the [repair invoice handoff](../../../../docs/architecture/repair-invoice-handoff.md) for snapshot, rounding, zero-charge and integration boundaries.
 
-No public cost endpoint or D2 invoice/payment implementation is added by this
-helper. The [coordinated D4 migration](../../../../docs/architecture/d4-migration.md)
+No public cost endpoint is added. The [coordinated D4 migration](../../../../docs/architecture/d4-migration.md)
 now includes the real Job relation and SQL integrity rules. Unit tests use a
 transaction double; `npm run test:d4-migration` separately verifies actual
 PostgreSQL cost concurrency, replay and caller rollback on a disposable database.

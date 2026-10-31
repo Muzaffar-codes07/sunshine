@@ -6,6 +6,7 @@ const { Module, Injectable, Inject } = require('@nestjs/common');
 const { Prisma } = require('../dist/generated/prisma/client');
 const { CostWriterService } = require('../dist/finance/cost-writer.service');
 const { FinanceModule } = require('../dist/finance/finance.module');
+const { PlatformModule } = require('../dist/platform/platform.module');
 const { ApiError } = require('../dist/platform/api-error');
 const { randomUUID } = require('node:crypto');
 const code = (name) => (error) => error instanceof ApiError && error.getStatus() === 409 && error.code === name;
@@ -182,15 +183,15 @@ test('database failures propagate unchanged so the caller can roll back or retry
   await assert.rejects(service.postCost(tx, input()), (caught) => caught === error);
 });
 
-test('a consuming Nest module can inject the exported cost writer without a database client', async () => {
+test('a consuming Nest module injects the cost writer with shared platform and no database query', async () => {
   class Consumer {
     constructor(writer) { this.writer = writer; }
   }
   Injectable()(Consumer);
   Inject(CostWriterService)(Consumer, undefined, 0);
   class ConsumerModule {}
-  Module({ imports: [FinanceModule], providers: [Consumer] })(ConsumerModule);
-  const app = await NestFactory.createApplicationContext(ConsumerModule, { logger: false });
+  Module({ imports: [PlatformModule, FinanceModule], providers: [Consumer] })(ConsumerModule);
+  const app = await NestFactory.createApplicationContext(ConsumerModule, { logger: false, abortOnError: false });
   try {
     assert.ok(app.get(Consumer).writer instanceof CostWriterService);
     assert.strictEqual(app.get(Consumer).writer, app.get(CostWriterService));
