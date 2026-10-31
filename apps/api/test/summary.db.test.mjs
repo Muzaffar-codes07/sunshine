@@ -138,3 +138,21 @@ test('HTTP: sales and admin read the summary; other roles cannot', async () => {
   assert.equal((await fetch(`${base}/enquiries/${enquiry.id}/summary`, { headers: { cookie: await login(tech) } })).status, 403);
   assert.equal((await fetch(`${base}/enquiries/${enquiry.id}/summary`)).status, 401);
 });
+
+test('the summary reads in one REPEATABLE READ snapshot, and the adapter honours it', async () => {
+  const { Prisma } = require('../dist/generated/prisma/client');
+  const seen = [];
+  const spy = new Proxy(prisma, { get: (target, name) => name === '$transaction'
+    ? (work, options) => { seen.push([typeof work, options?.isolationLevel]); return target.$transaction(work, options); }
+    : Reflect.get(target, name) });
+  const enquiry = await prisma.enquiry.findFirstOrThrow();
+  await new ProjectSummaryService(spy).get(enquiry.id);
+  assert.deepEqual(seen, [['function', 'RepeatableRead']], 'callback form: the array form ignores isolationLevel');
+  // With @prisma/adapter-pg the array form silently runs READ COMMITTED; only the callback form reaches PostgreSQL.
+  const level = async (form) => (form === 'array'
+    ? (await prisma.$transaction([prisma.$queryRaw`SHOW transaction_isolation`], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }))[0]
+    : await prisma.$transaction((tx) => tx.$queryRaw`SHOW transaction_isolation`, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead })
+  )[0].transaction_isolation;
+  assert.equal(await level('callback'), 'repeatable read');
+  assert.equal(await level('array'), 'read committed', 'if this starts passing at repeatable read, Prisma fixed the array form');
+});

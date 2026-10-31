@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { projectSummaryResponseSchema, type ProjectSummary } from '@sunshine/contracts';
 import { ApiError } from '../platform/api-error';
 import { PrismaService } from '../platform/prisma.service';
+import { Prisma } from '../generated/prisma/client';
 
 type Step = ProjectSummary['nextStep'];
 const step = (code: Step['code'], text: string): Step => ({ code, text });
@@ -9,21 +10,24 @@ const pad = (prefix: string, number: number) => `${prefix}-${String(number).padS
 
 /**
  * Read-only D2 summary of one enquiry: latest survey, latest quote, order and invoice, plus the stage and the
- * next thing staff should do. It reads in one snapshot transaction and never writes.
+ * next thing staff should do. It reads in one REPEATABLE READ snapshot and never writes.
  */
 @Injectable()
 export class ProjectSummaryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async get(enquiryId: string) {
-    const [enquiry, survey, quote, order] = await this.prisma.$transaction([
-      this.prisma.enquiry.findUnique({ where: { id: enquiryId } }),
-      this.prisma.survey.findFirst({
-        where: { enquiryId }, orderBy: { revision: 'desc' }, include: { technician: { select: { displayName: true } } },
-      }),
-      this.prisma.quote.findFirst({ where: { enquiryId }, orderBy: { revision: 'desc' } }),
-      this.prisma.order.findUnique({ where: { enquiryId }, include: { invoices: { where: { kind: 'SALE' } } } }),
-    ]);
+    // READ COMMITTED would give each read its own snapshot, so a payment landing mid-read could show a stage that
+    // never existed; REPEATABLE READ makes all four reads see one moment. It must be the callback form: with the
+    // pg driver adapter, the array form of $transaction silently ignores isolationLevel (tested).
+    const [enquiry, survey, quote, order] = await this.prisma.$transaction(async (tx) => Promise.all([
+        tx.enquiry.findUnique({ where: { id: enquiryId } }),
+        tx.survey.findFirst({
+          where: { enquiryId }, orderBy: { revision: 'desc' }, include: { technician: { select: { displayName: true } } },
+        }),
+        tx.quote.findFirst({ where: { enquiryId }, orderBy: { revision: 'desc' } }),
+        tx.order.findUnique({ where: { enquiryId }, include: { invoices: { where: { kind: 'SALE' } } } }),
+      ]), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     if (!enquiry) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Enquiry not found');
     const invoice = order?.invoices[0] ?? null;
 
