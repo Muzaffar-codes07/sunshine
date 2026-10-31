@@ -28,7 +28,9 @@ persists the returned assessment on tickets. Supplier recovery is separate.
 
 ## Integration gate
 
-The current branch has no Unit/Job models, staff authentication, or D4 migration.
+Unit/Job models, staff authentication and the coordinated D4 migration are now
+present, but the domain-specific authorization and equipment adapters below
+remain unavailable; schema availability alone does not wire production access.
 `WarrantyModule` is registered, but its default `WarrantyLookupAccess` rejects
 requests with 503 `WARRANTY_AUTH_UNAVAILABLE` before any equipment read. Replace
 it with D2's verified staff authorization adapter (401/403 as appropriate). Never

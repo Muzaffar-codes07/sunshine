@@ -31,13 +31,15 @@ cost writer, replacement orchestrator and profitability engine. It verifies:
 - Actual Nest HTTP confirmation rejects each missing name/channel/time with
   400 and leaves the row unchanged. Valid confirmation closes; replay conflicts.
 
-All storage, inventory, source and invoice adapters in this suite are test-only
+All storage, inventory, source and invoice adapters in this invariant suite are test-only
 doubles. Quarantine/assignment assertions verify the orchestration boundary;
 they do not prove D3's physical stock writer. No placeholder models, production
-authorization bypass, D4 migration or persisted demo seed is introduced.
-Real D4 PostgreSQL constraint/concurrency/rollback and authenticated lifecycle
-acceptance remain pending Unit/Job/time/source/invoice adapters and the
-[coordinated migration](../architecture/d4-schema-handoff.md).
+authorization bypass or persisted demo seed is introduced by that suite.
+The coordinated migration and separate PostgreSQL cost/schema tests now cover
+real database constraints, concurrent replay and caller rollback. Full authenticated
+repair/replacement and historical seed acceptance still require the production
+time/source/stock/invoice adapters described in the
+[schema handoff](../architecture/d4-schema-handoff.md).
 
 For infrastructure release verification, use the root README commands: start
 PostgreSQL with `docker compose up -d --wait db`, build, explicitly apply existing
@@ -57,12 +59,11 @@ independent checks and required actionable finding format.
 ## Domain testing plan
 
 `npm run test:d4-migration` is an explicit opt-in PostgreSQL 17.11 suite for the
-[D4 migration draft](../../prisma/drafts/20261031260000_d4/README.md). Its nine
-tests use a dedicated loopback test database with the real current-main and
-pending File migrations applied before the draft. They verify FK policies,
+[coordinated D4 migration](../architecture/d4-migration.md). Its nine tests use a
+dedicated loopback test database with the actual active migration queue. They verify FK policies,
 concurrent cost/reversal replay, payload-conflict rollback, ledger immutability,
-period cutoffs, lifecycle SQL checks and migration atomicity. The draft is not
-activated by `db:deploy` or ordinary CI and does not establish full production
+period cutoffs, lifecycle SQL checks and migration atomicity. The migration now
+runs through `db:deploy`; these opt-in database tests do not establish full production
 replacement, file authorization or persisted seed acceptance.
 
 Use backend Jest/Supertest familiarity, real local PostgreSQL integration tests for concurrency, Vitest/Testing Library for important forms, and one-browser Playwright for the connected lifecycle. Pin compatible versions. Avoid a large browser matrix or tests mirroring simple component markup.

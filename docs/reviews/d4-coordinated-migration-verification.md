@@ -1,5 +1,9 @@
 # D4 coordinated migration preparation — verified 31 October 2026
 
+Historical preparation snapshot. Files subsequently merged and the D4 migration
+was activated and revalidated; use the
+[activation record](d4-coordinated-migration-activation.md) for current status.
+
 Code head: `fee3c027457caa52eb9f1d9ea8ba3cc532ab18f4`, including main
 `4084e36a9585d4e5b7d1d6286c8604d1e251a45e`. Preparation commit: `3dfd422`.
 This record does not approve PR #8 for merge or activate the D4 migration.

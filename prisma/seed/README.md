@@ -18,9 +18,10 @@ See [catalogue handoff](../../docs/architecture/catalogue-handoff.md).
 
 D3 coordinates seed integration and migrations. Task 5.1's scenario manifest,
 transactional seed helper, CLI wiring and isolated regressions are implemented.
-**Persisted demo acceptance is blocked:** this branch has no Job, Unit, Order,
-allocation or dispatch models, and the D4 tables are not migrated. The main seed
-therefore exits with `D4_SEED_INTEGRATION_REQUIRED` before creating a client,
+**Persisted demo acceptance remains blocked:** real Job/Unit/Order/allocation
+models and the coordinated D4 migration are now present, but the completed
+historical installation/evidence/time/dispatch and finance source adapter is
+still missing. The main seed exits with `D4_SEED_INTEGRATION_REQUIRED` before creating a client,
 connecting or writing anything. It does not leave tickets/warranties pointing at
 invented Job/Unit UUIDs. This is preparation for integration, not a runnable
 persisted lifecycle demo. Existing production API integration gates remain.

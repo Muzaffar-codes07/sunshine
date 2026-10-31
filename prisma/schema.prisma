@@ -29,13 +29,15 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   ownedSubsidyMilestones SubsidyMilestone[] @relation("SubsidyResponsibleOwner")
-  uploadedFiles            File[]
+  uploadedFiles File[]
   ownedEnquiries Enquiry[]
   stockDocuments StockDocument[] @relation("StockDocumentActor")
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
   allocations Allocation[]
   allocationsReleased Allocation[] @relation("AllocationReleaseActor")
+  dispatchesCreated Dispatch[]
+  dispatchScans DispatchScan[]
   jobAssignments JobAssignment[] @relation("JobAssignmentTechnician")
   jobAssignmentsMade JobAssignment[] @relation("JobAssignmentMadeBy")
   commands       Command[]
@@ -296,8 +298,8 @@ model PackageItem {
 }
 
 // D4: warranty, service, cost ledger and subsidy projections (Task 1.2).
-// Unit/Job relations follow D3's reviewed handoff. The initial D4 migration at
-// 20261031260000 remains held for Files 20261031255000 and its actual evidence FK.
+// Unit/Job/File relations follow the reviewed D2/D3 handoffs. The initial D4
+// migration at 20261031260000 follows Files 20261031255000.
 // See docs/architecture/d4-schema-handoff.md.
 
 enum TicketStatus {
@@ -446,6 +448,7 @@ model SubsidyMilestone {
   approvalDate   DateTime?              @db.Timestamptz(3)
   amount         Decimal                @db.Decimal(14, 2)
   evidenceFileId String?                @db.Uuid
+  evidenceFile   File?                  @relation("SubsidyEvidence", fields: [evidenceFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   pendingDocuments   String[]           @default([])
   responsibleOwnerId String?             @db.Uuid
   responsibleOwner   User?               @relation("SubsidyResponsibleOwner", fields: [responsibleOwnerId], references: [id], onDelete: Restrict)
@@ -781,6 +784,7 @@ model Order {
   ownJob      Job?     @relation("JobOrder")
   packing     PackingRequirement[]
   invoices    Invoice[]
+  dispatch    Dispatch?
 
   @@unique([id, jobId])
   @@index([customerId])
@@ -971,6 +975,7 @@ model Allocation {
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
   releasedBy User? @relation("AllocationReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
+  scans DispatchScan[]
   @@index([jobId, status])
   @@index([productId, locationId, status])
   @@index([quoteLineId])
@@ -979,6 +984,43 @@ model Allocation {
   @@index([actorId])
   @@index([releasedById])
   @@map("allocations")
+}
+
+// I06 draft/scans only. Posting status and stock/cost linkage are added with the actual dispatch writer.
+model Dispatch {
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @unique @db.Uuid
+  createdById String @db.Uuid
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  scans DispatchScan[]
+  @@index([createdById])
+  @@map("dispatches")
+}
+enum ScanMethod {
+  CAMERA
+  SCANNER
+  TYPED
+}
+model DispatchScan {
+  id String @id @default(uuid()) @db.Uuid
+  dispatchId String @db.Uuid
+  allocationId String @db.Uuid
+  rawValue String @db.VarChar(512)
+  normalizedSerial String @db.VarChar(128)
+  method ScanMethod
+  actorId String @db.Uuid
+  recordedAt DateTime @default(now()) @db.Timestamptz(3)
+  dispatch Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Restrict)
+  allocation Allocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@unique([dispatchId, allocationId, method])
+  @@index([allocationId])
+  @@index([actorId])
+  @@map("dispatch_scans")
 }
 
 // D3: who is on a job. A removed assignment stays as history, so only rows without removedAt are active.
@@ -1014,6 +1056,7 @@ model File {
   contextId String? @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  subsidyEvidenceMilestones SubsidyMilestone[] @relation("SubsidyEvidence")
   @@index([contextType, contextId])
   @@index([uploadedById, createdAt])
   @@map("files")

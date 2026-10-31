@@ -2,7 +2,7 @@
 
 SunPower Solutions' enquiry-to-installation-to-service platform for the Odoo hackathon.
 
-**Current state: runnable scaffold, not a completed business application.** The frontend, NestJS API, shared validation contracts, local PostgreSQL configuration and initial platform migration are implemented. Public enquiry intake APIs and staff cookie sessions are implemented; qualification, surveys, orders, inventory, installation, warranty, service and financial workflows remain planned; their folders explicitly identify the owner and next work. The landing screen reports live infrastructure status and does not fabricate business data.
+**Current state: runnable partial application, with explicit integration gates.** The frontend, NestJS API, shared contracts and local PostgreSQL migration queue are implemented. Enquiry/qualification, surveys, catalogue, quotes/orders, inventory/reservations, jobs/scheduling and private-file APIs have implementations. D4 warranty/service/reporting logic and its coordinated schema are present, while production domain authorization, persisted source adapters and physical repair/replacement integration remain gated. Passing infrastructure checks does not establish a completed business lifecycle.
 
 ## Start here
 
@@ -48,7 +48,8 @@ of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts
 are created only by the explicit staff seed command below; startup never seeds
 them. Historical D4 demo seed preparation is available via
 `npm run db:seed -- --preview`; persisted seeding remains blocked on the real
-installation adapter and coordinated migration. See the
+historical installation/source adapter. The coordinated D4 migration is now in
+the reviewed PR queue; see the [migration guide](docs/architecture/d4-migration.md). See the
 [seed handoff](prisma/seed/README.md). `db:deploy` applies migrations only and
 never seeds.
 

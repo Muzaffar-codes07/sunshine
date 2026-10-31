@@ -185,9 +185,10 @@ failure. The helper never starts/commits its own transaction. Real concurrent
 unit claims, policy edits and warranty uniqueness require outer bounded retries
 plus D3's allocation constraints. The default stock adapter returns 503
 `REPLACEMENT_STOCK_UNAVAILABLE`; no production inventory writes are simulated.
-Unit/Job, staff authorization, actual repair sources/invoice and the coordinated
-migration remain unavailable. The schema handoff includes the lineage columns,
-snapshot and pending Unit FKs/checks. No migration is applied here.
+The real Unit/Job/File models and coordinated D4 migration are now present,
+including ticket lineage FKs/checks. Domain authorization, actual repair source/
+invoice adapters, D3 allocation ticket-line support and the unit predecessor/
+replacement stock writer remain unavailable. No production stock writes are enabled.
 
 `apps/api/test/replacement.test.cjs` composes the real billing/cost helpers with
 transaction doubles: six-month continuity, expired/void/leap policies, exact

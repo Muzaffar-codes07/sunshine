@@ -1,6 +1,6 @@
 # Finance module
 
-Cost writer: **implemented by D4 (Task 1.3)**. Invoices and payments: **D2, planned**.
+Cost writer: **implemented by D4 (Task 1.3)**. Invoices and payments: **owned by D2**.
 
 `FinanceModule` exports `CostWriterService.postCost(tx, input)`. Import this module
 in each consuming domain module and pass its existing `Prisma.TransactionClient`.
@@ -53,11 +53,11 @@ not implement invoice persistence. D2 must delegate `ensureServiceInvoice(tx,
 input)` to its official finance helper using the supplied transaction and unique
 ticket repair source. See the [repair billing contract](../service/README.md).
 
-No cost endpoint, persisted invoice/payment writer or migration is included. Before using
-the helper against PostgreSQL, complete the
-[D4 schema migration gate](../../../../docs/architecture/d4-schema-handoff.md),
-including the Job relation and SQL constraints. Unit tests use a transaction
-double and do not certify PostgreSQL concurrency, isolation or rollback.
+No public cost endpoint or D2 invoice/payment implementation is added by this
+helper. The [coordinated D4 migration](../../../../docs/architecture/d4-migration.md)
+now includes the real Job relation and SQL integrity rules. Unit tests use a
+transaction double; `npm run test:d4-migration` separately verifies actual
+PostgreSQL cost concurrency, replay and caller rollback on a disposable database.
 
 Run `npm test` from the repository root to build contracts and run the unit
 tests. See [TRD boundaries](../../../../docs/TRD.md) and

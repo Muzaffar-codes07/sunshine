@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@sunshine/contracts';
+import { apiErrorSchema, type RefusalReason } from '@sunshine/contracts';
 import type { ZodType } from 'zod';
 
 /** Structured failure from the API (or from reaching it). Carries what the UI needs to point at the problem. */
@@ -7,14 +7,17 @@ export class ApiRequestError extends Error {
   readonly code: string;
   readonly fieldErrors: Record<string, string[]>;
   readonly requestId: string | undefined;
+  /** Why a 409 refusal happened and what to do next; empty for other errors. */
+  readonly reasons: RefusalReason[];
 
-  constructor(message: string, status: number, code: string, fieldErrors: Record<string, string[]> = {}, requestId?: string) {
+  constructor(message: string, status: number, code: string, fieldErrors: Record<string, string[]> = {}, requestId?: string, reasons: RefusalReason[] = []) {
     super(message);
     this.name = 'ApiRequestError';
     this.status = status;
     this.code = code;
     this.fieldErrors = fieldErrors;
     this.requestId = requestId;
+    this.reasons = reasons;
   }
 }
 
@@ -49,8 +52,8 @@ async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: str
   if (!response.ok) {
     const parsed = apiErrorSchema.safeParse(body);
     if (parsed.success) {
-      const { message, code, fieldErrors, requestId } = parsed.data.error;
-      throw new ApiRequestError(message, response.status, code, fieldErrors, requestId);
+      const { message, code, fieldErrors, requestId, reasons } = parsed.data.error;
+      throw new ApiRequestError(message, response.status, code, fieldErrors, requestId, reasons ?? []);
     }
     throw new ApiRequestError(`Request failed (${response.status})`, response.status, 'UNKNOWN_ERROR');
   }

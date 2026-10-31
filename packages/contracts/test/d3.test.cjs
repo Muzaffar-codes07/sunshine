@@ -3,6 +3,14 @@ const assert = require('node:assert/strict');
 const c = require('../dist');
 const { id, at, receipt, typedScan, completion } = require('./fixtures/d3.cjs');
 
+test('dispatch draft and scan inputs reject client-owned status, actor and unknown methods', () => {
+  assert.ok(c.createDispatchRequestSchema.safeParse({ expectedVersion: 1 }).success);
+  assert.equal(c.createDispatchRequestSchema.safeParse({ expectedVersion: 1, status: 'DISPATCHED' }).success, false);
+  assert.equal(c.recordScanRequestSchema.safeParse({ rawValue: 'SERIAL', method: 'MANUAL' }).success, false);
+  assert.equal(c.recordScanRequestSchema.safeParse({ rawValue: 'SERIAL', method: 'CAMERA', actorId: id(1) }).success, false);
+  assert.equal(c.recordScanRequestSchema.parse({ rawValue: 'SERIAL', method: 'SCANNER', unitId: id(1).toUpperCase() }).unitId, id(1));
+});
+
 test('release command requires a version and explanation and rejects client-owned release facts', () => {
   assert.deepEqual(c.releaseOrderAllocationsRequestSchema.parse({ expectedVersion: 2, reason: '  Customer rescheduled  ' }), { expectedVersion: 2, reason: 'Customer rescheduled' });
   for (const input of [{ reason: 'Customer rescheduled' }, { expectedVersion: 0, reason: 'Customer rescheduled' },
