@@ -45,3 +45,17 @@ Helpers accept the caller's transaction. No upload/network request inside a stoc
 ## Early validation rules
 
 Valid email/phone/address; finite nonnegative measurements and bill values; capacity 1–5 kW; on/off-grid explicit; positive quantities; valid timestamp ordering; nonnegative rates; rejected/unapproved survey cannot quote; incomplete BOM cannot confirm; authorization per record/file; no free-form client overrides of totals or warranty status.
+
+## D4 shared contract formats
+
+The D4 schemas and inferred TypeScript types are exported by `@sunshine/contracts`.
+Schema names use lower camel case (`warrantyPolicySchema`, `subsidyMilestoneSchema`);
+types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). Domain endpoints remain planned.
+
+- Money is a decimal string compatible with `numeric(14,2)`: at most 12 integer digits and two fractional digits. Contribution may be negative; negative zero is rejected.
+- Ticket quantities and technician summary hours are decimal strings compatible with `numeric(12,3)`: at most nine integer digits and three fractional digits. Ticket quantities must be positive; summary hours may be zero. Use Decimal arithmetic and serialize before validation; do not coerce through JavaScript numbers.
+- `TicketLine` includes `type` (`PART`/`LABOUR`), `description`, `quantity`, `unitCost`, `totalCost`, and `billableToCustomer`. The service supplies totals and billability from saved coverage; this response/domain shape does not authorize client overrides.
+- `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
+- Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
+- `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
+- `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.
