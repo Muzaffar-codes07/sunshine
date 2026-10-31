@@ -6,9 +6,9 @@ This revision applies the owner-selected [role division](team/role-division-brie
 
 ## 1. Constraints and stack
 
-**Event MUSTs** (event page 69158, captured 31 Oct; see `docs/requirements/hackathon-requirements.md`, added in PR #1): dynamic persisted data (no static JSON in the final app), responsive and clean UI, robust input validation, intuitive navigation, and proper Git use by the whole team. **Adopted project constraints** (ADR-03; listed as nice-to-have on the event page): a local PostgreSQL database, our own REST APIs, no BaaS, and minimal third-party APIs.
+**Event MUSTs** (event page 69158, captured 31 Oct; see `docs/requirements/hackathon-requirements.md`, added in PR #1): dynamic persisted data (no static JSON in the final app), responsive and clean UI, robust input validation, intuitive navigation, and proper Git use by the whole team. **Adopted project constraints** (ADR-03): a local PostgreSQL database and our own REST APIs, which the event page lists as nice-to-have; and no BaaS and minimal third-party APIs, which come from the 2025 organizer video rather than the event page.
 
-**Stack (decision M1): keep the existing scaffold.** Node 22, React/Vite/TypeScript, Tailwind with selected primitives, a NestJS REST modular monolith, Prisma, PostgreSQL 17, shared Zod contracts, private local files and Docker Compose. Next.js and Drizzle are viable alternatives (Next can self-host; Drizzle supports transactions). They were rejected on schedule grounds: the scaffold already passes `npm run check`, and switching would discard verified integration with about 18 hours left. Team familiarity with the pinned majors is **unknown, not assumed**. Versions and the lockfile are frozen; revisit only for an actual blocking defect. See [technology decisions](architecture/technology-decisions.md).
+**Stack (decision M1): keep the existing scaffold.** Node 22, React/Vite/TypeScript, Tailwind with selected primitives, a NestJS REST modular monolith, Prisma, PostgreSQL 17, shared Zod contracts, private local files and Docker Compose. Next.js and Drizzle are viable alternatives (Next can self-host; Drizzle supports transactions). They were rejected on schedule grounds: the scaffold passed `npm run check` and smoke when it was prepared (not re-run on every machine; a fresh run needs `npm ci`, `.env` and PostgreSQL), and switching would discard verified integration with about 18 hours left. Team familiarity with the pinned majors is **unknown, not assumed**. Versions and the lockfile are frozen; revisit only for an actual blocking defect. See [technology decisions](architecture/technology-decisions.md).
 
 No BaaS, microservices, queues, distributed workflow platform or AI in committed scope. One company/warehouse, one application release, database and uploads persistent locally. The event page states no hosting requirement; the local release is the baseline.
 
@@ -33,7 +33,7 @@ Cross-module boundaries (decision M2):
 - **Files:** D2 owns upload and download transport, metadata and authorization. D3 owns how evidence attaches to jobs and the completion gates.
 - **Project summary:** D2 owns a read-only aggregate built from authorized read DTOs, with no writes into other domains.
 
-`docs/team/roles.md`, PRD section 7 of `requirements/product-requirements.md`, and the owners in `planning/build-backlog.json` and `planning/requirements-traceability.csv` are **superseded** until reconciled with this table. See also [contribution rules](team/contributing.md).
+Ownership and helper boundaries in this table override older ownership in linked documents until they are reconciled. Superseded on ownership: `docs/team/roles.md`, `docs/team/contributing.md`, PRD section 7 of `requirements/product-requirements.md`, `architecture/data-model.md`, `architecture/api-contracts.md`, the README ownership paragraph, and the owners in `planning/build-backlog.json` and `planning/requirements-traceability.csv`. See also [contribution rules](team/contributing.md).
 
 Modules export narrow transaction-aware helpers; no hidden independently committed nested calls. Avoid circular module imports: orchestration depends on published service interfaces; low-level stock, finance and job primitives must not import the top-level orchestrator that calls them.
 
@@ -69,14 +69,20 @@ Routes, ownership and helpers are in [API contracts](architecture/api-contracts.
 
 Every other money or stock effect is protected by a named durable unique business source, plus a locked transition check:
 
-| Effect | Unique source |
+Every unique source is source type + source ID + kind (and line where relevant). Legitimate reverse movements then get their own source and aren't blocked, while retries still deduplicate.
+
+| Effect | Unique source (type, ID, kind/line) |
 |---|---|
-| Invoice | Order or ticket |
-| Receipt | Payment reference |
-| Stock movement | Allocation or dispatch line |
-| Cost entry | Stock-movement or time-entry ID |
-| Warranty | Unit and sale |
-| Job | Order |
+| Sales invoice | Order, order ID, SALE |
+| Service invoice | Ticket, ticket ID, REPAIR |
+| Receipt | Payment, external payment reference, RECEIPT |
+| Stock movement: goods receipt | Goods receipt, receipt ID, RECEIVE, line |
+| Stock movement: allocation and dispatch | Dispatch, dispatch ID, ISSUE, line |
+| Stock movement: replacement or return | Ticket, ticket ID, RETURN or ISSUE, line |
+| Stock movement: reversal | Original movement ID, REVERSAL |
+| Cost entry | STOCK_MOVEMENT or TIME_RECORD or TIME_ENTRY, source ID |
+| Warranty | Unit ID + sale (order) ID, or replacement ticket ID |
+| Job | Order ID |
 
 Pure edits of non-financial fields use version checks only.
 
@@ -106,7 +112,7 @@ Persistent server sessions, password hashing, logout/revocation, HttpOnly/SameSi
 
 **CSRF (decision M6).** A token-free policy is acceptable for this same-origin app only with all of the following:
 
-- Protect every cookie-authenticated mutation, including multipart uploads. No state-changing GET.
+- Protect every cookie-authenticated mutation, including multipart uploads, plus login (session creation) and logout. No state-changing GET. The public enquiry form is the one intentional unauthenticated entry point, separately validated and rate-limited.
 - Check `Origin` against an exact configured allowlist. Fall back to an exact-origin `Referer` only when `Origin` is absent. Reject `null`, foreign, and missing-both.
 - Don't trust arbitrary `Host` or proxy headers.
 - Use maintained framework protection where the pinned packages support it; no invented crypto.

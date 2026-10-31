@@ -83,7 +83,7 @@ Coverage needs start/expiry/policy/scope and a saved decision. Supplier claim, i
 - Follow the PDF's fictional package catalogue, including its on-grid controller listing; do not present it as engineering advice.
 - Panels are also serialized to support their specified warranty; delivery and commissioning are separate dates.
 - Customer repair confirmation can be recorded by staff with confirmer/channel/time; never imply the customer authenticated when they did not.
-- Event rules come from the event page for 69158, captured 31 Oct (`docs/requirements/hackathon-requirements.md`, added in PR #1); see section 11. Local DB, custom APIs and no BaaS come from the [2025 organizer video](requirements/organizer-video-deliverables.md). The event page lists them as nice-to-have, but the team has adopted them as mandatory (ADR-03).
+- Event rules come from the event page for 69158, captured 31 Oct (`docs/requirements/hackathon-requirements.md`, added in PR #1); see section 11. The event page lists the ability to design backend APIs, model data and set up a local database as nice-to-have. No BaaS and minimal third-party APIs come from the [2025 organizer video](requirements/organizer-video-deliverables.md), not the event page. The team has adopted all of these as mandatory (ADR-03). The video submission is required by the event page's timeline.
 - One dedicated frontend owner and three component-based backend owners (owner decision, 31 Oct). No copied prior source without organizer permission.
 - Stack: keep the existing React/Vite + NestJS + Prisma + PostgreSQL scaffold (decision M1, see [TRD](TRD.md) section 1).
 - Feature-report upgrades: only minimal refusal reasons and command readiness guards are in scope. The exception queue, cost variance, second-person installation check and every other enhancement are deferred. They can be reopened only after R1–R25, device and release checks pass, and before 01 Nov 05:00.
@@ -137,7 +137,7 @@ Event MUSTs and how this product proves them:
 
 | Event MUST | Acceptance in this product |
 |---|---|
-| Dynamic data, no static JSON in the final app | Every screen reads persisted PostgreSQL data through our APIs; fixtures exist only in tests |
+| Dynamic data, no static JSON in the final app | Every screen reads persisted PostgreSQL data through our APIs. Production business routes use no fixture or mock providers and no static JSON. Explicitly seeded PostgreSQL demo records are allowed and labelled |
 | Responsive, clean UI with consistent colours and layout | Six shared page patterns; forms usable at 360px; field flow tested on a real phone |
 | Robust input validation | Shared Zod schemas on client and server; field errors without losing input; invalid transitions return a 409 with a reason |
 | Intuitive navigation and menu placement | Six top-level areas (Overview, Sales, Orders, Warehouse, Field & Service, Reports), each showing the current status and next action |
