@@ -165,7 +165,7 @@
       "table": "surveys",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"cableDistanceM\" IS NULL) OR (\"cableDistanceM\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"cableDistanceM\" IS NULL) OR ((\"cableDistanceM\" >= (0)::numeric) AND (\"cableDistanceM\" <> 'NaN'::numeric))))"
     },
     {
       "name": "surveys_decision_recorded",
@@ -200,7 +200,7 @@
       "table": "surveys",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"usableRoofAreaSqm\" IS NULL) OR (\"usableRoofAreaSqm\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"usableRoofAreaSqm\" IS NULL) OR ((\"usableRoofAreaSqm\" >= (0)::numeric) AND (\"usableRoofAreaSqm\" <> 'NaN'::numeric))))"
     },
     {
       "name": "surveys_submitted_has_measurements",
@@ -214,7 +214,7 @@
       "table": "surveys",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"roofTiltDeg\" IS NULL) OR ((\"roofTiltDeg\" >= (0)::numeric) AND (\"roofTiltDeg\" <= (90)::numeric))))"
+      "definition": "CHECK (((\"roofTiltDeg\" IS NULL) OR ((\"roofTiltDeg\" >= (0)::numeric) AND (\"roofTiltDeg\" <= (90)::numeric) AND (\"roofTiltDeg\" <> 'NaN'::numeric))))"
     },
     {
       "name": "surveys_version_positive",

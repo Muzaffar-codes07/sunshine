@@ -47,11 +47,12 @@ ALTER TABLE "surveys" ADD CONSTRAINT "surveys_technicianId_fkey" FOREIGN KEY ("t
 ALTER TABLE "surveys" ADD CONSTRAINT "surveys_decidedById_fkey" FOREIGN KEY ("decidedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Hand-written rules (listed in prisma/required-constraints.json; Prisma cannot express them).
+-- PostgreSQL numeric NaN sorts above every number, so ">= 0" alone would accept it; each range also excludes NaN.
 ALTER TABLE "surveys" ADD CONSTRAINT "surveys_revision_positive" CHECK ("revision" >= 1);
 ALTER TABLE "surveys" ADD CONSTRAINT "surveys_version_positive" CHECK ("version" >= 1);
-ALTER TABLE "surveys" ADD CONSTRAINT "surveys_tilt_range" CHECK ("roofTiltDeg" IS NULL OR ("roofTiltDeg" >= 0 AND "roofTiltDeg" <= 90));
-ALTER TABLE "surveys" ADD CONSTRAINT "surveys_cable_distance_nonnegative" CHECK ("cableDistanceM" IS NULL OR "cableDistanceM" >= 0);
-ALTER TABLE "surveys" ADD CONSTRAINT "surveys_roof_area_nonnegative" CHECK ("usableRoofAreaSqm" IS NULL OR "usableRoofAreaSqm" >= 0);
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_tilt_range" CHECK ("roofTiltDeg" IS NULL OR ("roofTiltDeg" >= 0 AND "roofTiltDeg" <= 90 AND "roofTiltDeg" <> 'NaN'));
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_cable_distance_nonnegative" CHECK ("cableDistanceM" IS NULL OR ("cableDistanceM" >= 0 AND "cableDistanceM" <> 'NaN'));
+ALTER TABLE "surveys" ADD CONSTRAINT "surveys_roof_area_nonnegative" CHECK ("usableRoofAreaSqm" IS NULL OR ("usableRoofAreaSqm" >= 0 AND "usableRoofAreaSqm" <> 'NaN'));
 -- A submitted or decided revision has every measurement and a submission time.
 ALTER TABLE "surveys" ADD CONSTRAINT "surveys_submitted_has_measurements" CHECK (
   "status" = 'SCHEDULED'

@@ -3,7 +3,8 @@ import {
   surveyListResponseSchema, surveyResponseSchema,
   type ApproveSurvey, type RejectSurvey, type RescheduleSurvey, type ScheduleSurvey, type StaffIdentity, type SubmitSurvey,
 } from '@sunshine/contracts';
-import { ApiError } from '../platform/api-error';
+import { ApiError, refusal } from '../platform/api-error';
+import { SURVEY_ALREADY_OPEN } from '../platform/constraint-errors';
 import { PrismaService } from '../platform/prisma.service';
 import type { EnquiryStatus, Prisma, SurveyStatus } from '../generated/prisma/client';
 
@@ -122,10 +123,16 @@ export class SurveysService {
     await tx.$queryRaw`SELECT id FROM enquiries WHERE id = ${survey.enquiryId}::uuid FOR SHARE`;
     const latest = await tx.survey.findFirst({ where: { enquiryId: survey.enquiryId }, orderBy: { revision: 'desc' }, select: { id: true } });
     if (latest?.id !== survey.id) {
-      throw new ApiError(HttpStatus.CONFLICT, 'SURVEY_NOT_APPROVED', 'A newer survey revision exists. Quote from it once it is approved.');
+      throw refusal({
+        code: 'SURVEY_NOT_APPROVED', reason: 'A newer survey revision exists for this enquiry.', source: 'SURVEY',
+        nextAction: 'Quote from the latest revision once it is approved.',
+      });
     }
     if (survey.status !== 'APPROVED') {
-      throw new ApiError(HttpStatus.CONFLICT, 'SURVEY_NOT_APPROVED', 'The site survey must be approved before a quote can be created.');
+      throw refusal({
+        code: 'SURVEY_NOT_APPROVED', reason: 'The site survey is not approved yet.', source: 'SURVEY',
+        nextAction: 'Approve the submitted survey, then create the quote.',
+      });
     }
     return survey;
   }
@@ -178,7 +185,7 @@ function notFound() {
 }
 
 function surveyAlreadyOpen() {
-  return new ApiError(HttpStatus.CONFLICT, 'SURVEY_ALREADY_OPEN', 'This enquiry already has a survey in progress.');
+  return refusal(SURVEY_ALREADY_OPEN);
 }
 
 function isUniqueViolation(error: unknown): boolean {
