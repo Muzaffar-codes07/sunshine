@@ -28,5 +28,81 @@ model User {
   createdAt    DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
+  ownedEnquiries Enquiry[]
+
   @@map("users")
+}
+
+// Sales (D2). Value ranges are enforced by CHECK constraints in the migration SQL,
+// because Prisma cannot express them.
+enum EnquirySource {
+  WEB
+  PHONE
+  WHATSAPP
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+  ARCHIVED
+}
+
+enum SystemType {
+  ON_GRID
+  OFF_GRID
+}
+
+model Customer {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  // Normalized 10-digit Indian mobile number; one customer record per phone.
+  phone       String   @unique
+  email       String?
+  addressLine String
+  city        String
+  pincode     String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  enquiries Enquiry[]
+
+  @@map("customers")
+}
+
+model Enquiry {
+  id                  String        @id @default(uuid()) @db.Uuid
+  customerId          String        @db.Uuid
+  source              EnquirySource
+  status              EnquiryStatus @default(NEW)
+  // Contact and site as submitted with this enquiry; the customer record stays canonical.
+  contactName         String
+  contactEmail        String?
+  siteAddressLine     String
+  siteCity            String
+  sitePincode         String
+  requestedCapacityKw Int
+  systemType          SystemType?
+  subsidyInterest     Boolean       @default(false)
+  message             String?
+  // Qualification facts recorded on the first call (PDF: shadow-free roof area, monthly bill, grid suitability).
+  shadowFreeRoofAreaSqm Decimal?    @db.Decimal(8, 2)
+  monthlyBillInr        Decimal?    @db.Decimal(12, 2)
+  gridConnectionSuitable Boolean?
+  ownerId             String?       @db.Uuid
+  nextFollowUpAt      DateTime?     @db.Timestamptz(3)
+  closedReason        String?
+  version             Int           @default(1)
+  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  owner    User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextFollowUpAt])
+  @@index([ownerId, status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("enquiries")
 }
