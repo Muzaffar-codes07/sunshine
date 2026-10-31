@@ -42,6 +42,16 @@ export type ConstraintRule = { field: string; message: string } | { refusal: Ref
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
+  ...Object.fromEntries([
+    'quotes_revision_positive', 'quotes_version_positive', 'quotes_prices_reconcile', 'quotes_revision_source',
+    'quotes_snapshots_objects', 'quotes_sent_evidence', 'quotes_decision_evidence', 'quotes_accepted_evidence', 'quotes_rejected_reason',
+    'quote_lines_description_not_blank', 'quote_lines_position_positive', 'quote_lines_quantity_positive', 'quote_lines_prices_nonnegative',
+    'quote_lines_charging_consistent', 'quote_lines_product_consistent', 'quote_lines_serialized_whole',
+    'quote_lines_one_package_charge', 'quote_lines_one_service_charge', 'quote_lines_one_component_product',
+  ].map(name => [name, { refusal: {
+    code: 'QUOTE_TERMS_INVALID', reason: 'The saved quote terms are inconsistent.', source: 'QUOTE',
+    nextAction: 'Review the package and create a new quote revision; report persistent failures with the request ID.',
+  } }])),
   manufacturers_name_not_blank: { field: 'name', message: 'Enter the manufacturer name' },
   products_sku_format: { field: 'sku', message: 'Use 2–64 uppercase letters, digits, hyphens or underscores for the SKU' },
   products_name_not_blank: { field: 'name', message: 'Enter the product name' },
