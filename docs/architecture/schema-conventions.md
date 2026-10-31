@@ -21,6 +21,12 @@ These follow the existing `users` table and the data model.
 | Corrections | Reversal rows for posted money and stock, never destructive edits |
 | Hand-written constraint names | `<table>_<rule>`, such as `allocations_one_active_per_unit` |
 
+Stated foreign-key exceptions (keep the reason next to the relation in `schema.prisma` too):
+
+| Relation | `onDelete` | Reason |
+|---|---|---|
+| `enquiries.ownerId` → `users` | `SetNull` | The owner is a work assignment, not a record of who did something. Removing a staff user must neither be blocked by their open enquiries nor delete them; the enquiry goes back to the unassigned queue |
+
 ## Migration queue
 
 One shared `prisma/schema.prisma`, with each owner's models kept in their own section. Migrations land in foreign-key order, so a later table can reference an earlier one. Two items with no link between them can swap.
@@ -29,7 +35,8 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 |---:|---|---|---|
 | 0 | `platform`: `User` | - | Merged |
 | 1 | `Customer`, `Enquiry` (`20261031100000_sales_enquiry`) | D2 | Merged in #6 (`854b96e`); nine CHECKs registered here |
-| 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Reserved on `feat/d2-auth`; later migrations must not reuse this name |
+| 1b | `enquiries.monthlyBillInr` to `Decimal(14,2)` (`20261031120000_enquiry_bill_money`) | D2 | Follow-up C1c; widening only |
+| 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Merged in #9 |
 | 2b | `Survey`, then `AuditEntry`, `Command`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
 | 4 | `Quote`, `QuoteLine`, `Order`, `Invoice`, `InvoiceLine`, `Payment` | D2 | Queued |
