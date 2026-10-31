@@ -39,12 +39,12 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Merged in #9 |
 | 2b | `Survey` (`20261031140000_survey`) | D2 | C4; eight CHECKs and `surveys_one_open_per_enquiry` registered here |
 | 2c | `AuditEntry` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
-| 2e | `File` (`20261031190000_files`) | D2 | B08 private transport; six CHECKs; JOB/TICKET authorization port fails closed until wired |
+| 2e | `File` (`20261031250000_files`) | D2 | B08 private transport; six CHECKs; JOB/TICKET authorization port fails closed until wired |
 | 2d | `Command` (`20261031150000_commands`) | D2 | C7, idempotent command results; three CHECKs registered here |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
 | 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
 | 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
-| 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `JobAssignment` and time records follow |
+| 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `20261031240000_job_scheduling` adds its schedule and `JobAssignment`; time records follow |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `20261031230000_allocations` adds `Allocation`; `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |

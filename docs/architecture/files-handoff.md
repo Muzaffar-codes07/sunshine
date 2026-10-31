@@ -31,6 +31,6 @@ Files are immutable through the public API; no public delete or rebind operation
 
 ## Schema and verification
 
-Migration 20261031190000_files was generated with Prisma migrate dev --create-only on isolated PostgreSQL 17.11, then given explicit BEGIN/COMMIT and six CHECKs: storage-key format, nonblank safe filename, known MIME, 1..10 MiB size, SHA-256 format, and paired context fields. Uploader is a real restrictive User foreign key. Canonical CHECK definitions are registered; bound-record adapters are still required.
+Migration 20261031250000_files was generated with Prisma migrate dev --create-only on isolated PostgreSQL 17.11, then given explicit BEGIN/COMMIT and six CHECKs: storage-key format, nonblank safe filename, known MIME, 1..10 MiB size, SHA-256 format, and paired context fields. Uploader is a real restrictive User foreign key. Canonical CHECK definitions are registered; bound-record adapters are still required.
 
 Real PostgreSQL/disk tests cover bytes/metadata, cross-user denial, missing/forged/oversize requests, disk/metadata failures, fail-closed adapters, exact associations, rollback and concurrent binding, missing/altered bytes, SQL backstops, multipart origin/login/limits, attachment headers and static non-disclosure. No GPS, certified signature or photo-authenticity claim is made.
