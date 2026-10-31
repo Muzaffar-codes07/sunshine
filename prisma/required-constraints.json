@@ -862,6 +862,69 @@
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER allocations_release_guarded BEFORE UPDATE ON public.allocations FOR EACH ROW EXECUTE FUNCTION allocations_check_release()"
+    },
+    {
+      "name": "dispatches_version_positive",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "dispatch_scans_values_not_blank",
+      "table": "dispatch_scans",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((length(btrim((\"rawValue\")::text)) > 0) AND (length(btrim((\"normalizedSerial\")::text)) > 0)))"
+    },
+    {
+      "name": "dispatch_scans_check_source",
+      "table": "dispatch_scans_check_source",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.dispatch_scans_check_source()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE source RECORD;\nBEGIN\n  -- This lock also serializes inserts against the dispatch's version update.\n  PERFORM \"id\" FROM \"dispatches\" WHERE \"id\" = NEW.\"dispatchId\" FOR SHARE;\n  SELECT d.\"orderId\" AS dispatch_order, j.\"orderId\" AS allocated_order, a.\"status\" AS allocation_status,\n    u.\"status\" AS unit_status, u.\"normalizedSerial\", a.\"createdAt\" INTO source\n  FROM \"allocations\" a JOIN \"jobs\" j ON j.\"id\"=a.\"jobId\" JOIN \"units\" u ON u.\"id\"=a.\"unitId\"\n  JOIN \"dispatches\" d ON d.\"id\"=NEW.\"dispatchId\" WHERE a.\"id\"=NEW.\"allocationId\" FOR SHARE OF a,u;\n  IF NOT FOUND OR source.dispatch_order <> source.allocated_order OR source.allocation_status <> 'RESERVED'\n    OR source.unit_status <> 'RESERVED' OR source.\"normalizedSerial\" <> NEW.\"normalizedSerial\"\n    OR NEW.\"recordedAt\" < source.\"createdAt\" THEN\n    RAISE EXCEPTION 'a dispatch scan must match its reserved equipment and order' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "dispatch_scans_refuse_change",
+      "table": "dispatch_scans_refuse_change",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.dispatch_scans_refuse_change()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'dispatch scan evidence is append-only' USING ERRCODE = 'restrict_violation';\nEND;\n$function$\n"
+    },
+    {
+      "name": "dispatches_guard_identity",
+      "table": "dispatches_guard_identity",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.dispatches_guard_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR ROW(NEW.\"id\",NEW.\"orderId\",NEW.\"createdById\",NEW.\"createdAt\")\n    IS DISTINCT FROM ROW(OLD.\"id\",OLD.\"orderId\",OLD.\"createdById\",OLD.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1 THEN\n    RAISE EXCEPTION 'dispatch identity is fixed and changes need the next version' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "dispatches_identity_frozen",
+      "table": "dispatches",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER dispatches_identity_frozen BEFORE DELETE OR UPDATE ON public.dispatches FOR EACH ROW EXECUTE FUNCTION dispatches_guard_identity()"
+    },
+    {
+      "name": "dispatch_scans_source_valid",
+      "table": "dispatch_scans",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER dispatch_scans_source_valid BEFORE INSERT ON public.dispatch_scans FOR EACH ROW EXECUTE FUNCTION dispatch_scans_check_source()"
+    },
+    {
+      "name": "dispatch_scans_append_only",
+      "table": "dispatch_scans",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER dispatch_scans_append_only BEFORE DELETE OR UPDATE ON public.dispatch_scans FOR EACH ROW EXECUTE FUNCTION dispatch_scans_refuse_change()"
+    },
+    {
+      "name": "dispatch_scans_no_truncate",
+      "table": "dispatch_scans",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER dispatch_scans_no_truncate BEFORE TRUNCATE ON public.dispatch_scans FOR EACH STATEMENT EXECUTE FUNCTION dispatch_scans_refuse_change()"
     }
   ]
 }

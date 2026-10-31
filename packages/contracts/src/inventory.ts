@@ -75,7 +75,7 @@ export const unitViewSchema = z.object({
 });
 export const recordScanRequestSchema = z.object({
   rawValue: z.string().min(1).max(512).refine((value) => value.trim().length > 0, 'Scan must not be blank'),
-  method: scanMethodSchema, unitId: z.uuid().optional(),
+  method: scanMethodSchema, unitId: canonicalId.optional(),
 }).strict();
 export const scanRecordSchema = z.object({
   id: z.uuid(), unitId: z.uuid(), rawValue: z.string().min(1), normalizedSerial: z.string().min(1),
@@ -91,6 +91,12 @@ export const dispatchViewSchema = z.object({
   dispatchedAt: z.iso.datetime({ offset: true }).nullable(), deliveredAt: z.iso.datetime({ offset: true }).nullable(),
   allocations: z.array(allocationViewSchema), scans: z.array(scanRecordSchema),
 });
+export const createDispatchRequestSchema = z.object({ expectedVersion: version }).strict();
+export type CreateDispatchRequest = z.infer<typeof createDispatchRequestSchema>;
+// Scan completeness does not imply dispatch posting or cost integration is available.
+export const dispatchResponseSchema = z.object({ data: dispatchViewSchema.extend({
+  scanReadiness: z.object({ reservationValid: z.boolean(), requiredUnitIds: z.array(z.uuid()), missingUnitIds: z.array(z.uuid()), complete: z.boolean() }),
+}) });
 export const returnUnitRequestSchema = z.object({
   expectedVersion: version, unitId: z.uuid(), ticketLineId: z.uuid(),
   reason: z.string().trim().min(1).max(1000),

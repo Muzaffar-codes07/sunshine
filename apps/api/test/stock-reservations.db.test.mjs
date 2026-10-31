@@ -21,6 +21,7 @@ const { OrdersService } = require('../dist/orders/orders.service');
 const { InvoicesService } = require('../dist/finance/invoices.service');
 const { StockLedgerService } = require('../dist/inventory/stock-ledger.service');
 const { AllocationsService } = require('../dist/inventory/allocations.service');
+const { DispatchScansService } = require('../dist/inventory/dispatch-scans.service');
 const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
 const { hashPassword } = require('../dist/auth/passwords');
@@ -113,6 +114,14 @@ const allocate = async (order, body = {}, role = 'WAREHOUSE', key = randomUUID()
 const release = async (order, body = {}, role = 'WAREHOUSE', key = randomUUID()) => send(`/orders/${order.id}/allocations/release`, {
   expectedVersion: await version(order), reason: 'Reschedule equipment allocation', ...body,
 }, role, key);
+const dispatchDraft = async (order, key = randomUUID()) => send(`/orders/${order.id}/dispatches`, { expectedVersion: await version(order) }, 'WAREHOUSE', key);
+const scan = (draft, unit, method = 'SCANNER', key = randomUUID()) => send(`/dispatches/${draft.id}/scans`, { rawValue: unit.rawSerial, method, unitId: unit.id }, 'WAREHOUSE', key);
+async function preparedDispatch() {
+  const order = await confirmedOrder(); await stock(order);
+  const allocations = await ok(allocate(order)); const draft = await ok(dispatchDraft(order));
+  const units = await prisma.unit.findMany({ where: { id: { in: allocations.flatMap((row) => row.unitId ? [row.unitId] : []) } }, orderBy: { id: 'asc' } });
+  return { order, allocations, draft, units };
+}
 const held = (order) => prisma.allocation.findMany({ where: { jobId: order.jobId } });
 const stripStock = async (productId) => {
   const available = await prisma.$queryRaw`SELECT u."id" FROM "units" u JOIN "unit_locations" l ON l."unitId" = u."id" WHERE u."productId" = ${productId}::uuid AND u."status" = 'AVAILABLE' AND l."locationId" = ${main.id}::uuid`;
@@ -478,4 +487,158 @@ test('release requires warehouse/admin, a key, a real order and a reason; raw re
   await assert.rejects(sql.query(`UPDATE allocations SET "releasedAt"=now(),"releasedById"=$2,"releaseReason"='Premature evidence' WHERE id=$1`, [rows[0].id, staff.WAREHOUSE.id]), /recorded only when releasing/);
   await ok(release(order), 200);
   await assert.rejects(sql.query(`UPDATE allocations SET "releaseReason"='Rewritten history' WHERE id=$1`, [rows[0].id]), /identity cannot change/);
+});
+
+test('dispatch draft requires a paid complete reservation and creates one header on retry', async () => {
+  const unpaid = await confirmedOrder({ paid: false });
+  await refused(dispatchDraft(unpaid), 409, 'DISPATCH_NOT_READY');
+  const order = await confirmedOrder(); await stock(order); await ok(allocate(order));
+  await refused(send(`/orders/${order.id}/dispatches`, { expectedVersion: (await version(order)) + 1 }), 409, 'STALE_VERSION');
+  const input = { expectedVersion: await version(order) }; const key = randomUUID();
+  const draft = await ok(send(`/orders/${order.id}/dispatches`, input, 'WAREHOUSE', key));
+  assert.equal(draft.status, 'DRAFT'); assert.equal(draft.dispatchedAt, null); assert.equal(draft.scanReadiness.complete, false);
+  assert.deepEqual(await ok(send(`/orders/${order.id}/dispatches`, input, 'WAREHOUSE', key)), draft);
+  assert.equal((await ok(dispatchDraft(order))).id, draft.id);
+  assert.equal(await prisma.dispatch.count({ where: { orderId: order.id } }), 1);
+});
+
+test('typed values remain evidence but only camera/scanner methods satisfy current reserved serials', async () => {
+  const { order, draft, units } = await preparedDispatch();
+  const beforeRows = await held(order); const beforeMoves = await prisma.stockMovement.count();
+  const unitsBefore = await prisma.unit.findMany({ where: { id: { in: units.map((u) => u.id) } }, orderBy: { id: 'asc' } });
+  for (const unit of units) await ok(scan(draft, unit, 'TYPED'));
+  const typed = await ok(get(`/dispatches/${draft.id}`), 200);
+  assert.ok(typed.scans.every((row) => !row.countsForDispatch)); assert.equal(typed.scanReadiness.complete, false);
+  assert.equal(typed.scanReadiness.missingUnitIds.length, units.length);
+  let completed;
+  for (const [index, unit] of units.entries()) {
+    completed = await ok(send(`/dispatches/${draft.id}/scans`, { rawValue: ` ${unit.normalizedSerial.toLowerCase()} `, method: index % 2 ? 'CAMERA' : 'SCANNER', unitId: unit.id.toUpperCase() }));
+  }
+  assert.equal(completed.scanReadiness.complete, true); assert.deepEqual(completed.scanReadiness.missingUnitIds, []);
+  assert.equal(completed.status, 'DRAFT'); assert.equal(completed.dispatchedAt, null);
+  assert.ok(completed.scans.some((row) => row.rawValue.startsWith(' ') && row.actorId === staff.WAREHOUSE.id));
+  assert.deepEqual(await held(order), beforeRows);
+  assert.deepEqual(await prisma.unit.findMany({ where: { id: { in: units.map((u) => u.id) } }, orderBy: { id: 'asc' } }), unitsBefore);
+  assert.equal(await prisma.stockMovement.count(), beforeMoves);
+  await refused(send(`/dispatches/${draft.id}/dispatch`, { expectedVersion: completed.version }), 404, 'NOT_FOUND');
+  assert.deepEqual(await ok(get(`/dispatches/${draft.id}`), 200), completed);
+});
+
+test('unknown, wrong-order and already-installed units cannot satisfy a scan', async () => {
+  const [one, two] = [await preparedDispatch(), await preparedDispatch()];
+  const before = await prisma.dispatchScan.count(); const v = one.draft.version;
+  await refused(send(`/dispatches/${one.draft.id}/scans`, { rawValue: 'UNKNOWN', method: 'SCANNER' }), 409, 'SCAN_NOT_ALLOCATED');
+  await refused(scan(one.draft, two.units[0]), 409, 'SCAN_NOT_ALLOCATED');
+  await prisma.unit.update({ where: { id: one.units[0].id }, data: { status: 'INSTALLED' } });
+  try { await refused(scan(one.draft, one.units[0]), 409, 'DISPATCH_NOT_READY'); }
+  finally { await prisma.unit.update({ where: { id: one.units[0].id }, data: { status: 'RESERVED' } }); }
+  assert.equal(await prisma.dispatchScan.count(), before);
+  assert.equal((await ok(get(`/dispatches/${one.draft.id}`), 200)).version, v);
+});
+
+test('same serial across reserved products requires a unit UUID to disambiguate', async () => {
+  const order = await confirmedOrder(); const sharedSerial = 'SHARED-' + randomUUID(); const selected = [];
+  for (const product of await productsOf(order)) {
+    const needed = order.packing.filter((line) => line.productId === product.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+    if (product.trackingMode === 'SERIALIZED') {
+      const serials = Array.from({ length: needed }, (_, index) => index ? 'UNIQUE-' + randomUUID() : sharedSerial);
+      selected.push(...(await receive(product.id, needed, serials)).lines[0].unitIds);
+    } else await receive(product.id, needed);
+  }
+  await ok(allocate(order, { unitIds: selected })); const draft = await ok(dispatchDraft(order));
+  await refused(send(`/dispatches/${draft.id}/scans`, { rawValue: sharedSerial, method: 'SCANNER' }), 409, 'SCAN_AMBIGUOUS');
+  const matching = await prisma.unit.findFirstOrThrow({ where: { id: { in: selected }, normalizedSerial: sharedSerial.toUpperCase() } });
+  const result = await ok(scan(draft, matching));
+  assert.equal(result.scans.length, 1); assert.equal(result.scans[0].unitId, matching.id);
+});
+
+test('released scan evidence cannot be reused when the same physical unit is reallocated', async () => {
+  const { order, draft, units } = await preparedDispatch();
+  for (const unit of units) await ok(scan(draft, unit));
+  assert.equal((await ok(get(`/dispatches/${draft.id}`), 200)).scanReadiness.complete, true);
+  await ok(release(order), 200);
+  const freed = await ok(get(`/dispatches/${draft.id}`), 200);
+  assert.equal(freed.scanReadiness.reservationValid, false); assert.equal(freed.scanReadiness.complete, false);
+  assert.ok(freed.scans.every((row) => !row.countsForDispatch));
+  await ok(allocate(order, { unitIds: units.map((u) => u.id) }));
+  const again = await ok(dispatchDraft(order)); assert.equal(again.id, draft.id);
+  assert.equal(again.scanReadiness.complete, false); assert.equal(again.scanReadiness.missingUnitIds.length, units.length);
+  for (const unit of units) await ok(scan(draft, unit));
+  const rescanned = await ok(get(`/dispatches/${draft.id}`), 200);
+  assert.equal(rescanned.scans.length, units.length * 2); assert.equal(rescanned.scanReadiness.complete, true);
+});
+
+test('complete serial scans stay blocked while a physical count is below reserved bulk stock', async () => {
+  const { order, draft, units, allocations } = await preparedDispatch();
+  for (const unit of units) await ok(scan(draft, unit));
+  const bulk = allocations.find((row) => !row.unitId);
+  const counted = await ok(send('/stock/counts', { reference: 'SCAN-COUNT-' + randomUUID(), locationId: main.id,
+    lines: [{ productId: bulk.productId, countedQuantity: '0' }] }));
+  await ok(send(`/stock/documents/${counted.id}/validate`, { expectedVersion: counted.version }), 200);
+  const missingStock = await ok(get(`/dispatches/${draft.id}`), 200);
+  try {
+    assert.deepEqual(missingStock.scanReadiness.missingUnitIds, []);
+    assert.equal(missingStock.scanReadiness.reservationValid, false);
+    assert.equal(missingStock.scanReadiness.complete, false);
+  } finally { await receive(bulk.productId, (await reserved(bulk.productId)).toFixed(3)); }
+  assert.equal((await ok(get(`/dispatches/${draft.id}`), 200)).scanReadiness.complete, true);
+});
+
+test('concurrent scan retries record once and different keys reject duplicate method input', async () => {
+  for (const sameKey of [true, false]) {
+    const { draft, units } = await preparedDispatch(); const key = randomUUID();
+    const results = await Promise.all([scan(draft, units[0], 'SCANNER', key), scan(draft, units[0], 'SCANNER', sameKey ? key : randomUUID())]);
+    assert.deepEqual(results.map((r) => r.status).sort(), sameKey ? [201, 201] : [201, 409]);
+    if (sameKey) assert.deepEqual(await results[0].json(), await results[1].json());
+    const saved = await ok(get(`/dispatches/${draft.id}`), 200);
+    assert.equal(saved.scans.length, 1); assert.equal(saved.version, draft.version + 1);
+  }
+});
+
+test('late scan failure rolls back evidence, version and key claim and permits same-key retry', async () => {
+  const { draft, units } = await preparedDispatch(); const key = randomUUID();
+  const input = { rawValue: units[0].rawSerial, method: 'CAMERA', unitId: units[0].id };
+  const broken = new DispatchScansService(prisma, { run: (command, work) => idempotency.run(command, async (tx) => {
+    await work(tx); throw new Error('scan failure after effects');
+  }) }, ledger, invoices);
+  await assert.rejects(broken.record(staff.WAREHOUSE.id, key, draft.id, input), /scan failure after effects/);
+  const after = await ok(get(`/dispatches/${draft.id}`), 200);
+  assert.deepEqual(after, draft); assert.equal(await prisma.command.count({ where: { actorId: staff.WAREHOUSE.id, idempotencyKey: key } }), 0);
+  assert.equal((await ok(send(`/dispatches/${draft.id}/scans`, input, 'WAREHOUSE', key))).scans.length, 1);
+});
+
+test('scans racing a reservation release leave no usable evidence for the released allocation', async () => {
+  const { order, draft, units } = await preparedDispatch();
+  await sql.query('BEGIN'); await sql.query('SELECT id FROM jobs WHERE id=$1 FOR NO KEY UPDATE', [order.jobId]);
+  const pending = Promise.all([scan(draft, units[0]), release(order)]);
+  try { await new Promise((resolve) => setTimeout(resolve, 250)); }
+  finally { await sql.query('COMMIT'); }
+  const [scanned, released] = await pending;
+  assert.ok([201, 409].includes(scanned.status)); assert.equal(released.status, 200);
+  const after = await ok(get(`/dispatches/${draft.id}`), 200);
+  assert.equal(after.scanReadiness.complete, false); assert.ok(after.scans.every((row) => !row.countsForDispatch));
+});
+
+test('scan routes enforce authorization and immutable source-bound evidence in PostgreSQL', async () => {
+  const one = await preparedDispatch(); const two = await preparedDispatch();
+  const route = `/dispatches/${one.draft.id}/scans`;
+  for (const role of ['SALES', 'TECHNICIAN']) {
+    await refused(send(route, { rawValue: one.units[0].rawSerial, method: 'SCANNER' }, role), 403, 'FORBIDDEN');
+    await refused(get(`/dispatches/${one.draft.id}`, role), 403, 'FORBIDDEN');
+  }
+  await refused(send(route, { rawValue: one.units[0].rawSerial, method: 'SCANNER' }, 'WAREHOUSE', null), 400, 'INVALID_INPUT');
+  await refused(send(route, { rawValue: one.units[0].rawSerial, method: 'SCANNER', actorId: staff.ADMIN.id }), 400, 'INVALID_INPUT');
+  await refused(get(`/dispatches/${randomUUID()}`), 404, 'NOT_FOUND');
+  const insert = (dispatchId, row, normalized) => sql.query(`INSERT INTO dispatch_scans
+    (id,"dispatchId","allocationId","rawValue","normalizedSerial",method,"actorId") VALUES(gen_random_uuid(),$1,$2,'raw',$3,'CAMERA',$4)`,
+  [dispatchId, row.id, normalized, staff.WAREHOUSE.id]);
+  const other = two.allocations.find((row) => row.unitId === two.units[0].id);
+  await assert.rejects(insert(one.draft.id, other, two.units[0].normalizedSerial), /must match its reserved equipment and order/);
+  const own = one.allocations.find((row) => row.unitId === one.units[0].id);
+  await assert.rejects(insert(one.draft.id, own, 'WRONG'), /must match its reserved equipment and order/);
+  const scanned = await ok(scan(one.draft, one.units[0])); const scanId = scanned.scans[0].id;
+  await assert.rejects(sql.query('UPDATE dispatch_scans SET "rawValue"=\'changed\' WHERE id=$1', [scanId]), /append-only/);
+  await assert.rejects(sql.query('DELETE FROM dispatch_scans WHERE id=$1', [scanId]), /append-only/);
+  await assert.rejects(sql.query('TRUNCATE dispatch_scans'), /append-only/);
+  await assert.rejects(sql.query('UPDATE dispatches SET "orderId"=$1,version=version+1 WHERE id=$2', [two.order.id, one.draft.id]), /identity is fixed/);
 });

@@ -1,14 +1,14 @@
 # D3 inventory and field contract handoff
 
-Status: transport contracts and development fixtures only. They work with the owner-selected [stock ledger rules](data-model.md#stock-ledger-owner-decision-31-oct); runtime implementation is pending. No stock/field database migration, domain service, HTTP route, readiness preview or hardware validation is implemented by this slice. D1 owns all production UI; Tuhin owns D3, with Claude reviewing each slice.
+Status: shared contracts plus implemented inventory receipts, stock reads, serial traceability, order reservations/release, job creation/scheduling and dispatch draft/scan services. They follow the owner-selected [stock ledger rules](data-model.md#stock-ledger-owner-decision-31-oct). Actual dispatch cost/issue posting, delivery/warranty, repair-ticket stock and field evidence remain incomplete. D1 owns production UI and actual-device acceptance; Tuhin owns D3. Codex currently works independently under the owner's instruction.
 
 ## Dependencies and scope
 
-This branch is based directly on main after [D2 catalogue PR #19](https://github.com/Muzaffar-codes07/sunshine/pull/19) landed. It replaces PR #22, whose catalogue branch was squash-merged. Only D3 files and appended exports differ from main; no catalogue commits or D4 preparatory models are included. Shared exact numeric schemas come from the merged catalogue. D3's earlier PR #8 dependency is removed.
+Historical contract publication: PR #28 was based on main after [D2 catalogue PR #19](https://github.com/Muzaffar-codes07/sunshine/pull/19), replacing PR #22 after its catalogue base was squash-merged. Runtime slices subsequently added their real models, migrations and services. Shared exact numeric schemas come from the catalogue; D4 owns its pending cost/ticket/warranty integration.
 
 D3 adds `inventory.ts`, `field.ts`, their exported inferred TypeScript types, and the examples in `packages/contracts/test/fixtures/d3.cjs`. Examples are for development/tests only; the application does not import them. The existing health, error, sales, auth and catalogue contracts remain available. D4 retains its own contracts in its separate PR.
 
-## Planned command handoffs
+## Implemented and planned command handoffs
 
 Paths are planned interfaces, not existing routes. Staff identity comes from D2 auth, not request bodies. The service and database must enforce record-level access, transitions and integrity independently of these schemas.
 
@@ -17,10 +17,12 @@ Paths are planned interfaces, not existing routes. Staff identity comes from D2 
 | `POST /stock/receipts` | `receiveStockRequestSchema` | D2 canonical product/manufacturer/tracking; active authorized destination locationId; unique receipt reference/source; serialized count required when product is serialized; actual acquisition cost; no future event |
 | `GET /stock/receipts/:id` | `stockReceiptResponseSchema` | WAREHOUSE/ADMIN reload immutable original receipt costs, zero-cost reasons, actor/dates and movement/unit IDs; other document kinds and unknown IDs return 404 |
 | `GET /units/:id` | `unitDetailResponseSchema` | WAREHOUSE/ADMIN trace stable identity to receipt, physical location and active allocation/job/order/customer IDs in one snapshot; unknown UUID returns 404 |
+| `POST /orders/:id/dispatches` | `createDispatchRequestSchema` → `dispatchResponseSchema` | WAREHOUSE/ADMIN, key and expected job version; paid complete reservation on an unstarted order; one retained DRAFT per order |
+| `GET /dispatches/:id` | `dispatchResponseSchema` | Snapshot of the draft, current allocations and retained scans; scanReadiness.complete is not dispatch or cost posting completion |
 | `POST /orders/:id/allocations/release` | `releaseOrderAllocationsRequestSchema` → `releaseOrderAllocationsResponseSchema` | WAREHOUSE/ADMIN; Idempotency-Key; expected job version and reason; complete RESERVED set on an unstarted job only; retains row audit, frees units, no stock/payment movement |
 | `POST /orders/:id/allocations` | `allocateOrderRequestSchema` | Read frozen approved requirements/payment from D2; all-or-none allocation; lock ordering; no client BOM or paid flag |
 | D4 ticket-parts helper | `reserveTicketPartsRequestSchema` / `allocationSourceSchema` | Canonical ticket line; quote-line XOR ticket-line source; correct job/customer; caller transaction |
-| `POST /dispatches/:id/scans` | `recordScanRequestSchema` | Resolve authorized allocated physical unit; serial ambiguity; correct product; TYPED recorded but never sufficient for a required scan |
+| `POST /dispatches/:id/scans` | `recordScanRequestSchema` → `dispatchResponseSchema` | Implemented: key, canonical current allocated unit, raw/normalized value, actor/time, ambiguity refusal, immutable history; TYPED never sufficient; released allocation scans never reused |
 | `POST /dispatches/:id/dispatch` | `dispatchRequestSchema` | Recheck all required scans and reservation, stock/cost posting once, source uniqueness and idempotency |
 | `POST /dispatches/:id/deliver` | `deliverDispatchRequestSchema` | `dispatch occurrence <= delivery occurrence <= server now`; actor recorded; D4 activation once in caller transaction, no second stock deduction |
 | D4 ticket-linked unit return/replacement helpers | `returnUnitRequestSchema`, `replacementStockRequestSchema` | Linked ticket, actual old/new units, authorized return-to-stock; default faulty-unit return is quarantine; distinct physical replacement; D4 owns coverage continuation |
@@ -42,7 +44,7 @@ Only allocation `RESERVED` quantities reduce free stock; the final domain servic
 
 ## Shared helper and error boundaries
 
-`JobsService.ensureJob(tx, confirmedOrder)` will read canonical accepted order facts in the caller transaction and deduplicate by unique order ID. It waits for D2’s Order model and confirmation interface; there is no fake Order table, unguarded create-job endpoint or client-authored order snapshot.
+`JobsService.ensureJob(tx, confirmedOrder)` reads canonical accepted order facts in the caller transaction and deduplicates by unique order ID. It is wired into D2's actual order confirmation, with one job/order relation and rollback tests; no client-authored order snapshot is accepted.
 
 D3 consumes D4’s single cost writer and warranty activation helper, passing the caller transaction and canonical source facts. Cost source identifiers must distinguish STOCK_MOVEMENT and installation TIME_RECORD; reversal gets a distinct reversal source. D4 must settle occurrence versus posting time before the cost helper is integrated. D3 never writes CostEntry or Warranty directly.
 
@@ -50,9 +52,9 @@ D3 consumes D4’s single cost writer and warranty activation helper, passing th
 
 ## Verification and remaining gates
 
-Eighteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
+The original eighteen D3 schema tests cover serials, exact quantities/costs, allocation sources, scan methods and field input. Later tests add runtime receipt/stock/reservation/traceability and draft/scan evidence cases; see the inventory README and issue #13 for head-pinned execution results. Contract tests alone do not prove authorization, concurrency, delivery activation, uploads or physical scanner support.
 
-Before runtime acceptance: implement the confirmed ledger specification; land D2 catalogue/order/files; agree D4 source/cost/warranty helpers; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
+Remaining integrated acceptance: connect D4's real source/cost/warranty helpers and D2 private files, finish issue/delivery/repair/field commands, prove their PostgreSQL races/retries, connect D1 UI and run actual-device checks. A draft with complete scan evidence is still not dispatched. Required baseline workflows remain incomplete until these gates have evidence.
 
 ### Review clarifications
 

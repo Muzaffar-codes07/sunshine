@@ -16,6 +16,8 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule` (implemented); start/complete actions on `/jobs`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
 | D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
+I06 draft/scans are implemented at `POST /orders/:id/dispatches`, `GET /dispatches/:id` and `POST /dispatches/:id/scans`. They retain DRAFT status and expose scan completeness only. Stock/cost dispatch posting and delivery routes remain pending D4 integration; complete scans alone never move stock.
+
 ## H1.5 interfaces
 
 ```text
