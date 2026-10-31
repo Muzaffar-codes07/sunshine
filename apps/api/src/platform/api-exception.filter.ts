@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { ApiError } from './api-error';
+import { constraintError, readConstraintViolation } from './constraint-errors';
 
 const DEFAULT_CODES: Record<number, string> = {
   400: 'INVALID_INPUT',
@@ -17,17 +18,26 @@ const DEFAULT_CODES: Record<number, string> = {
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(caught: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
-    const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const requestId = randomUUID();
+    const mapped = constraintError(caught);
+    if (mapped) {
+      // Name only: the driver's error also carries the failing row, which can hold personal data.
+      const violation = readConstraintViolation(caught);
+      this.logger.warn(`Request ${requestId} refused by ${violation?.kind} constraint ${violation?.constraint ?? '(unnamed)'}`);
+    }
+    const exception = mapped ?? caught;
+    const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const message = exception instanceof HttpException ? exception.message : 'An unexpected server error occurred';
     if (status >= 500 && status !== 503) this.logger.error(`Request ${requestId} failed`, exception instanceof Error ? exception.stack : undefined);
+    const reasons = exception instanceof ApiError && exception.reasons.length ? exception.reasons : undefined;
     response.status(status).json({ error: {
       code: exception instanceof ApiError ? exception.code : DEFAULT_CODES[status] ?? 'REQUEST_FAILED',
       message,
       fieldErrors: exception instanceof ApiError ? exception.fieldErrors : {},
       requestId,
+      ...(reasons && { reasons }),
     } });
   }
 }
