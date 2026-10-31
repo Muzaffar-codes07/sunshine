@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 require('reflect-metadata');
 const { ReportingService, reportWindow } = require('../dist/reporting/reporting.service');
+const { CsvExporterService } = require('../dist/reporting/csv-exporter.service');
 const { PrismaReportingReader } = require('../dist/reporting/reporting.repository');
 const { ReportingAccess, UnavailableReportingAccess, UnavailableReportingSourceReader } = require('../dist/reporting/reporting-readers');
 const { ApiError } = require('../dist/platform/api-error');
@@ -213,7 +214,7 @@ test('HTTP reports enforce authorization before queries, strict inputs and respo
     async readSubsidies() { reads++; return []; },
   });
   class TestModule {}
-  Module({ controllers: [ReportingController], providers: [ReportingGuard,
+  Module({ controllers: [ReportingController], providers: [ReportingGuard, CsvExporterService,
     { provide: ReportingService, useValue: service }, { provide: ReportingAccess, useValue: {
       async assertCanReadReports() {
         if (access === 'unavailable') return new UnavailableReportingAccess().assertCanReadReports({});
@@ -229,7 +230,7 @@ test('HTTP reports enforce authorization before queries, strict inputs and respo
     const base = `${await app.getUrl()}/api/v1/reports`;
     for (const [mode, status] of [['unavailable', 503], ['anonymous', 401], ['technician', 403]]) {
       access = mode;
-      for (const path of ['profitability', 'overview', 'subsidies']) {
+      for (const path of ['profitability', 'overview', 'subsidies', 'pay-summary', 'export.csv?report=pay', 'export-csv?report=overview']) {
         const response = await fetch(`${base}/${path}`, { headers: { 'x-role': 'ADMIN' } });
         assert.equal(response.status, status); assert.ok((await response.json()).error.requestId);
       }
@@ -258,7 +259,7 @@ test('production reports are registered and reject forged admin headers without 
   app.setGlobalPrefix('api/v1'); app.useGlobalFilters(new ApiExceptionFilter());
   try {
     await app.listen(0, '127.0.0.1');
-    for (const path of [`profitability?jobId=${jobId}`, 'overview?period=month', 'subsidies']) {
+    for (const path of [`profitability?jobId=${jobId}`, 'overview?period=month', 'subsidies', 'pay-summary', 'export.csv?report=pay', 'export-csv?report=overview']) {
       const response = await fetch(`${await app.getUrl()}/api/v1/reports/${path}`, { headers: { 'x-role': 'ADMIN' } });
       assert.equal(response.status, 503); assert.equal((await response.json()).error.code, 'REPORTING_AUTH_UNAVAILABLE');
     }

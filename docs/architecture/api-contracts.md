@@ -141,4 +141,30 @@ All three return `{ data: ... }`; query parameters are strict. Cutoffs are
 server controlled. Report aggregate amounts are signed, exact two-place decimal
 strings without a per-row numeric(14,2) cap; old base contracts retain that cap.
 Include posted corrections/refunds once. Cash, pending claims and subsidy awards
-do not create invoiced revenue. Task 4.2 pay summary and CSV are still pending.
+do not create invoiced revenue.
+
+## Task 4.2 technician pay and CSV
+
+- `GET /api/v1/reports/pay-summary?period=today|week|month` (default today)
+  returns `{ data: TechnicianPayReport }`: IST range, UTC boundaries, server
+  cutoff, `technicians: [{ technicianId, technicianName, totalHours, totalPay }]`
+  and grand `totalHours`/`totalPay`. Hours are exact three-place decimal strings;
+  pay is nonnegative two-place decimal strings with aggregate precision. Only
+  approved work in the half-open period, occurred and approved by the cutoff,
+  counts. Each entry's hours times frozen rate rounds half-up to cents before
+  summing; current technician rates never reprice prior work. No ledger writes.
+- `GET /api/v1/reports/export.csv?report=overview&period=month` returns a UTF-8
+  CSV attachment; `export-csv` is an alias. The strict report selector is required:
+  `overview` and `pay` accept only an optional period (default today);
+  `profitability` requires only `jobId=<uuid>` and exports lifetime job results.
+  No client cutoffs, rates, totals or access overrides. CSV uses RFC 4180 quoting
+  and CRLF, safe formula text cells (including leading whitespace/controls), and
+  typed numeric columns preserving negative financial losses. Empty pay exports
+  contain headers only. Downloads have a fixed filename, no-store and nosniff.
+  Failures before streaming retain standard JSON envelopes.
+
+Both routes require the existing verified ADMIN guard. Until upstream TimeEntry
+storage, approval timestamps and frozen rate snapshots exist, the production time
+reader throws `REPORTING_TIME_SOURCE_UNAVAILABLE` (503) after authorization. The
+default authorization still throws `REPORTING_AUTH_UNAVAILABLE`. Injected unit/HTTP
+tests do not prove real PostgreSQL integration. See the reporting handoff above.

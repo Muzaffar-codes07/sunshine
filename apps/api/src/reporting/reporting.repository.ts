@@ -4,12 +4,13 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../platform/api-error';
 import { PrismaService } from '../platform/prisma.service';
 import { ReportingSourceReader, type FinancialActivity, type JobFinancialSnapshot,
-  type ReportCost, type ReportWindow } from './reporting-readers';
+  type ReportCost, type ReportWindow, type ReportTimeEntry } from './reporting-readers';
 
 export abstract class ReportingReader {
   abstract readJob(jobId: string, asOf: Date): Promise<(JobFinancialSnapshot & { costs: ReportCost[] }) | null>;
   abstract readPeriod(window: ReportWindow): Promise<FinancialActivity & { costs: ReportCost[] }>;
   abstract readSubsidies(): Promise<SubsidyReportMilestone[]>;
+  abstract readTimeEntries(window: ReportWindow): Promise<ReportTimeEntry[]>;
 }
 
 @Injectable()
@@ -36,6 +37,10 @@ export class PrismaReportingReader extends ReportingReader {
       });
       return { ...activity, costs: rows.map((row) => ({ ...row, amount: row.amount.toFixed(2) })) };
     });
+  }
+
+  readTimeEntries(window: ReportWindow): Promise<ReportTimeEntry[]> {
+    return this.read((tx) => this.source.readTimeEntries(tx, window));
   }
 
   readSubsidies(): Promise<SubsidyReportMilestone[]> {

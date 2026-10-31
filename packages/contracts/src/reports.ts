@@ -115,3 +115,24 @@ export const subsidyReportSchema = z.object({
   })),
 });
 export type SubsidyReport = z.infer<typeof subsidyReportSchema>;
+
+// Pay aggregates can exceed the precision of one stored entry.
+export const reportHoursSchema = z.string().regex(/^(0|[1-9]\d*)\.\d{3}$/);
+export const technicianPaySummarySchema = paySummarySchema.extend({
+  totalHours: reportHoursSchema,
+  totalPay: reportAmountSchema.refine((value) => !value.startsWith('-')),
+});
+export const technicianPayReportSchema = periodSummarySchema.omit({
+  invoicedRevenue: true, cashReceived: true, actualCost: true, costBreakdown: true,
+}).extend({
+  technicians: z.array(technicianPaySummarySchema),
+  totalHours: reportHoursSchema,
+  totalPay: reportAmountSchema.refine((value) => !value.startsWith('-')),
+});
+export type TechnicianPayReport = z.infer<typeof technicianPayReportSchema>;
+export const reportExportQuerySchema = z.discriminatedUnion('report', [
+  z.strictObject({ report: z.literal('overview'), period: reportPeriodSchema.default('today') }),
+  z.strictObject({ report: z.literal('profitability'), jobId: z.uuid() }),
+  z.strictObject({ report: z.literal('pay'), period: reportPeriodSchema.default('today') }),
+]);
+export type ReportExportQuery = z.infer<typeof reportExportQuerySchema>;

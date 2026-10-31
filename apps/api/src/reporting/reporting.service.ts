@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { jobProfitabilityReportSchema, reportPeriodSchema, periodSummarySchema,
   profitabilityQuerySchema, subsidyReportMilestoneSchema, subsidyReportSchema, subsidyReportStatusSchema,
   type ReportPeriod } from '@sunshine/contracts';
+import { moneySchema, positiveQuantitySchema, technicianPayReportSchema } from '@sunshine/contracts';
+import { z } from 'zod';
 import { ApiError } from '../platform/api-error';
 import { ReportingReader } from './reporting.repository';
 import type { PostedAmount, ReportCost } from './reporting-readers';
@@ -34,6 +36,16 @@ function costs(rows: ReportCost[]) {
 function validDate(date: Date) {
   if (!(date instanceof Date) || !Number.isFinite(date.getTime())) throw new ApiError(400, 'INVALID_INPUT', 'Invalid report date');
 }
+const timeEntrySchema = z.object({
+  id: z.uuid(), technicianId: z.uuid(), technicianName: z.string().trim().min(1),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']), hours: positiveQuantitySchema,
+  frozenHourlyRate: moneySchema, occurredAt: z.date(), approvedAt: z.date().nullable(),
+}).refine((row) => row.status !== 'APPROVED' || (row.approvedAt !== null && row.approvedAt >= row.occurredAt));
+function milliHours(value: string): bigint {
+  const [whole = '0', fraction = ''] = value.split('.');
+  return BigInt(whole) * 1000n + BigInt(fraction.padEnd(3, '0'));
+}
+function hours(value: bigint): string { return `${value / 1000n}.${String(value % 1000n).padStart(3, '0')}`; }
 export function reportWindow(period: ReportPeriod, asOf: Date) {
   if (!reportPeriodSchema.safeParse(period).success) throw new ApiError(400, 'INVALID_INPUT', 'Invalid report period');
   validDate(asOf);
@@ -52,6 +64,39 @@ export function reportWindow(period: ReportPeriod, asOf: Date) {
 @Injectable()
 export class ReportingService {
   constructor(private readonly reader: ReportingReader) {}
+
+  async getTechnicianPaySummary(period: ReportPeriod = 'today', asOf = new Date()) {
+    const window = reportWindow(period, asOf);
+    const result = z.array(timeEntrySchema).safeParse(await this.reader.readTimeEntries(window));
+    if (!result.success) throw new ApiError(503, 'INVALID_REPORT_RECORD', 'Stored time entries are invalid');
+    const seen = new Set<string>();
+    const technicians = new Map<string, { technicianId: string; technicianName: string; hours: bigint; pay: bigint }>();
+    let totalHours = 0n, totalPay = 0n;
+    for (const row of result.data) {
+      if (seen.has(row.id)) throw new ApiError(503, 'INVALID_REPORT_RECORD', 'Duplicate time entry in pay report');
+      seen.add(row.id);
+      if (row.status !== 'APPROVED' || !row.approvedAt || row.approvedAt > asOf
+        || row.occurredAt < window.start || row.occurredAt >= window.end || row.occurredAt > asOf) continue;
+      const technician = technicians.get(row.technicianId) ?? {
+        technicianId: row.technicianId, technicianName: row.technicianName, hours: 0n, pay: 0n,
+      };
+      if (technician.technicianName !== row.technicianName) {
+        throw new ApiError(503, 'INVALID_REPORT_RECORD', 'Inconsistent technician identity in pay report');
+      }
+      const duration = milliHours(row.hours);
+      // Round each entry's frozen hours * rate half-up to cents, then sum.
+      const pay = (duration * cents(row.frozenHourlyRate) + 500n) / 1000n;
+      technician.hours += duration; technician.pay += pay;
+      totalHours += duration; totalPay += pay;
+      technicians.set(row.technicianId, technician);
+    }
+    return technicianPayReportSchema.parse({ period, timezone: 'Asia/Kolkata', asOf: asOf.toISOString(),
+      startDate: window.startDate, endDate: window.endDate, startUtc: window.start.toISOString(), endUtc: window.end.toISOString(),
+      technicians: [...technicians.values()].sort((a, b) => a.technicianId.localeCompare(b.technicianId)).map((row) => ({
+        technicianId: row.technicianId, technicianName: row.technicianName, totalHours: hours(row.hours), totalPay: money(row.pay),
+      })), totalHours: hours(totalHours), totalPay: money(totalPay),
+    });
+  }
 
   async getJobProfitability(jobId: string, asOf = new Date()) {
     if (!profitabilityQuerySchema.safeParse({ jobId }).success) throw new ApiError(400, 'INVALID_INPUT', 'Invalid job ID');
