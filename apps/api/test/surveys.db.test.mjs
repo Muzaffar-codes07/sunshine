@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 
@@ -36,7 +36,7 @@ const origin = 'http://127.0.0.1:3001';
 const when = '2026-11-02T05:00:00.000Z';
 const facts = { roofDirection: 'S', roofTiltDeg: '18.5', cableDistanceM: '22.00', usableRoofAreaSqm: '30.00' };
 
-const phone = () => `7${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
+const phone = () => '7' + String(randomInt(1e9)).padStart(9, '0');
 const user = async (role) => prisma.user.create({ data: {
   email: `${randomUUID()}@test.local`, displayName: `${role} tester`, passwordHash: await hashPassword(password), role,
 } });
