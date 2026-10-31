@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 
@@ -23,7 +23,8 @@ const caught = async (promise) => {
   try { await promise; } catch (error) { return error; }
   assert.fail('expected the database to refuse the write');
 };
-const phone = () => `9${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
+// Random, not time-based: two customers made in the same millisecond must not collide on the unique phone.
+const phone = () => `9${String(randomInt(1e9)).padStart(9, '0')}`;
 
 before(async () => {
   prisma = new PrismaService();
