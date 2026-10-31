@@ -1,8 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
-  invoiceSchema, orderPaymentFactsSchema,
+  invoiceSchema, orderPaymentFactsSchema, ticketAssessmentSnapshotSchema,
   type Invoice, type OrderPaymentFacts, type Quote, type RecordPayment, type StaffIdentity,
 } from '@sunshine/contracts';
+import { repairInvoiceSource, repairChargeDescription } from './repair-invoice-source';
+import type { ServiceInvoiceInput } from './service-invoice-writer';
 import { ApiError, refusal } from '../platform/api-error';
 import { PrismaService } from '../platform/prisma.service';
 import { Prisma, type PaymentKind } from '../generated/prisma/client';
@@ -50,6 +52,68 @@ export class InvoicesService {
       include: invoiceInclude,
     });
     return invoiceView(row);
+  }
+
+  /** D4's repair port. Serializes one ticket source and never commits independently. */
+  async ensureServiceInvoice(tx: Prisma.TransactionClient, input: ServiceInvoiceInput): Promise<{ invoiceId: string; subtotal: string }> {
+    const snapshot = repairInvoiceSource(input), source = snapshot.source;
+    const [locked] = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM service_tickets WHERE id = ${source.ticketId}::uuid FOR UPDATE`;
+    if (!locked) throw new ApiError(HttpStatus.NOT_FOUND, 'TICKET_NOT_FOUND', 'No ticket was found');
+    const ticket = await tx.serviceTicket.findUniqueOrThrow({
+      where: { id: source.ticketId }, include: { job: { include: { order: true } } },
+    });
+    if (ticket.jobId !== source.jobId || ticket.customerId !== source.customerId ||
+        ticket.job.order.customerId !== source.customerId || ticket.job.order.jobId !== source.jobId) {
+      throw blocked('REPAIR_SOURCE_CONFLICT', 'The repair invoice does not match the ticket installation.',
+        'Review the ticket, customer and original installation before billing.');
+    }
+    const charges = source.lines.map((line, index) => ({
+      position: index + 1, description: repairChargeDescription(line.description),
+      quantity: line.quantity, unitPrice: line.unitPrice, lineTotal: line.totalPrice,
+    }));
+    const key = { sourceType: 'TICKET' as const, sourceId: source.ticketId, kind: 'REPAIR' as const };
+    const existing = await tx.invoice.findUnique({ where: { sourceType_sourceId_kind: key }, include: invoiceInclude });
+    if (existing) {
+      const saved = existing.sourceSnapshot as { revision?: unknown; hash?: unknown; source?: unknown } | null;
+      let original: ReturnType<typeof repairInvoiceSource>;
+      try {
+        if (saved?.revision !== 1) throw Error('Missing source snapshot');
+        original = repairInvoiceSource(saved.source);
+        if (original.hash !== saved.hash) throw Error('Invalid source snapshot');
+      } catch {
+        throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'REPAIR_INVOICE_RECORD_INVALID', 'The saved repair invoice needs review');
+      }
+      if (original.hash !== snapshot.hash) {
+        throw blocked('REPAIR_INVOICE_CONFLICT', 'This ticket already has an invoice with different repair facts.',
+          'Open the posted invoice; corrections require explicit reversal or new work.');
+      }
+      const savedCharges = existing.lines.map(line => ({
+        position: line.position, description: line.description, quantity: line.quantity.toFixed(3),
+        unitPrice: line.unitPrice.toFixed(2), lineTotal: line.lineTotal.toFixed(2),
+      }));
+      if (existing.customerId !== source.customerId || existing.orderId !== null ||
+          !existing.subtotal.equals(source.subtotal) || !existing.total.equals(source.subtotal) ||
+          !existing.taxAmount.isZero() || existing.taxNote !== TAX_NOTE ||
+          existing.lines.some(line => line.quoteLineId !== null) ||
+          JSON.stringify(savedCharges) !== JSON.stringify(charges)) {
+        throw new ApiError(HttpStatus.SERVICE_UNAVAILABLE, 'REPAIR_INVOICE_RECORD_INVALID', 'The saved repair invoice needs review');
+      }
+      return { invoiceId: existing.id, subtotal: existing.subtotal.toFixed(2) };
+    }
+    const assessment = ticketAssessmentSnapshotSchema.safeParse(ticket.assessmentSnapshot);
+    if (!['ASSESSED', 'IN_PROGRESS'].includes(ticket.status) || !assessment.success ||
+        assessment.data.unitId.toLowerCase() !== ticket.unitId || assessment.data.isCovered) {
+      throw blocked('REPAIR_INVOICE_NOT_CHARGEABLE', 'This ticket has no unresolved chargeable repair assessment.',
+        'Save the actual coverage decision and repair sources before invoicing; covered work has no customer invoice.');
+    }
+    const row = await tx.invoice.create({
+      data: {
+        ...key, customerId: source.customerId, subtotal: source.subtotal, taxAmount: 0, taxNote: TAX_NOTE,
+        total: source.subtotal, status: source.subtotal === '0.00' ? 'PAID' : 'POSTED',
+        sourceSnapshot: snapshot, lines: { create: charges },
+      },
+    });
+    return { invoiceId: row.id, subtotal: row.subtotal.toFixed(2) };
   }
 
   /**

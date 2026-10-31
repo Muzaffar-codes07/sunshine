@@ -29,6 +29,8 @@ Stated foreign-key exceptions (keep the reason next to the relation in `schema.p
 
 ## Migration queue
 
+D2 has prepared provisional candidate 20261031810000_invoice_source_snapshot for nullable Invoice.sourceSnapshot. It is tested only on disposable PostgreSQL and remains draft pending D3 slot confirmation/SQL review on issue#2. It must not land or be applied to shared databases before that confirmation; a changed slot requires renaming and repeating the migration checks.
+
 The D3 release-audit follow-up uses `20261031250000_allocation_release`, after job scheduling (`240000`). It adds audit fields and a guarded release transition to the existing Allocation model; it does not add placeholder ticket relations.
 
 `20261031260000_d4` is active after Files 255000, with real Unit/Job/File relations and canonical integrity rules. D3 approved it subject to refreshing this branch onto main (PR #8, comment 6547800820). `20261031270000_dispatch_scans` follows release audit and adds the actual Dispatch draft and DispatchScan evidence models. Posting status, issue/cost linkage and delivery are not implemented by this migration. New scans reference real allocations, retain immutable source identity and require their order's reserved unit.

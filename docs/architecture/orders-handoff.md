@@ -43,7 +43,7 @@ Tax is not configured. Invoices carry `taxAmount 0` and the note "Tax not config
 
 ## For D4
 
-- **Repair invoices:** the invoice table already allows `(TICKET, ticketId, REPAIR)` invoices with no order. A `ensureRepairInvoice` helper is the next addition to `InvoicesService` when D4's ticket model lands.
+- **Repair invoices:** `InvoicesService.ensureServiceInvoice(tx, input)` implements D4's exported port, posting one `(TICKET, ticketId, REPAIR)` invoice with no order and strict source-snapshot replay. See the [repair invoice handoff](repair-invoice-handoff.md).
 - **Reports:** read posted invoices and receipts. Invoice totals and receipts are separate measures (TRD reporting rules).
 
 ## For D1
