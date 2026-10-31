@@ -864,6 +864,8 @@ model Invoice {
   orderId     String?           @db.Uuid
   customerId  String            @db.Uuid
   status      InvoiceStatus     @default(POSTED)
+  // Private canonical repair posting facts; sales invoices retain null.
+  sourceSnapshot Json?
   subtotal    Decimal           @db.Decimal(14, 2)
   // Pre-tax management example: tax is not configured, so it is zero with an explicit note (TRD money rules).
   taxAmount   Decimal           @default(0) @db.Decimal(14, 2)
