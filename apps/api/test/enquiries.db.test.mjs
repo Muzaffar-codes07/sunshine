@@ -15,6 +15,7 @@ if (!testUrl || !/test/i.test(new URL(testUrl).pathname)) {
 }
 // PrismaService reads DATABASE_URL, so point it at the disposable database before the app loads.
 process.env.DATABASE_URL = testUrl;
+process.env.SESSION_SECRET ??= 'test-only-session-secret-never-use-outside-tests';
 
 const { NestFactory } = require('@nestjs/core');
 const { AppModule } = require('../dist/app.module');
