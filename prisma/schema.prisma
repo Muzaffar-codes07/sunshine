@@ -587,6 +587,8 @@ model Unit {
   status UnitStatus @default(AVAILABLE)
   acquisitionCost Decimal @db.Decimal(14, 2)
   receiptLineId String @db.Uuid
+  // Historical predecessor only; actual ticket/stock/warranty replacement is a separate command.
+  replacesUnitId String? @db.Uuid
   version Int @default(1)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -600,9 +602,12 @@ model Unit {
   serviceTickets ServiceTicket[] @relation("UnitServiceTickets")
   replacementTickets ServiceTicket[] @relation("ReplacedUnitTickets")
   newUnitTickets ServiceTicket[] @relation("NewUnitTickets")
+  replacesUnit Unit? @relation("UnitReplacementLineage", fields: [replacesUnitId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacementUnits Unit[] @relation("UnitReplacementLineage")
   @@unique([manufacturerId, productId, normalizedSerial], map: "units_identity_key")
   @@index([normalizedSerial])
   @@index([receiptLineId])
+  @@index([replacesUnitId])
   @@map("units")
 }
 // The serial units a draft line will move. Checked and locked at validation, frozen with the document.
