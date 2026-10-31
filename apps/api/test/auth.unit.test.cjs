@@ -54,3 +54,16 @@ test('RolesGuard enforces server identity and the declared role allowlist', () =
   assert.throws(() => guard.canActivate(context({ user: { role: 'TECHNICIAN' } })), (error) => error.getStatus() === 403);
   assert.equal(guard.canActivate(context({ user: { role: 'SALES' } })), true);
 });
+
+test('proxy configuration parses booleans and hop counts while preserving explicit address ranges', () => {
+  const { parseTrustProxy } = require('../dist/auth/trust-proxy');
+  assert.equal(parseTrustProxy(undefined), false);
+  assert.equal(parseTrustProxy(''), false);
+  assert.equal(parseTrustProxy('false'), false);
+  assert.equal(parseTrustProxy('true'), true);
+  assert.equal(parseTrustProxy(' 1 '), 1);
+  assert.equal(parseTrustProxy('0'), 0);
+  assert.equal(parseTrustProxy('loopback'), 'loopback');
+  assert.equal(parseTrustProxy('127.0.0.1, ::1'), '127.0.0.1, ::1');
+  assert.throws(() => parseTrustProxy('9999999999999999999999999'));
+});
