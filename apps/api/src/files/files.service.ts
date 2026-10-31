@@ -64,15 +64,16 @@ export class FilesService {
   /** Caller-owned transaction; an association cannot be moved to another job/ticket. */
   async attach(tx: Prisma.TransactionClient, id: string, context: FileContext, actor: StaffIdentity): Promise<StoredFile> {
     context = fileContextSchema.parse(context);
+    const before = await tx.file.findUnique({ where: { id } });
+    if (!before) throw missing();
+    assertAttachmentTarget(before, context, actor);
+    // Domain authorization claims the job before the file, matching field completion's lock order.
+    await this.authorize(tx, actor, context, 'ATTACH');
     const [locked] = await tx.$queryRawUnsafe<{ id: string }[]>('SELECT id FROM files WHERE id = $1::uuid FOR UPDATE', id);
     if (!locked) throw missing();
     const row = await tx.file.findUniqueOrThrow({ where: { id: locked.id } });
-    const existing = contextOf(row);
-    if (existing && (existing.contextType !== context.contextType || existing.contextId !== context.contextId.toLowerCase())) {
-      throw new ApiError(409, 'FILE_ALREADY_ATTACHED', 'This file belongs to another record');
-    }
-    if (!existing && row.uploadedById !== actor.id) throw denied();
-    await this.authorize(tx, actor, context, 'ATTACH');
+    // Another attachment can win while domain authorization waits; repeat the source check under lock.
+    assertAttachmentTarget(row, context, actor);
     return fileView(await tx.file.update({ where: { id: row.id }, data: { contextType: context.contextType, contextId: context.contextId } }));
   }
 
@@ -90,6 +91,14 @@ export class FilesService {
     if (!this.records) throw new ApiError(503, 'FILE_AUTHORIZATION_UNAVAILABLE', 'Record file access is not configured');
     await this.records.assertAccess(tx, actor, context, action);
   }
+}
+
+function assertAttachmentTarget(row: FileRow, context: FileContext, actor: StaffIdentity) {
+  const existing = contextOf(row);
+  if (existing && (existing.contextType !== context.contextType || existing.contextId !== context.contextId.toLowerCase())) {
+    throw new ApiError(409, 'FILE_ALREADY_ATTACHED', 'This file belongs to another record');
+  }
+  if (!existing && row.uploadedById !== actor.id) throw denied();
 }
 
 /** Identifies permitted container signatures, not authenticity, virus safety or full decoding.

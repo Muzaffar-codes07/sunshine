@@ -83,6 +83,7 @@ test('scheduling saves the times and crew, and a new job has neither', async () 
   const { order, jobId, customerId } = await newJob();
   const fresh = await ok(get(`/jobs/${jobId}`));
   assert.equal(fresh.version, 1); assert.equal(fresh.scheduledStart, null); assert.deepEqual(fresh.technicianIds, []);
+  assert.equal(fresh.orderDisplayNumber, order.displayNumber);
   assert.equal(fresh.orderId, order.id); assert.equal(fresh.customerId, customerId); assert.equal(fresh.status, 'SCHEDULED');
   const done = await ok(schedule(jobId, { technicianIds: [staff.TECH_A.id, staff.TECH_B.id] }));
   assert.equal(done.version, 2); assert.equal(done.scheduledStart, start); assert.equal(done.scheduledFinish, finish);
@@ -175,7 +176,7 @@ test('taking a technician off and putting them back keeps both records', async (
 test('a job that has started can no longer be rescheduled', async () => {
   const { jobId } = await newJob();
   await ok(schedule(jobId, {}));
-  await prisma.job.update({ where: { id: jobId }, data: { status: 'IN_PROGRESS' } });
+  await prisma.job.update({ where: { id: jobId }, data: { status: 'IN_PROGRESS', startedAt: new Date(), startedById: staff.TECH_A.id } });
   await refused(post(`/jobs/${jobId}/schedule`, { expectedVersion: 2, scheduledStart: start, scheduledFinish: finish, technicianIds: [staff.TECH_B.id] }), 409, 'JOB_ALREADY_STARTED');
   assert.deepEqual((await dbJob(jobId)).assignments.map((row) => row.technicianId), [staff.TECH_A.id]);
 });

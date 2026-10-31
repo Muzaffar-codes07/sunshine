@@ -10,6 +10,27 @@
   ],
   "required": [
     {
+      "name": "units_lineage_not_self",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"replacesUnitId\" IS NULL) OR (\"replacesUnitId\" <> id)))"
+    },
+    {
+      "name": "units_guard_lineage",
+      "table": "units_guard_lineage",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.units_guard_lineage()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'UPDATE' THEN\n    IF NEW.\"replacesUnitId\" IS NOT DISTINCT FROM OLD.\"replacesUnitId\" THEN RETURN NEW; END IF;\n    IF OLD.\"replacesUnitId\" IS NOT NULL THEN\n      RAISE EXCEPTION 'equipment predecessor history cannot change'\n        USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_immutable';\n    END IF;\n  END IF;\n  IF NEW.\"replacesUnitId\" IS NULL OR NEW.\"replacesUnitId\" = NEW.\"id\" THEN RETURN NEW; END IF;\n  -- Repeatable-read snapshots cannot see an edge committed while waiting on the mutex.\n  -- Mutation callers use the repository's default READ COMMITTED transaction.\n  IF current_setting('transaction_isolation') <> 'read committed' THEN\n    RAISE EXCEPTION 'new equipment predecessor links require a READ COMMITTED transaction'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_isolation';\n  END IF;\n  PERFORM pg_advisory_xact_lock(18461029, 1);\n  IF EXISTS (\n    WITH RECURSIVE ancestors AS (\n      SELECT \"id\", \"replacesUnitId\" FROM \"units\" WHERE \"id\" = NEW.\"replacesUnitId\"\n      UNION\n      SELECT u.\"id\", u.\"replacesUnitId\" FROM \"units\" u JOIN ancestors a ON u.\"id\" = a.\"replacesUnitId\"\n    ) SELECT 1 FROM ancestors WHERE \"id\" = NEW.\"id\" OR \"replacesUnitId\" = NEW.\"id\"\n  ) THEN\n    RAISE EXCEPTION 'equipment predecessor history cannot contain a cycle'\n      USING ERRCODE = 'check_violation', CONSTRAINT = 'units_lineage_acyclic';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "units_lineage_guarded",
+      "table": "units",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER units_lineage_guarded BEFORE INSERT OR UPDATE OF \"replacesUnitId\" ON public.units FOR EACH ROW EXECUTE FUNCTION units_guard_lineage()"
+    },
+    {
       "name": "customers_name_not_blank",
       "table": "customers",
       "kind": "check",
@@ -1163,6 +1184,139 @@
       "kind": "check",
       "definition": "CHECK ((version >= 1))",
       "owner": "D4"
+    },
+    {
+      "name": "installation_time_records_ordered",
+      "table": "installation_time_records",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((\"startedAt\" < \"finishedAt\"))"
+    },
+    {
+      "name": "job_photos_position_positive",
+      "table": "job_photos",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "jobs_capacity_range",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"installedCapacityKw\" IS NULL) OR ((\"installedCapacityKw\" >= 1) AND (\"installedCapacityKw\" <= 5))))"
+    },
+    {
+      "name": "jobs_completed_has_evidence",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status <> 'COMPLETED'::\"JobStatus\") OR ((\"finishedAt\" IS NOT NULL) AND (\"completedAt\" IS NOT NULL) AND (\"completedById\" IS NOT NULL) AND (\"installedCapacityKw\" IS NOT NULL) AND (\"signatureFileId\" IS NOT NULL) AND (\"signerName\" IS NOT NULL) AND (cardinality(\"completedChecks\") > 0))))"
+    },
+    {
+      "name": "jobs_finished_after_start",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"finishedAt\" IS NULL) OR (\"startedAt\" < \"finishedAt\")))"
+    },
+    {
+      "name": "jobs_signer_not_blank",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"signerName\" IS NULL) OR (length(btrim((\"signerName\")::text)) > 0)))"
+    },
+    {
+      "name": "jobs_started_has_time",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status = 'SCHEDULED'::\"JobStatus\") OR ((\"startedAt\" IS NOT NULL) AND (\"startedById\" IS NOT NULL))))"
+    },
+    {
+      "name": "installation_time_records_check_overlap",
+      "table": "installation_time_records_check_overlap",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.installation_time_records_check_overlap()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  PERFORM pg_advisory_xact_lock(hashtextextended('time:' || NEW.\"technicianId\"::text, 0));\n  IF EXISTS (\n    SELECT 1 FROM \"installation_time_records\"\n    WHERE \"technicianId\" = NEW.\"technicianId\" AND \"startedAt\" < NEW.\"finishedAt\" AND \"finishedAt\" > NEW.\"startedAt\"\n  ) THEN\n    RAISE EXCEPTION 'violates check constraint \"installation_time_records_no_overlap\"' USING ERRCODE = '23514', CONSTRAINT = 'installation_time_records_no_overlap';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "job_evidence_check_insert",
+      "table": "job_evidence_check_insert",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.job_evidence_check_insert()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  job_status \"JobStatus\";\nBEGIN\n  SELECT \"status\" INTO job_status FROM \"jobs\" WHERE \"id\" = NEW.\"jobId\" FOR SHARE;\n  IF job_status IS DISTINCT FROM 'IN_PROGRESS' THEN\n    RAISE EXCEPTION 'evidence can only be added to a job in progress' USING ERRCODE = 'restrict_violation';\n  END IF;\n  -- Nested, because the time records table has no fileId for this to read.\n  IF TG_TABLE_NAME = 'job_photos' THEN\n    IF NOT EXISTS (SELECT 1 FROM \"files\" WHERE \"id\" = NEW.\"fileId\" AND \"contextType\" = 'JOB' AND \"contextId\" = NEW.\"jobId\") THEN\n      RAISE EXCEPTION 'a job photo must be a file bound to that job' USING ERRCODE = 'restrict_violation';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "job_evidence_refuse_change",
+      "table": "job_evidence_refuse_change",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.job_evidence_refuse_change()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'job evidence table % is append-only', TG_TABLE_NAME USING ERRCODE = 'restrict_violation';\nEND;\n$function$\n"
+    },
+    {
+      "name": "jobs_guard",
+      "table": "jobs_guard",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.jobs_guard()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF NEW.\"status\" <> OLD.\"status\" AND NOT (\n    (OLD.\"status\" = 'SCHEDULED' AND NEW.\"status\" = 'IN_PROGRESS')\n    OR (OLD.\"status\" = 'IN_PROGRESS' AND NEW.\"status\" IN ('AWAITING_ACCEPTANCE', 'COMPLETED'))\n    OR (OLD.\"status\" = 'AWAITING_ACCEPTANCE' AND NEW.\"status\" = 'COMPLETED')\n  ) THEN\n    RAISE EXCEPTION 'a job cannot move from % to %', OLD.\"status\", NEW.\"status\" USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF OLD.\"startedAt\" IS NOT NULL AND (NEW.\"startedAt\" IS DISTINCT FROM OLD.\"startedAt\" OR NEW.\"startedById\" IS DISTINCT FROM OLD.\"startedById\") THEN\n    RAISE EXCEPTION 'a job''s start cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF OLD.\"status\" = 'COMPLETED' AND (NEW.\"finishedAt\" IS DISTINCT FROM OLD.\"finishedAt\" OR NEW.\"completedAt\" IS DISTINCT FROM OLD.\"completedAt\"\n    OR NEW.\"completedById\" IS DISTINCT FROM OLD.\"completedById\" OR NEW.\"installedCapacityKw\" IS DISTINCT FROM OLD.\"installedCapacityKw\"\n    OR NEW.\"signatureFileId\" IS DISTINCT FROM OLD.\"signatureFileId\" OR NEW.\"signerName\" IS DISTINCT FROM OLD.\"signerName\"\n    OR NEW.\"completedChecks\" IS DISTINCT FROM OLD.\"completedChecks\") THEN\n    RAISE EXCEPTION 'a completed job''s evidence cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"status\" = 'COMPLETED' AND OLD.\"status\" <> 'COMPLETED' THEN\n    IF NOT EXISTS (SELECT 1 FROM \"job_photos\" WHERE \"jobId\" = NEW.\"id\") OR NOT EXISTS (SELECT 1 FROM \"installation_time_records\" WHERE \"jobId\" = NEW.\"id\") THEN\n      RAISE EXCEPTION 'a completed job needs photos and time records' USING ERRCODE = 'restrict_violation';\n    END IF;\n    IF NOT EXISTS (SELECT 1 FROM \"files\" WHERE \"id\" = NEW.\"signatureFileId\" AND \"contextType\" = 'JOB' AND \"contextId\" = NEW.\"id\")\n      OR EXISTS (SELECT 1 FROM \"job_photos\" WHERE \"fileId\" = NEW.\"signatureFileId\") THEN\n      RAISE EXCEPTION 'a job''s signature must be its own separate file' USING ERRCODE = 'restrict_violation';\n    END IF;\n    IF EXISTS (SELECT 1 FROM \"installation_time_records\" WHERE \"jobId\" = NEW.\"id\" AND (\"startedAt\" < NEW.\"startedAt\" OR \"finishedAt\" > NEW.\"finishedAt\")) THEN\n      RAISE EXCEPTION 'time records must fall within the installation' USING ERRCODE = 'restrict_violation';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "installation_time_records_append_only",
+      "table": "installation_time_records",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER installation_time_records_append_only BEFORE DELETE OR UPDATE ON public.installation_time_records FOR EACH ROW EXECUTE FUNCTION job_evidence_refuse_change()"
+    },
+    {
+      "name": "installation_time_records_check_insert",
+      "table": "installation_time_records",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER installation_time_records_check_insert BEFORE INSERT ON public.installation_time_records FOR EACH ROW EXECUTE FUNCTION job_evidence_check_insert()"
+    },
+    {
+      "name": "installation_time_records_no_overlap",
+      "table": "installation_time_records",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER installation_time_records_no_overlap BEFORE INSERT ON public.installation_time_records FOR EACH ROW EXECUTE FUNCTION installation_time_records_check_overlap()"
+    },
+    {
+      "name": "installation_time_records_no_truncate",
+      "table": "installation_time_records",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER installation_time_records_no_truncate BEFORE TRUNCATE ON public.installation_time_records FOR EACH STATEMENT EXECUTE FUNCTION job_evidence_refuse_change()"
+    },
+    {
+      "name": "job_photos_append_only",
+      "table": "job_photos",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER job_photos_append_only BEFORE DELETE OR UPDATE ON public.job_photos FOR EACH ROW EXECUTE FUNCTION job_evidence_refuse_change()"
+    },
+    {
+      "name": "job_photos_check_insert",
+      "table": "job_photos",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER job_photos_check_insert BEFORE INSERT ON public.job_photos FOR EACH ROW EXECUTE FUNCTION job_evidence_check_insert()"
+    },
+    {
+      "name": "job_photos_no_truncate",
+      "table": "job_photos",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER job_photos_no_truncate BEFORE TRUNCATE ON public.job_photos FOR EACH STATEMENT EXECUTE FUNCTION job_evidence_refuse_change()"
+    },
+    {
+      "name": "jobs_guarded",
+      "table": "jobs",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER jobs_guarded BEFORE UPDATE ON public.jobs FOR EACH ROW EXECUTE FUNCTION jobs_guard()"
     }
   ]
 }

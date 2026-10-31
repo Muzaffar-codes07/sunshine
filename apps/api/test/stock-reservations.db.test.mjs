@@ -176,7 +176,7 @@ test('one short line rolls back every reservation and names what is short', asyn
   const reservedUnits = await prisma.unit.count({ where: { status: 'RESERVED' } });
   const error = await refused(allocate(order), 409, 'NOT_READY');
   assert.deepEqual(error.reasons.map((reason) => reason.code), ['INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK']);
-  assert.ok(error.reasons.some((reason) => reason.reason.includes(bulk.id)) && error.reasons.some((reason) => reason.reason.includes(serial.id)));
+  assert.ok(error.reasons.some((reason) => reason.reason.includes(bulk.name)) && error.reasons.some((reason) => reason.reason.includes(serial.name)), 'a shortage names the product, not its ID');
   assert.equal(await prisma.allocation.count(), before);
   assert.equal(await prisma.unit.count({ where: { status: 'RESERVED' } }), reservedUnits);
   await stock(order);
@@ -394,9 +394,9 @@ test('release rejects stale versions, started jobs and a partly dispatched reser
   const order = await confirmedOrder(); await stock(order); const allocated = await ok(allocate(order));
   const v = await version(order); const before = await held(order);
   await refused(release(order, { expectedVersion: v + 1 }), 409, 'STALE_VERSION');
-  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'IN_PROGRESS' } });
-  await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
-  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'SCHEDULED' } });
+  const started = await confirmedOrder(); await stock(started); await ok(allocate(started));
+  await prisma.job.update({ where: { id: started.jobId }, data: { status: 'IN_PROGRESS', startedAt: new Date(), startedById: staff.WAREHOUSE.id } });
+  await refused(release(started), 409, 'ALLOCATION_NOT_RELEASABLE');
   await prisma.allocation.update({ where: { id: allocated[0].id }, data: { status: 'DISPATCHED' } });
   await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
   assert.equal(await version(order), v);
@@ -493,6 +493,7 @@ test('dispatch draft requires a paid complete reservation and creates one header
   const unpaid = await confirmedOrder({ paid: false });
   await refused(dispatchDraft(unpaid), 409, 'DISPATCH_NOT_READY');
   const order = await confirmedOrder(); await stock(order); await ok(allocate(order));
+  await refused(get(`/orders/${order.id}/dispatch`), 404, 'NOT_FOUND');
   await refused(send(`/orders/${order.id}/dispatches`, { expectedVersion: (await version(order)) + 1 }), 409, 'STALE_VERSION');
   const input = { expectedVersion: await version(order) }; const key = randomUUID();
   const draft = await ok(send(`/orders/${order.id}/dispatches`, input, 'WAREHOUSE', key));
@@ -500,6 +501,8 @@ test('dispatch draft requires a paid complete reservation and creates one header
   assert.deepEqual(await ok(send(`/orders/${order.id}/dispatches`, input, 'WAREHOUSE', key)), draft);
   assert.equal((await ok(dispatchDraft(order))).id, draft.id);
   assert.equal(await prisma.dispatch.count({ where: { orderId: order.id } }), 1);
+  const saved = await ok(get(`/orders/${order.id}/dispatch`), 200);
+  assert.equal(saved.orderId, order.id, 'the draft can be found again after a refresh');
 });
 
 test('typed values remain evidence but only camera/scanner methods satisfy current reserved serials', async () => {

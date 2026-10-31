@@ -21,8 +21,10 @@ test('release command requires a version and explanation and rejects client-owne
 
 test('unit traceability needs canonical source IDs and excludes released assignments', () => {
   const unit = { id: id(1), productId: id(2), manufacturerId: id(3), manufacturer: 'Example', serial: ' inv-a ',
-    normalizedSerial: 'INV-A', status: 'AVAILABLE', locationId: id(4), receiptId: id(5), activeAssignment: null };
+    normalizedSerial: 'INV-A', status: 'AVAILABLE', locationId: id(4), receiptId: id(5), replacesUnitId: null, activeAssignment: null };
   assert.ok(c.unitDetailResponseSchema.safeParse({ data: unit }).success);
+  assert.ok(c.unitDetailResponseSchema.safeParse({ data: { ...unit, replacesUnitId: id(6) } }).success);
+  assert.equal(c.unitDetailResponseSchema.safeParse({ data: { ...unit, replacesUnitId: 'fake' } }).success, false);
   for (const status of ['RESERVED', 'DISPATCHED', 'DELIVERED', 'INSTALLED']) {
     const activeAssignment = { allocationId: id(6), jobId: id(7), orderId: id(8), customerId: id(9), status };
     assert.ok(c.unitDetailResponseSchema.safeParse({ data: { ...unit, activeAssignment } }).success);
@@ -182,4 +184,12 @@ test('stock read queries are bounded, and a movement window must run forwards', 
   assert.equal(c.stockAsOfQuerySchema.safeParse({ at }).success, true);
   assert.equal(c.stockAsOfQuerySchema.safeParse({ at, extra: '1' }).success, false);
   assert.equal(c.stockValueQuerySchema.parse({ productId: id(1).toUpperCase() }).productId, id(1).toLowerCase());
+});
+
+test('completion lowercases IDs, so a photo cannot pass as the signature by changing case', () => {
+  const photo = 'abcdef00-0000-4000-8000-000000000005';
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion, photoFileIds: [photo], signatureFileId: photo.toUpperCase() }).success, false);
+  const technician = 'abcdef00-0000-4000-8000-000000000007';
+  const parsed = c.completeInstallationRequestSchema.parse({ ...completion, timeRecords: [{ ...completion.timeRecords[0], technicianId: technician.toUpperCase() }] });
+  assert.equal(parsed.timeRecords[0].technicianId, technician);
 });

@@ -40,6 +40,10 @@ model User {
   dispatchScans DispatchScan[]
   jobAssignments JobAssignment[] @relation("JobAssignmentTechnician")
   jobAssignmentsMade JobAssignment[] @relation("JobAssignmentMadeBy")
+  jobsStarted Job[] @relation("JobStartedBy")
+  jobsCompleted Job[] @relation("JobCompletedBy")
+  installationTimeRecords InstallationTimeRecord[] @relation("InstallationTimeTechnician")
+  installationTimeRecorded InstallationTimeRecord[] @relation("InstallationTimeRecordedBy")
   commands       Command[]
   surveysAssigned Survey[] @relation("SurveyTechnician")
   surveysDecided  Survey[] @relation("SurveyDecision")
@@ -583,6 +587,8 @@ model Unit {
   status UnitStatus @default(AVAILABLE)
   acquisitionCost Decimal @db.Decimal(14, 2)
   receiptLineId String @db.Uuid
+  // Historical predecessor only; actual ticket/stock/warranty replacement is a separate command.
+  replacesUnitId String? @db.Uuid
   version Int @default(1)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -596,9 +602,12 @@ model Unit {
   serviceTickets ServiceTicket[] @relation("UnitServiceTickets")
   replacementTickets ServiceTicket[] @relation("ReplacedUnitTickets")
   newUnitTickets ServiceTicket[] @relation("NewUnitTickets")
+  replacesUnit Unit? @relation("UnitReplacementLineage", fields: [replacesUnitId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacementUnits Unit[] @relation("UnitReplacementLineage")
   @@unique([manufacturerId, productId, normalizedSerial], map: "units_identity_key")
   @@index([normalizedSerial])
   @@index([receiptLineId])
+  @@index([replacesUnitId])
   @@map("units")
 }
 // The serial units a draft line will move. Checked and locked at validation, frozen with the document.
@@ -928,6 +937,16 @@ model Job {
   version   Int       @default(1)
   scheduledStart DateTime? @db.Timestamptz(3)
   scheduledFinish DateTime? @db.Timestamptz(3)
+  // Evidence from the field. It is frozen once the job is COMPLETED.
+  startedAt DateTime? @db.Timestamptz(3)
+  startedById String? @db.Uuid
+  finishedAt DateTime? @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  completedById String? @db.Uuid
+  installedCapacityKw Int?
+  signatureFileId String? @unique @db.Uuid
+  signerName String? @db.VarChar(120)
+  completedChecks InstallationCheck[] @default([])
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @db.Timestamptz(3)
 
@@ -938,6 +957,11 @@ model Job {
   costs CostEntry[] @relation("JobCosts")
   serviceTickets ServiceTicket[] @relation("JobServiceTickets")
   subsidyMilestones SubsidyMilestone[] @relation("JobSubsidies")
+  startedBy User? @relation("JobStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  completedBy User? @relation("JobCompletedBy", fields: [completedById], references: [id], onDelete: Restrict)
+  signatureFile File? @relation("JobSignature", fields: [signatureFileId], references: [id], onDelete: Restrict)
+  photos JobPhoto[]
+  timeRecords InstallationTimeRecord[]
 
   @@unique([orderId, id])
   @@map("jobs")
@@ -1057,7 +1081,46 @@ model File {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   subsidyEvidenceMilestones SubsidyMilestone[] @relation("SubsidyEvidence")
+  signedJob Job? @relation("JobSignature")
+  jobPhoto JobPhoto?
   @@index([contextType, contextId])
   @@index([uploadedById, createdAt])
   @@map("files")
+}
+
+// D3: installation evidence. Rows are append-only, and a file can be evidence for one job only.
+enum InstallationCheck {
+  MOUNTING
+  PANELS
+  WIRING
+  EARTHING
+  POWER_GENERATION
+  BATTERY
+}
+model JobPhoto {
+  id String @id @default(uuid()) @db.Uuid
+  jobId String @db.Uuid
+  fileId String @unique @db.Uuid
+  position Int
+  job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  file File @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  @@unique([jobId, position])
+  @@map("job_photos")
+}
+// Labour on a job. Its id is the durable source for the labour cost (TIME_RECORD:<id>), which D4's cost writer will post.
+model InstallationTimeRecord {
+  id String @id @default(uuid()) @db.Uuid
+  jobId String @db.Uuid
+  technicianId String @db.Uuid
+  startedAt DateTime @db.Timestamptz(3)
+  finishedAt DateTime @db.Timestamptz(3)
+  recordedById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  technician User @relation("InstallationTimeTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  recordedBy User @relation("InstallationTimeRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  @@index([jobId])
+  @@index([technicianId, startedAt])
+  @@index([recordedById])
+  @@map("installation_time_records")
 }

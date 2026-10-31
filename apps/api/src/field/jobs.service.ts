@@ -7,9 +7,11 @@ import { PrismaService } from '../platform/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import type { ConfirmedOrderFacts, OrderJobCreator } from '../orders/order-job.port';
 
-const jobInclude = {
-  order: { select: { customerId: true } },
+export const jobInclude = {
+  order: { select: { customerId: true, number: true } },
   assignments: { where: { removedAt: null }, select: { technicianId: true }, orderBy: { technicianId: 'asc' } },
+  photos: { select: { fileId: true }, orderBy: { position: 'asc' } },
+  timeRecords: { select: { id: true, technicianId: true, startedAt: true, finishedAt: true }, orderBy: [{ startedAt: 'asc' }, { id: 'asc' }] },
 } satisfies Prisma.JobInclude;
 type JobRow = Prisma.JobGetPayload<{ include: typeof jobInclude }>;
 
@@ -96,12 +98,13 @@ function notFound() {
   return new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Job not found');
 }
 
-/** Installation facts come with S03, so they are empty until then. */
-function jobView(row: JobRow): z.infer<typeof jobViewSchema> {
+export function jobView(row: JobRow): z.infer<typeof jobViewSchema> {
   return jobViewSchema.parse({
-    id: row.id, orderId: row.orderId, customerId: row.order.customerId, status: row.status, version: row.version,
+    id: row.id, orderId: row.orderId, orderDisplayNumber: `ORD-${String(row.order.number).padStart(6, '0')}`, customerId: row.order.customerId, status: row.status, version: row.version,
     scheduledStart: row.scheduledStart?.toISOString() ?? null, scheduledFinish: row.scheduledFinish?.toISOString() ?? null,
     technicianIds: row.assignments.map((assignment) => assignment.technicianId),
-    startedAt: null, finishedAt: null, installedCapacityKw: null, photoFileIds: [], signatureFileId: null,
+    startedAt: row.startedAt?.toISOString() ?? null, finishedAt: row.finishedAt?.toISOString() ?? null, installedCapacityKw: row.installedCapacityKw,
+    photoFileIds: row.photos.map((photo) => photo.fileId), signatureFileId: row.signatureFileId, signerName: row.signerName, completedChecks: row.completedChecks,
+    timeRecords: row.timeRecords.map((record) => ({ ...record, startedAt: record.startedAt.toISOString(), finishedAt: record.finishedAt.toISOString() })),
   });
 }
