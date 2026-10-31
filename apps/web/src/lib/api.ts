@@ -21,7 +21,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-type RequestOptions = { body?: unknown; signal?: AbortSignal; idempotencyKey?: string };
+type RequestOptions = { body?: unknown; form?: FormData; signal?: AbortSignal; idempotencyKey?: string };
 
 async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, schema: ZodType<T>, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -35,7 +35,7 @@ async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: str
       headers,
       credentials: 'same-origin',
       signal: options.signal,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -70,6 +70,9 @@ export const apiPost = <T,>(path: string, schema: ZodType<T>, body?: unknown, op
   request('POST', path, schema, { ...options, body: body ?? {} });
 export const apiPatch = <T,>(path: string, schema: ZodType<T>, body: unknown, options: Omit<RequestOptions, 'body'> = {}) =>
   request('PATCH', path, schema, { ...options, body });
+
+/** Sends a file. The browser sets the multipart Content-Type itself. */
+export const apiUpload = <T,>(path: string, schema: ZodType<T>, form: FormData) => request('POST', path, schema, { form });
 
 /** Key for a command the user submits once; reuse the same key when retrying that same submit. */
 export const newIdempotencyKey = () => crypto.randomUUID();

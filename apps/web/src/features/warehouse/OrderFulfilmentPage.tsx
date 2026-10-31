@@ -3,10 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { allocationListResponseSchema, dispatchResponseSchema, recordScanRequestSchema, type AllocationView, type OrderFulfilment } from '@sunshine/contracts';
 import { DetailPattern, ListPattern, TimelinePattern } from '../../components/shared/patterns';
+import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
 import { describeProblem, formatWhen, humanize } from '../sales/queries';
-import { CommandFeedback } from './CommandFeedback';
 import { checkInput, useAllocations, useDispatch, useFulfilment, useJob, useStockCommand, useUnit } from './queries';
 
 type Dispatch = z.infer<typeof dispatchResponseSchema>['data'];

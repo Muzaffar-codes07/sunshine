@@ -5,6 +5,8 @@ import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contrac
 import { PublicEnquiryPage } from '../features/sales/PublicEnquiryPage';
 import { EnquiryDetailPage } from '../features/sales/EnquiryDetailPage';
 import { SalesWorkspacePage } from '../features/sales/EnquiryQueuePage';
+import { FieldJobPage } from '../features/field/FieldJobPage';
+import { FieldJobsPage } from '../features/field/FieldJobsPage';
 import { OrderFulfilmentPage } from '../features/warehouse/OrderFulfilmentPage';
 import { WarehousePage } from '../features/warehouse/WarehousePage';
 import { apiGet } from '../lib/api';
@@ -27,9 +29,11 @@ export function App() {
         <Route path="orders" element={<OrderPage />} />
         <Route path="orders/:id" element={<OrderPage />} />
         <Route path="sales/enquiries/:id" element={<EnquiryDetailPage />} />
+        <Route path="field-service" element={<FieldJobsPage />} />
+        <Route path="field-service/jobs/:id" element={<FieldJobPage />} />
         <Route path="warehouse" element={<WarehousePage />} />
         <Route path="warehouse/orders/:id" element={<OrderFulfilmentPage />} />
-        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders' && path !== 'warehouse').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders' && path !== 'warehouse' && path !== 'field-service').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}

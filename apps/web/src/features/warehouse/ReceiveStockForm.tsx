@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { receiveStockRequestSchema, stockReceiptResponseSchema } from '@sunshine/contracts';
 import { ActionDrawer } from '../../components/shared/patterns';
+import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { Field } from '../../components/ui/Field';
 import { isoToLocal, localToIso } from '../sales/queries';
-import { CommandFeedback } from './CommandFeedback';
 import { checkInput, noProblem, useHardware, useLocations, useStockCommand } from './queries';
 
 /** One product per receipt. A serialized product's quantity is the number of serials entered. */
