@@ -74,9 +74,14 @@ test('all ten capacity and system templates contain the complete PDF BOM with se
   assert.equal((await catalog.getPackage(id(1001))).data.totalPrice, '55000.00');
   assert.equal((await catalog.getPackage(id(1003))).data.totalPrice, '180000.00');
 });
-test('catalogue endpoints enforce session and sales/admin role, pagination and strict filters', async () => {
+test('catalogue endpoints permit warehouse product reads while protecting package reads and validating IDs/filters', async () => {
   assert.equal((await get('/packages', null)).status, 401);
-  assert.equal((await get('/products', 'WAREHOUSE')).status, 403);
+  assert.equal((await get('/products', 'WAREHOUSE')).status, 200);
+  assert.equal((await get('/products/' + id(100), 'WAREHOUSE')).status, 200);
+  assert.equal((await get('/packages', 'WAREHOUSE')).status, 403);
+  assert.equal((await get('/packages/' + id(1001), 'WAREHOUSE')).status, 403);
+  assert.equal((await get('/products/c0010000-0000-1000-8000-000000000100')).status, 400);
+  assert.equal((await get('/packages/c0010000-0000-1000-8000-000000001001')).status, 400);
   for (const role of ['SALES', 'ADMIN']) assert.equal((await get('/packages', role)).status, 200);
   const response = await get('/packages?capacityKw=3&systemType=ON_GRID');
   assert.equal(response.status, 200); const body = await response.json(); assert.equal(body.data.total, 1); assert.equal(body.data.items[0].id, id(1003));
