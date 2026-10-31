@@ -114,8 +114,8 @@ async function allocate(order) {
   }
   await ok(send(`/orders/${order.id}/allocations`, { expectedVersion: await version(order.jobId) }, 'WAREHOUSE'), 201);
 }
-/** Allocated, scanned, dispatched and delivered: everything a job needs before it can start. */
-async function deliver(order) {
+/** Allocated, scanned, dispatched and delivered: everything a job needs before it can start. Delivery is dated before the job windows below, unless a test wants today's. */
+async function deliver(order, { today = false } = {}) {
   await allocate(order);
   const draft = await ok(send(`/orders/${order.id}/dispatches`, { expectedVersion: await version(order.jobId) }, 'WAREHOUSE'), 201);
   const units = await prisma.allocation.findMany({ where: { jobId: order.jobId, unitId: { not: null } }, include: { unit: true } });
@@ -123,6 +123,10 @@ async function deliver(order) {
   const current = await prisma.dispatch.findUniqueOrThrow({ where: { id: draft.id } });
   const posted = await ok(send(`/dispatches/${draft.id}/dispatch`, { expectedVersion: current.version }, 'WAREHOUSE'));
   await ok(send(`/dispatches/${draft.id}/deliver`, { expectedVersion: posted.version, deliveredAt: new Date().toISOString() }, 'WAREHOUSE'));
+  if (today) return;
+  await sql.query(`ALTER TABLE dispatches DISABLE TRIGGER USER`);
+  await sql.query(`UPDATE dispatches SET "dispatchedAt" = '2026-01-15T00:00:00Z', "deliveredAt" = '2026-01-15T00:00:00Z' WHERE id = $1`, [draft.id]);
+  await sql.query(`ALTER TABLE dispatches ENABLE TRIGGER USER`);
 }
 const crew = async (jobId, names = ['TECH_A']) => ok(send(`/jobs/${jobId}/schedule`, {
   expectedVersion: await version(jobId), scheduledStart: '2026-11-03T04:00:00.000Z', scheduledFinish: '2026-11-03T10:00:00.000Z', technicianIds: names.map((name) => staff[name].id),
@@ -183,6 +187,18 @@ test('a reserved but undelivered job cannot start', async () => {
   await allocate(order);
   await crew(order.jobId);
   await refused(start(order.jobId, nextWindow().start), 409, 'JOB_MATERIAL_NOT_DELIVERED');
+});
+
+test('work cannot be dated before the equipment arrived', async () => {
+  const order = await newOrder();
+  await deliver(order, { today: true });
+  await crew(order.jobId);
+  const { deliveredAt } = await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } });
+  const error = await refused(start(order.jobId, new Date(deliveredAt.getTime() - 1).toISOString()), 409, 'INSTALLATION_TIME_INVALID');
+  assert.match(error.message + JSON.stringify(error.reasons ?? []), /delivered/);
+  assert.equal((await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } })).status, 'SCHEDULED');
+  const started = await ok(start(order.jobId, deliveredAt.toISOString()));
+  assert.equal(started.status, 'IN_PROGRESS');
 });
 
 test('start needs a crew, a payment and allocated equipment, and lists every gap', async () => {
