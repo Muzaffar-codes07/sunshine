@@ -208,6 +208,19 @@ test('validation rechecks planned units against the line after locking', async (
   await expectError(await validate(moved), 409, 'NOT_MOVABLE');
 });
 
+test('a serial line with its planned units removed cannot move quantity', async () => {
+  const value = serial();
+  const received = await receive(serialized.id, '1', '25000.00', [value]);
+  const draft = await ok(transfer([{ productId: serialized.id, quantity: '1', serials: [value] }]), 201);
+  await prisma.stockDocumentLineUnit.deleteMany({ where: { lineId: draft.lines[0].id } });
+  const held = await onHand(serialized.id);
+  await expectError(await validate(draft), 409, 'NOT_MOVABLE');
+  assert.equal(await onHand(serialized.id), held);
+  assert.equal((await movements(draft.id)).length, 0);
+  const unit = await prisma.unit.findUniqueOrThrow({ where: { id: received.lines[0].unitIds[0] } });
+  assert.equal(unit.status, 'AVAILABLE');
+});
+
 test('opposite-order transfers both finish without a deadlock', async () => {
   const [first, second] = bulks;
   await receive(first.id, '20'); await receive(second.id, '20');

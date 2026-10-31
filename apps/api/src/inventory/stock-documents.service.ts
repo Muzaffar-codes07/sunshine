@@ -77,7 +77,7 @@ export class StockDocumentsService {
       const lockedLocation = document.kind === 'TRANSFER' ? document.fromLocationId! : document.toLocationId!;
       for (const productId of [...new Set(document.lines.map((line) => line.productId))].sort()) await this.ledger.lockStock(tx, productId, lockedLocation);
       const validatedAt = new Date();
-      if (document.kind === 'TRANSFER') await this.postTransfer(tx, actorId, document, validatedAt);
+      if (document.kind === 'TRANSFER') await this.postTransfer(tx, actorId, document, products, validatedAt);
       else await this.postCount(tx, actorId, document, products, validatedAt);
       return { data: await this.view(tx, id) };
     });
@@ -126,7 +126,7 @@ export class StockDocumentsService {
     });
   }
 
-  private async postTransfer(tx: Prisma.TransactionClient, actorId: string, document: Document, validatedAt: Date) {
+  private async postTransfer(tx: Prisma.TransactionClient, actorId: string, document: Document, products: Map<string, LockedProduct>, validatedAt: Date) {
     const from = document.fromLocationId!;
     const to = document.toLocationId!;
     const locations = await this.assertLocationsActive(tx, [from, to]);
@@ -146,8 +146,10 @@ export class StockDocumentsService {
       }));
       if (!fits) throw refusal(notMovable("Not every unit on this draft is free to move from this location.", 'Check each unit in the lookup, then cancel this draft and make a new one.'));
     }
+    // Serialized stock moves only with its units, and bulk never has any, so a line can't move quantity without them.
     for (const line of document.lines) {
-      if (line.plannedUnits.length && !line.quantity.equals(line.plannedUnits.length)) {
+      const serialized = this.stocked(products.get(line.productId), line.lineNumber).trackingMode === 'SERIALIZED';
+      if (!line.quantity.equals(serialized ? line.plannedUnits.length : line.quantity) || (!serialized && line.plannedUnits.length > 0)) {
         throw refusal(notMovable(`Line ${line.lineNumber}: its quantity doesn't match its units.`, 'Cancel this draft and make a new one.'));
       }
     }
