@@ -3,6 +3,9 @@ import { Link, Route, Routes } from 'react-router-dom';
 import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
 import { PublicEnquiryPage } from '../features/sales/PublicEnquiryPage';
 import { apiGet } from '../lib/api';
+import { LoginPage } from '../features/auth/LoginPage';
+import { PlannedWorkspace, Workspace, WorkspaceOverview, workspaces } from './Workspace';
+import { PatternsPage } from './PatternsPage';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
@@ -11,6 +14,13 @@ export function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/enquire" element={<PublicEnquiryPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/workspace" element={<Workspace />}>
+        <Route index element={<WorkspaceOverview />} />
+        {workspaces.map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
+      </Route>
+      {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -31,6 +41,7 @@ function Home() {
         <h1>From rooftop enquiry<br />to years of reliable service.</h1>
         <p className="intro">The foundation for SunPower Solutions. Business workflows are planned and have not been implemented yet.</p>
         <p><Link to="/enquire">Make a solar enquiry</Link></p>
+        <p><Link to="/login">Staff sign in</Link></p>
       </section>
       <section className="status-grid" aria-label="Live infrastructure status">
         <Status label="Application API" pending={health.isPending} error={health.error} ready={health.isSuccess} onRetry={() => void health.refetch()} />

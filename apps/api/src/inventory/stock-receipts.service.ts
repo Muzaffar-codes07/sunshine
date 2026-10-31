@@ -4,7 +4,7 @@ import { normalizeEquipmentSerial, stockReceiptViewSchema, type RefusalReason, t
 import { ApiError, refusal } from '../platform/api-error';
 import { IdempotencyService } from '../platform/idempotency';
 import { Prisma } from '../generated/prisma/client';
-import { StockLedgerService } from './stock-ledger.service';
+import { StockLedgerService, type LockedProduct } from './stock-ledger.service';
 
 type ReceiveStockInput = {
   reference: string;
@@ -12,8 +12,6 @@ type ReceiveStockInput = {
   receivedAt: string;
   lines: { productId: string; quantity: string; unitCost: string; zeroCostReason?: string; serials: string[] }[];
 };
-
-type LockedProduct = { id: string; kind: string; trackingMode: string; active: boolean; manufacturerId: string | null };
 
 const notReceivable = (reason: string, nextAction: string): RefusalReason => ({ code: 'NOT_RECEIVABLE', reason, source: 'INVENTORY', nextAction });
 
@@ -32,7 +30,7 @@ export class StockReceiptsService {
     }
     const payloadHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     return this.idempotency.run({ actorId, key, action: 'STOCK_RECEIPT', payload: input }, async (tx) => {
-      const products = await this.lockProducts(tx, input.lines.map((line) => line.productId));
+      const products = await this.ledger.lockProducts(tx, input.lines.map((line) => line.productId));
       const id = randomUUID();
       const claimed = await tx.stockDocument.createMany({ skipDuplicates: true, data: [{
         id, kind: 'RECEIPT', reference: input.reference, payloadHash, actorId, toLocationId: input.locationId, occurredAt,
@@ -51,15 +49,6 @@ export class StockReceiptsService {
       for (const line of lines) await this.postLine(tx, { actorId, occurredAt, locationId: input.locationId, ...line });
       return { data: await this.view(tx, id) };
     });
-  }
-
-  /** Product rows first, in sorted order: the start of the global lock order. No KEY lock, so FK inserts aren't blocked. */
-  private async lockProducts(tx: Prisma.TransactionClient, ids: string[]) {
-    const unique = [...new Set(ids)].sort();
-    const rows = await tx.$queryRaw<LockedProduct[]>`
-      SELECT "id", "kind"::text AS "kind", "trackingMode"::text AS "trackingMode", "active", "manufacturerId" FROM "products"
-      WHERE "id" = ANY(${unique}::uuid[]) ORDER BY "id" FOR NO KEY UPDATE`;
-    return new Map(rows.map((row) => [row.id, row]));
   }
 
   private async assertLocationReceivable(tx: Prisma.TransactionClient, locationId: string) {

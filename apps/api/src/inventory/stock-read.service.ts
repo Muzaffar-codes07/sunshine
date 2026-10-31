@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { normalizeEquipmentSerial, stockLevelListResponseSchema, stockLocationListResponseSchema, unitLookupResponseSchema,
   type StockLevelListQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { PrismaService } from '../platform/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class StockReadService {
@@ -23,19 +23,25 @@ export class StockReadService {
       WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
         AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)`;
     const rows = await this.prisma.$queryRaw<{
-      productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal;
+      productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal; reserved: Prisma.Decimal;
     }[]>`
       SELECT s."productId", p."sku", p."name" AS "productName", s."locationId", l."code" AS "locationCode", l."kind"::text AS "locationKind",
-             s."quantity" AS "onHand"
+             s."quantity" AS "onHand", COALESCE(a."reserved", 0) AS "reserved"
       FROM "stock_on_hand" s
       JOIN "products" p ON p."id" = s."productId"
       JOIN "stock_locations" l ON l."id" = s."locationId"
+      LEFT JOIN (
+        SELECT "productId", "locationId", SUM("quantity") AS "reserved" FROM "allocations" WHERE "status" = 'RESERVED' GROUP BY "productId", "locationId"
+      ) a ON a."productId" = s."productId" AND a."locationId" = s."locationId"
       WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
         AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)
       ORDER BY p."sku", l."code"
       LIMIT ${query.pageSize}::int OFFSET ${offset}::int`;
     return stockLevelListResponseSchema.parse({ data: {
-      items: rows.map(({ onHand, ...row }) => ({ ...row, onHand: onHand.toFixed(3) })),
+      items: rows.map(({ onHand, reserved, ...row }) => ({
+        ...row, onHand: onHand.toFixed(3), reserved: new Prisma.Decimal(reserved).toFixed(3),
+        free: row.locationKind === 'USABLE' ? onHand.minus(reserved).toFixed(3) : '0.000',
+      })),
       total: Number(total), page: query.page, pageSize: query.pageSize,
     } });
   }

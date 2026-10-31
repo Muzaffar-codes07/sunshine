@@ -30,8 +30,10 @@ model User {
 
   uploadedFiles File[]
   ownedEnquiries Enquiry[]
-  stockDocuments StockDocument[]
+  stockDocuments StockDocument[] @relation("StockDocumentActor")
+  stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
+  allocations Allocation[]
   commands       Command[]
   surveysAssigned Survey[] @relation("SurveyTechnician")
   surveysDecided  Survey[] @relation("SurveyDecision")
@@ -246,6 +248,7 @@ model Product {
   stockDocumentLines StockDocumentLine[]
   stockMovements StockMovement[]
   units Unit[]
+  allocations Allocation[]
   costBasis ProductCostBasis?
   installationPackages Package[] @relation("PackageInstallationService")
   @@index([active, kind])
@@ -326,6 +329,7 @@ model StockLocation {
   documentsTo StockDocument[] @relation("StockDocumentTo")
   movementsFrom StockMovement[] @relation("StockMovementFrom")
   movementsTo StockMovement[] @relation("StockMovementTo")
+  allocations Allocation[]
   @@map("stock_locations")
 }
 model StockDocument {
@@ -342,7 +346,10 @@ model StockDocument {
   occurredAt DateTime @db.Timestamptz(3)
   recordedAt DateTime @default(now()) @db.Timestamptz(3)
   validatedAt DateTime? @db.Timestamptz(3)
-  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  // Who posted it, when that differs from who drafted it. Its movements carry this actor.
+  validatedById String? @db.Uuid
+  actor User @relation("StockDocumentActor", fields: [actorId], references: [id], onDelete: Restrict)
+  validatedBy User? @relation("StockDocumentValidator", fields: [validatedById], references: [id], onDelete: Restrict)
   fromLocation StockLocation? @relation("StockDocumentFrom", fields: [fromLocationId], references: [id], onDelete: Restrict)
   toLocation StockLocation? @relation("StockDocumentTo", fields: [toLocationId], references: [id], onDelete: Restrict)
   lines StockDocumentLine[]
@@ -358,10 +365,14 @@ model StockDocumentLine {
   quantity Decimal @db.Decimal(12, 3)
   unitCost Decimal? @db.Decimal(14, 2)
   zeroCostReason String? @db.VarChar(500)
+  // Count lines only. Measured under the lock at validation; quantity is then the difference, and zero when they match.
+  countedQuantity Decimal? @db.Decimal(12, 3)
+  measuredQuantity Decimal? @db.Decimal(12, 3)
   document StockDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   movement StockMovement?
   units Unit[]
+  plannedUnits StockDocumentLineUnit[]
   @@unique([documentId, lineNumber])
   @@index([productId])
   @@map("stock_document_lines")
@@ -405,10 +416,23 @@ model Unit {
   manufacturer Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
   receiptLine StockDocumentLine @relation(fields: [receiptLineId], references: [id], onDelete: Restrict)
   movements UnitMovement[]
+  plannedLines StockDocumentLineUnit[]
+  allocations Allocation[]
   @@unique([manufacturerId, productId, normalizedSerial], map: "units_identity_key")
   @@index([normalizedSerial])
   @@index([receiptLineId])
   @@map("units")
+}
+// The serial units a draft line will move. Checked and locked at validation, frozen with the document.
+model StockDocumentLineUnit {
+  id String @id @default(uuid()) @db.Uuid
+  lineId String @db.Uuid
+  unitId String @db.Uuid
+  line StockDocumentLine @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  @@unique([lineId, unitId])
+  @@index([unitId])
+  @@map("stock_document_line_units")
 }
 model UnitMovement {
   id String @id @default(uuid()) @db.Uuid
@@ -528,6 +552,7 @@ model QuoteLine {
   product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
   packingRequirement PackingRequirement?
   invoiceLines InvoiceLine[]
+  allocations Allocation[]
 
   @@unique([quoteId, position])
   @@index([productId])
@@ -564,7 +589,7 @@ model Order {
   quoteId       String   @unique @db.Uuid
   enquiryId     String   @unique @db.Uuid
   customerId    String   @db.Uuid
-  // Set by D3's job helper when it is wired; null means the job is still to be created by D3.
+  // Set by D3's job helper in the confirming transaction. Null only on a row that hasn't reached that step.
   jobId         String?  @unique @db.Uuid
   confirmedById String   @db.Uuid
   confirmedAt   DateTime @default(now()) @db.Timestamptz(3)
@@ -576,9 +601,13 @@ model Order {
   enquiry     Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   confirmedBy User     @relation("OrderConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  // The composite key means an order can only point at its own job.
+  job         Job?     @relation("OrderJob", fields: [id, jobId], references: [orderId, id], onDelete: Restrict, onUpdate: Restrict)
+  ownJob      Job?     @relation("JobOrder")
   packing     PackingRequirement[]
   invoices    Invoice[]
 
+  @@unique([id, jobId])
   @@index([customerId])
   @@index([confirmedById])
   @@map("orders")
@@ -703,6 +732,67 @@ model Payment {
   @@index([invoiceId])
   @@index([recordedById])
   @@map("payments")
+}
+
+// D3: jobs. One per confirmed order, created in the confirming transaction. Customer, capacity and system type stay
+// on the order and its accepted quote, read through this relation instead of being copied here.
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  AWAITING_ACCEPTANCE
+  COMPLETED
+}
+model Job {
+  id        String    @id @default(uuid()) @db.Uuid
+  orderId   String    @unique @db.Uuid
+  status    JobStatus @default(SCHEDULED)
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  order     Order     @relation("JobOrder", fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  linkedBy  Order?    @relation("OrderJob")
+  allocations Allocation[]
+
+  @@unique([orderId, id])
+  @@map("jobs")
+}
+
+// D3: a job's hold on stock. Only RESERVED reduces free stock, because dispatched goods have already left the ledger.
+enum AllocationStatus {
+  RESERVED
+  DISPATCHED
+  DELIVERED
+  INSTALLED
+  RELEASED
+}
+model Allocation {
+  id String @id @default(uuid()) @db.Uuid
+  jobId String @db.Uuid
+  // The sold requirement. Repair parts will use a ticket line instead, once ticket lines exist.
+  quoteLineId String? @db.Uuid
+  productId String @db.Uuid
+  unitId String? @db.Uuid
+  locationId String @db.Uuid
+  quantity Decimal @db.Decimal(12, 3)
+  status AllocationStatus @default(RESERVED)
+  version Int @default(1)
+  actorId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  unit Unit? @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([jobId, status])
+  @@index([productId, locationId, status])
+  @@index([quoteLineId])
+  @@index([unitId])
+  @@index([locationId])
+  @@index([actorId])
+  @@map("allocations")
 }
 
 enum FileContextType {

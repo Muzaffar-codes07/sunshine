@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { refusal } from '../platform/api-error';
 import { Prisma } from '../generated/prisma/client';
 
+export type LockedProduct = { id: string; kind: string; trackingMode: string; active: boolean; manufacturerId: string | null };
+
 export interface PostMovementInput {
   documentLineId: string;
   productId: string;
@@ -32,6 +34,14 @@ export class StockLedgerService {
     return tx.stockMovement.create({ data: input });
   }
 
+  /** Product rows first, in sorted order: the start of the global lock order. No KEY lock, so FK inserts aren't blocked. */
+  async lockProducts(tx: Prisma.TransactionClient, ids: string[]) {
+    const rows = await tx.$queryRaw<LockedProduct[]>`
+      SELECT "id", "kind"::text AS "kind", "trackingMode"::text AS "trackingMode", "active", "manufacturerId" FROM "products"
+      WHERE "id" = ANY(${[...new Set(ids)].sort()}::uuid[]) ORDER BY "id" FOR NO KEY UPDATE`;
+    return new Map(rows.map((row) => [row.id, row]));
+  }
+
   /** Serialises everything that removes this product from this location until the transaction ends. */
   async lockStock(tx: Prisma.TransactionClient, productId: string, locationId: string) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${productId}:${locationId}`}::text, 0))`;
@@ -41,6 +51,12 @@ export class StockLedgerService {
     const rows = await tx.$queryRaw<{ quantity: Prisma.Decimal }[]>`
       SELECT "quantity" FROM "stock_on_hand" WHERE "productId" = ${productId}::uuid AND "locationId" = ${locationId}::uuid`;
     return rows[0]?.quantity ?? new Prisma.Decimal(0);
+  }
+
+  /** What jobs hold here. Dispatched goods have already left the ledger, so only RESERVED counts. */
+  async reserved(tx: Prisma.TransactionClient, productId: string, locationId: string) {
+    const held = await tx.allocation.aggregate({ where: { productId, locationId, status: 'RESERVED' }, _sum: { quantity: true } });
+    return held._sum.quantity ?? new Prisma.Decimal(0);
   }
 
   /** Total across usable locations; quarantined stock can't be sold, so it doesn't affect the average. */
