@@ -35,6 +35,7 @@ const { StockLedgerService } = apiRequire('./dist/inventory/stock-ledger.service
 let app, vite, browser, activePage;
 const results = [];
 const contexts = [];
+let lastTicket;
 try {
   app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api/v1'); app.useGlobalFilters(new ApiExceptionFilter());
@@ -135,7 +136,8 @@ try {
     await page.mouse.move(box.x + 20, box.y + 30); await page.mouse.down(); await page.mouse.move(box.x + 120, box.y + 60, { steps: 10 }); await page.mouse.up();
     await page.getByRole('button', { name: 'Export PNG' }).click();
     await page.getByText('Signature saved.', { exact: false }).waitFor();
-    for (const checkbox of await page.locator('input[name=check]').all()) await checkbox.check();
+    for (const value of ['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION']) await page.locator(`input[name=check][value=${value}]`).check();
+    assert.equal(await page.locator('input[name=check]:checked').count(), 5);
     await page.getByRole('button', { name: 'Complete job', exact: true }).click();
     await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
     await page.reload(); await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
@@ -147,7 +149,25 @@ try {
     assert.equal(await prisma.stockDocument.count({ where: { reference: `DISPATCH:${(await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } })).id}` } }), 1);
     results.push({ run, seconds: ((Date.now() - begin) / 1000).toFixed(1), jobId: job.id, orderId: order.id, serialUnits: allocated.length, status: saved.status });
     console.log('Completed persisted run', JSON.stringify(results.at(-1)));
+    const ticket = await prisma.serviceTicket.create({ data: { ticketNumber: `B44-${randomUUID().slice(0, 12)}`, unitId: allocated[0].unitId, jobId: job.id, customerId: customer.id, faultDescription: 'Explicit synthetic saved ticket for read/refresh acceptance' } });
+    lastTicket = ticket;
+    await page.goto('/workspace/service');
+    await page.getByRole('link', { name: ticket.ticketNumber, exact: true }).click();
+    await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
+    await page.reload(); await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), true);
   }
+  for (const role of ['SALES', 'WAREHOUSE', 'TECHNICIAN', 'SUPPORT']) {
+    const scoped = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(scoped);
+    const login = await scoped.request.post('/api/v1/auth/login', { headers: { origin }, data: { email: staff[role].email, password } }); assert.equal(login.status(), 200);
+    const read = await scoped.request.get(`/api/v1/tickets/${lastTicket.id}`);
+    assert.equal(read.status(), role === 'SUPPORT' ? 200 : 403);
+    const scopedPage = await scoped.newPage(); await scopedPage.goto(`/workspace/service?ticket=${lastTicket.id}`);
+    if (role === 'SUPPORT') await scopedPage.getByRole('heading', { name: `Ticket ${lastTicket.ticketNumber}`, exact: true }).waitFor();
+    else await scopedPage.getByText('Your role cannot open this workspace.', { exact: true }).waitFor();
+  }
+  const anonymous = await browser.newContext({ baseURL: origin }); contexts.push(anonymous);
+  assert.equal((await anonymous.request.get(`/api/v1/tickets/${lastTicket.id}`)).status(), 401);
   // Real unavailable adapters stay visible as errors, never as fabricated coverage or finance.
   await page.goto('/workspace/reports');
   await page.getByText(/await.*integration/i).first().waitFor();

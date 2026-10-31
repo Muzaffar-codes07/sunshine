@@ -12,7 +12,7 @@ import { WarehousePage } from '../features/warehouse/WarehousePage';
 import { apiGet } from '../lib/api';
 import { LoginPage } from '../features/auth/LoginPage';
 import { Workspace, WorkspaceOverview } from './Workspace';
-import { ServiceWorkspacePage } from '../features/service';
+import { ServiceWorkspaceRoute } from '../features/service/ServiceWorkspaceRoute';
 import { ReportsWorkspacePage } from '../features/reports';
 import { PatternsPage } from './PatternsPage';
 import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
@@ -35,7 +35,7 @@ export function App() {
         <Route path="field-service/jobs/:id" element={<FieldJobPage />} />
         <Route path="warehouse" element={<WarehousePage />} />
         <Route path="warehouse/orders/:id" element={<OrderFulfilmentPage />} />
-        <Route path="service" element={<ServiceWorkspacePage />} />
+        <Route path="service" element={<ServiceWorkspaceRoute />} />
         <Route path="reports" element={<ReportsWorkspacePage />} />
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { logoutResponseSchema, type StaffRole } from '@sunshine/contracts';
 import { apiPost, ApiRequestError } from '../lib/api';
+import { WorkspaceBoundary } from '../components/shared/WorkspaceBoundary';
 import { sessionKey, useStaffSession } from '../features/auth/session';
 
 export const workspaces = [
@@ -65,7 +66,7 @@ export function Workspace() {
       <NavLink to="/workspace" end>Overview</NavLink>
       {visibleWorkspaces(session.data.role).map(([path, label]) => <NavLink key={path} to={`/workspace/${path}`}>{label}</NavLink>)}
     </nav>
-    <main ref={content} id="workspace-content" tabIndex={-1}>{allowed ? <Outlet /> : <section role="alert"><h1>Access unavailable</h1><p>Your role cannot open this workspace.</p><Link to="/workspace">Choose an available workspace</Link></section>}</main>
+    <main ref={content} id="workspace-content" tabIndex={-1}>{allowed ? <WorkspaceBoundary key={location.pathname + location.search}><Outlet /></WorkspaceBoundary> : <section role="alert"><h1>Access unavailable</h1><p>Your role cannot open this workspace.</p><Link to="/workspace">Choose an available workspace</Link></section>}</main>
   </div>;
 }
 
