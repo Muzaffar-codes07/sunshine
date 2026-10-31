@@ -254,3 +254,41 @@ test('HTTP: sales schedules and decides, the assigned technician submits', async
   const history = await fetch(`${base}/enquiries/${row.id}/surveys`, { headers: { cookie: salesCookie } });
   assert.deepEqual((await history.json()).data.items.map((item) => item.revision), [1]);
 });
+
+test('quote gate keeps the enquiry share lock until its caller transaction commits', async () => {
+  const row = await enquiry();
+  const approved = await approvedSurvey(row.id);
+  let entered, failed;
+  const locked = new Promise((resolve, reject) => { entered = resolve; failed = reject; });
+  let release;
+  const hold = new Promise(resolve => { release = resolve; });
+  const quoteTransaction = prisma.$transaction(async tx => {
+    const facts = await surveys.requireApprovedSurvey(tx, approved.id);
+    entered();
+    await hold;
+    return facts;
+  }, { timeout: 10000 });
+  quoteTransaction.catch(failed);
+  let scheduled;
+  try {
+    await locked;
+    let settled = false;
+    scheduled = surveys.schedule(row.id, { technicianId: otherTechnician.id, scheduledFor: when });
+    scheduled.then(() => { settled = true; }, () => { settled = true; });
+    let waiting = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const [probe] = await prisma.$queryRawUnsafe(
+        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock' AND query ILIKE '%FROM enquiries%FOR UPDATE%') AS waiting");
+      if (probe.waiting) { waiting = true; break; }
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(waiting, true, 'new scheduling is blocked on the enquiry row lock');
+    assert.equal(settled, false, 'the helper did not release its caller transaction lock');
+  } finally {
+    release();
+    await quoteTransaction;
+    if (scheduled) await scheduled;
+  }
+  assert.equal((await scheduled).data.revision, 2);
+  await rejectsWith(quoteCheck(approved.id), 409, 'SURVEY_NOT_APPROVED');
+});
