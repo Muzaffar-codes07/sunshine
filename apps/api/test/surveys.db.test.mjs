@@ -22,6 +22,7 @@ const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
 const { PrismaService } = require('../dist/platform/prisma.service');
 const { SurveysService } = require('../dist/sales/surveys.service');
 const { hashPassword } = require('../dist/auth/passwords');
+const { constraintError } = require('../dist/platform/constraint-errors');
 
 let app;
 let base;
@@ -171,6 +172,34 @@ test('a technician sees and submits only their own surveys; stale versions are r
   assert.equal(moved.technician.id, otherTechnician.id);
   await rejectsWith(surveys.get(scheduled.id, staff(technician)), 404, 'NOT_FOUND');
   assert.equal((await surveys.get(scheduled.id, staff(otherTechnician))).data.id, scheduled.id);
+});
+
+test('the database refuses NaN measurements and maps each to its field', async () => {
+  // PostgreSQL numeric NaN sorts above every number, so a bare ">= 0" CHECK would accept it.
+  const row = await enquiry();
+  const { id } = (await surveys.schedule(row.id, { technicianId: technician.id, scheduledFor: when })).data;
+  for (const column of ['roofTiltDeg', 'cableDistanceM', 'usableRoofAreaSqm']) {
+    const error = await prisma.$executeRawUnsafe(`UPDATE surveys SET "${column}" = 'NaN' WHERE id = $1::uuid`, id).then(
+      () => assert.fail(`${column} accepted NaN`), (refused) => refused,
+    );
+    const mapped = constraintError(error);
+    assert.equal(mapped?.getStatus(), 400, column);
+    assert.ok(mapped.fieldErrors[column]?.length, column);
+  }
+});
+
+test('quote and schedule refusals carry the shared reason contract', async () => {
+  const row = await enquiry();
+  const { id } = (await surveys.schedule(row.id, { technicianId: technician.id, scheduledFor: when })).data;
+  await assert.rejects(quoteCheck(id), (error) => {
+    assert.deepEqual(error.reasons.map((reason) => [reason.code, reason.source]), [['SURVEY_NOT_APPROVED', 'SURVEY']]);
+    assert.ok(error.reasons[0].nextAction);
+    return true;
+  });
+  await assert.rejects(surveys.schedule(row.id, { technicianId: technician.id, scheduledFor: when }), (error) => {
+    assert.equal(error.reasons[0].code, 'SURVEY_ALREADY_OPEN');
+    return true;
+  });
 });
 
 test('the database refuses a submitted or approved survey without its facts', async () => {
