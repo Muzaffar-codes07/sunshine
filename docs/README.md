@@ -25,7 +25,7 @@ These document the planned product. They do not turn the current scaffold into a
 2. [Supplied organizer-video document](requirements/organizer-video-deliverables.md): user-required local DB/custom API/no-BaaS constraints. It is a 2025 video extraction, not independently verified current event rules.
 3. [Product requirements](requirements/product-requirements.md): consolidated team brief, MVP boundaries and module acceptance criteria; does not override the supplied problem statement.
 4. [Latest role division](team/role-division-brief.md): **one frontend developer and three component-based backend developers**. The [earlier detailed role plan](team/roles.md) has stale component assignments.
-5. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [API contracts](architecture/api-contracts.md).
+5. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [schema conventions and migration queue](architecture/schema-conventions.md), [API contracts](architecture/api-contracts.md).
 6. [Execution plan](planning/execution-plan.md), [testing](planning/testing.md), [submission and demo](planning/submission-and-demo.md).
 
 ## Full hackathon build and presentation package

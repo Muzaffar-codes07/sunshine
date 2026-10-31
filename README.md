@@ -98,3 +98,5 @@ Auth endpoints: `POST /api/v1/auth/login` with `{email,password}`, `GET /api/v1/
 For a tested HTTPS deployment, set `SESSION_COOKIE_SECURE=true` and configure the exact public origin. Only set `TRUST_PROXY` for a known proxy/address range (for example `loopback`); it is disabled by default. Origin validation never trusts Host or forwarding headers.
 
 `npm test -w @sunshine/api` runs the focused security unit checks. `TEST_DATABASE_URL=<explicit disposable test DB> npm run test:db -w @sunshine/api` runs API/session/role/revocation tests after migrations and build; the database name must contain `test`. These tests write rows and must never target the demo or real database.
+
+Login allows five attempts per IP per minute. Teammates behind one NAT share this budget; avoid repeated account switching during the demonstration and wait one minute if limited.

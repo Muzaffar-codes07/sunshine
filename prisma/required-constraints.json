@@ -1,0 +1,73 @@
+{
+  "description": "Canonical PostgreSQL 17 definitions for hand-written rules. Update with each reviewed migration; db:check verifies schema, table, kind, validity and full definition.",
+  "kinds": [
+    "check",
+    "exclusion",
+    "unique_partial_index"
+  ],
+  "required": [
+    {
+      "name": "customers_name_not_blank",
+      "table": "customers",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim(name)) >= 2))"
+    },
+    {
+      "name": "customers_phone_format",
+      "table": "customers",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((phone ~ '^[6-9][0-9]{9}$'::text))"
+    },
+    {
+      "name": "customers_pincode_format",
+      "table": "customers",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((pincode ~ '^[1-9][0-9]{5}$'::text))"
+    },
+    {
+      "name": "enquiries_bill_nonnegative",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR (\"monthlyBillInr\" >= (0)::numeric)))"
+    },
+    {
+      "name": "enquiries_capacity_range",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"requestedCapacityKw\" >= 1) AND (\"requestedCapacityKw\" <= 5)))"
+    },
+    {
+      "name": "enquiries_closed_has_reason",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status <> ALL (ARRAY['DISQUALIFIED'::\"EnquiryStatus\", 'ARCHIVED'::\"EnquiryStatus\"])) OR ((\"closedReason\" IS NOT NULL) AND (length(btrim(\"closedReason\")) > 0))))"
+    },
+    {
+      "name": "enquiries_roof_area_nonnegative",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR (\"shadowFreeRoofAreaSqm\" >= (0)::numeric)))"
+    },
+    {
+      "name": "enquiries_site_pincode_format",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"sitePincode\" ~ '^[1-9][0-9]{5}$'::text))"
+    },
+    {
+      "name": "enquiries_version_positive",
+      "table": "enquiries",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    }
+  ]
+}
