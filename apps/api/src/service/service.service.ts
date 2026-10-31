@@ -102,6 +102,7 @@ export class ServiceService {
     return serviceTicketResponseSchema.parse({ data: {
       id: ticket.id, ticketNumber: ticket.ticketNumber, customerId: ticket.customerId,
       unitId: ticket.unitId, jobId: ticket.jobId, status: ticket.status, version: ticket.version,
+      replacedUnitId: ticket.replacedUnitId ?? null, newUnitId: ticket.newUnitId ?? null,
       faultDescription: ticket.faultDescription, assessmentSnapshot: ticket.assessmentSnapshot,
       resolutionDetails: ticket.resolutionDetails, resolvedAt: ticket.resolvedAt?.toISOString() ?? null,
       confirmation: ticket.confirmedBy === null ? null : {
