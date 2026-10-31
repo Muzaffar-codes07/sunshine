@@ -25,4 +25,5 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run db:deploy
+      - run: npm run db:check
       - run: npm run smoke
