@@ -1,3 +1,4 @@
+import { OrderPage } from '../features/orders/OrderPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Route, Routes } from 'react-router-dom';
 import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
@@ -20,8 +21,10 @@ export function App() {
       <Route path="/workspace" element={<Workspace />}>
         <Route index element={<WorkspaceOverview />} />
         <Route path="sales" element={<SalesWorkspacePage />} />
+        <Route path="orders" element={<OrderPage />} />
+        <Route path="orders/:id" element={<OrderPage />} />
         <Route path="sales/enquiries/:id" element={<EnquiryDetailPage />} />
-        {workspaces.filter(([path]) => path !== 'sales').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}
