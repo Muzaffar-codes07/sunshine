@@ -29,6 +29,7 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   ownedSubsidyMilestones SubsidyMilestone[] @relation("SubsidyResponsibleOwner")
+  uploadedFiles            File[]
   ownedEnquiries Enquiry[]
   stockDocuments StockDocument[] @relation("StockDocumentActor")
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
@@ -995,4 +996,25 @@ model JobAssignment {
   @@index([technicianId, removedAt])
   @@index([assignedById])
   @@map("job_assignments")
+}
+
+enum FileContextType {
+  JOB
+  TICKET
+}
+model File {
+  id String @id @default(uuid()) @db.Uuid
+  storageKey String @unique @db.VarChar(36)
+  originalName String @db.VarChar(150)
+  mediaType String @db.VarChar(40)
+  sizeBytes Int
+  sha256 String @db.VarChar(64)
+  uploadedById String @db.Uuid
+  contextType FileContextType?
+  contextId String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  @@index([contextType, contextId])
+  @@index([uploadedById, createdAt])
+  @@map("files")
 }
