@@ -169,3 +169,12 @@ test('HTTP multipart requires login and trusted origin, bounds the request and s
   const staticRead = await fetch(base.replace('/api/v1','') + '/uploads/' + metadata.storageKey);
   assert.ok(!Buffer.from(await staticRead.arrayBuffer()).equals(png), 'private bytes are never a static asset');
 });
+
+test('JPEG container detection preserves trailing phone metadata after the end marker', async () => {
+  const bytes = Buffer.concat([jpeg, Buffer.from('MotionPhoto_Data: trailing private metadata')]);
+  const {data} = await files.upload(upload(bytes, 'image/jpeg', 'phone-photo.jpg'), {}, actor(technician));
+  assert.equal(data.mediaType, 'image/jpeg');
+  assert.equal(data.sizeBytes, bytes.length);
+  assert.deepEqual((await files.download(data.id, actor(technician))).buffer, bytes);
+  await expectCode(files.upload(upload(jpeg.subarray(0, -2), 'image/jpeg'), {}, actor(technician)), 400, 'INVALID_INPUT');
+});

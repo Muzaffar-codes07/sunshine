@@ -6,7 +6,7 @@ D2 owns transport, metadata and authorization. D3 owns evidence associations and
 
 - POST /api/v1/files: authenticated multipart, exactly one field named file, optionally both contextType (JOB or TICKET) and contextId (UUID). No actor, path, hash, status or size overrides. Returns {data: StoredFile}.
 - GET /api/v1/files/:id: authenticated attachment download, private/no-store and nosniff. Random server filename; storage key is never returned. Unknown file 404, unauthorized access 403, missing/corrupt bytes 503.
-- Exact-origin protection covers multipart before bytes reach the interceptor. File size cap is 10 MiB; declared MIME must match detected JPEG, PNG, WebP or PDF container bytes. Container checks are not full decoding, virus scanning or authenticity verification.
+- Exact-origin protection covers multipart before bytes reach the interceptor. File size cap is 10 MiB; declared MIME must match detected JPEG, PNG, WebP or PDF container bytes. JPEG end markers may precede trailing phone metadata; the complete original bytes are retained. Container checks are not full decoding, virus scanning or authenticity verification.
 - Unbound uploads are private to their uploader, including against other admins. They are not completion evidence.
 
 ## Domain integration

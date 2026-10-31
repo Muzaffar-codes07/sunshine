@@ -92,9 +92,10 @@ export class FilesService {
   }
 }
 
-/** Identifies permitted container signatures, not authenticity, virus safety or full decoding. */
+/** Identifies permitted container signatures, not authenticity, virus safety or full decoding.
+ * JPEGs can carry phone metadata after EOI, so the end marker need not be the final bytes. */
 export function detectMediaType(bytes: Buffer): StoredFile['mediaType'] | null {
-  if (bytes.length >= 4 && bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) && bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))) return 'image/jpeg';
+  if (bytes.length >= 4 && bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) && bytes.indexOf(Buffer.from([0xff, 0xd9]), 2) >= 2) return 'image/jpeg';
   if (bytes.length >= 33 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) && bytes.toString('ascii', 12, 16) === 'IHDR') return 'image/png';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' && bytes.readUInt32LE(4) + 8 === bytes.length) return 'image/webp';
   if (bytes.length >= 12 && /^%PDF-[12]\.[0-9]/.test(bytes.toString('ascii', 0, 8)) && /%%EOF\s*$/.test(bytes.subarray(-1024).toString('ascii'))) return 'application/pdf';
