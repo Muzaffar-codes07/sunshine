@@ -29,6 +29,20 @@ test('qualification stores decimals as 2-place strings and rejects negative or o
   }
 });
 
+test('blank roof area or bill is rejected instead of becoming 0.00, while an explicit 0 is kept', () => {
+  const base = { version: 1, shadowFreeRoofAreaSqm: 20, monthlyBillInr: 1500, gridConnectionSuitable: true, outcome: 'QUALIFIED' };
+  for (const [field, value] of [['shadowFreeRoofAreaSqm', ''], ['shadowFreeRoofAreaSqm', '   '], ['monthlyBillInr', ''], ['monthlyBillInr', ' \t ']]) {
+    const result = qualifyEnquirySchema.safeParse({ ...base, [field]: value });
+    assert.equal(result.success, false, `${field}=${JSON.stringify(value)} must be rejected`);
+    assert.ok(fieldErrors(result).includes(field));
+  }
+  const bothBlank = qualifyEnquirySchema.safeParse({ ...base, shadowFreeRoofAreaSqm: '', monthlyBillInr: '' });
+  assert.equal(bothBlank.success, false);
+  assert.deepEqual(fieldErrors(bothBlank).sort(), ['monthlyBillInr', 'shadowFreeRoofAreaSqm']);
+  assert.equal(qualifyEnquirySchema.parse({ ...base, monthlyBillInr: 0 }).monthlyBillInr, '0.00');
+  assert.equal(qualifyEnquirySchema.parse({ ...base, monthlyBillInr: '0' }).monthlyBillInr, '0.00');
+});
+
 test('disqualifying requires a reason', () => {
   const base = { version: 2, shadowFreeRoofAreaSqm: 4, monthlyBillInr: 800, gridConnectionSuitable: false, outcome: 'DISQUALIFIED' };
   const missing = qualifyEnquirySchema.safeParse(base);

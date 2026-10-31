@@ -171,4 +171,18 @@ test('HTTP: the queue needs a staff session, and only sales or admin may use it'
   });
   assert.equal(forged.status, 403);
   assert.equal((await fetch(`${base}/enquiries/not-a-uuid`, { headers: { cookie: salesCookie } })).status, 400);
+
+  // Blank call facts are a 400, not a silent QUALIFIED with 0.00 values; the enquiry is left untouched.
+  const blank = await fetch(`${base}/enquiries/${row.id}/qualify`, {
+    method: 'POST', headers: { cookie: salesCookie, origin, 'content-type': 'application/json' },
+    body: JSON.stringify({ version: 2, shadowFreeRoofAreaSqm: '', monthlyBillInr: '  ', gridConnectionSuitable: true, outcome: 'QUALIFIED' }),
+  });
+  assert.equal(blank.status, 400);
+  const { error } = await blank.json();
+  assert.ok(error.fieldErrors.shadowFreeRoofAreaSqm?.length);
+  assert.ok(error.fieldErrors.monthlyBillInr?.length);
+  const after = await prisma.enquiry.findUniqueOrThrow({ where: { id: row.id } });
+  assert.equal(after.status, 'CONTACTED');
+  assert.equal(after.version, 2);
+  assert.equal(after.shadowFreeRoofAreaSqm, null);
 });

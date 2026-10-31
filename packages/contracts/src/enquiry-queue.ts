@@ -17,7 +17,13 @@ const pageNumber = (label: string, max: number, fallback: number) =>
 /** Non-negative decimal with at most 2 places, sent to the database as a string. */
 const decimalString = (label: string, max: number) => {
   const Label = label.charAt(0).toUpperCase() + label.slice(1);
-  return z.union([z.string(), z.number()], { error: `Enter ${label}` })
+  // Number('') and Number('  ') are 0, so a blank field would silently become 0.00. Reject it first;
+  // an explicit 0 is still accepted.
+  const present = z.union([
+    z.string({ error: `Enter ${label}` }).trim().min(1, `Enter ${label}`),
+    z.number({ error: `Enter ${label}` }),
+  ], { error: `Enter ${label}` });
+  return present
     .pipe(z.coerce.number<string | number>({ error: `Enter ${label} as a number` })
       .refine(Number.isFinite, `Enter ${label} as a number`)
       .refine((value) => value >= 0, `${Label} cannot be negative`)
