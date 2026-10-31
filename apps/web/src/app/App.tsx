@@ -10,6 +10,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { PlannedWorkspace, Workspace, WorkspaceOverview, workspaces } from './Workspace';
 import { PatternsPage } from './PatternsPage';
 import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
+import { WarehousePage } from '../features/warehouse/WarehousePage';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
@@ -24,8 +25,9 @@ export function App() {
         <Route path="sales" element={<SalesWorkspacePage />} />
         <Route path="orders" element={<OrderPage />} />
         <Route path="orders/:id" element={<OrderPage />} />
+        <Route path="warehouse" element={<WarehousePage />} />
         <Route path="sales/enquiries/:id" element={<EnquiryDetailPage />} />
-        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders' && path !== 'warehouse').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}

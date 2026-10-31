@@ -1,5 +1,13 @@
 # Warehouse workspace
 
-Owner: **D1**, the sole frontend developer. Status: **planned, not implemented**.
+Owner: **D1**, the sole frontend developer. Status: **implemented**.
 
-Use shared list/detail/form/status patterns and typed API contracts. Backend owners supply fixtures and attend integration slots. Do not duplicate business or financial rules in the browser.
+## Scope implemented
+- Live inventory levels and As-Of historical reads (`GET /stock`, `GET /stock/as-of`)
+- Movement ledger (`GET /stock/movements`)
+- Live invariant integrity auditing (`GET /stock/integrity`)
+- Inventory valuation report (`GET /stock/value`)
+- Unit serial tracking and camera/manual scanner lookup (`GET /units`) using reusable `ScanInput`
+- Goods receiving (`POST /stock/receipts`) with idempotency protection and contract validation
+
+Authoritative stock balances are strictly computed and maintained by the backend services and PostgreSQL ledger; never recalculated in React.

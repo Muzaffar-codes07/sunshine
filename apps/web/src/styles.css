@@ -166,3 +166,29 @@ footer { display: flex; justify-content: space-between; gap: 20px; color: #8c9eb
   .spike-list li { flex-direction: column; align-items: flex-start; }
 }
 
+/* Warehouse Workspace (D3) */
+.warehouse-workspace { margin-top: 16px; }
+.warehouse-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #243041; }
+.warehouse-header h1 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 8px; }
+.warehouse-header-actions { display: flex; gap: 12px; align-items: center; }
+.warehouse-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.tab-btn { background: #111e2d; border: 1px solid #334155; color: #a4b3c7; border-radius: 6px; padding: 10px 16px; font-weight: 550; cursor: pointer; }
+.tab-btn:hover { background: #1a2a3e; color: #f2f5f9; }
+.tab-btn.active { background: #233449; border-color: #f7bd52; color: #f7bd52; }
+.filters-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.filters-row .field { margin-bottom: 0; min-width: 220px; }
+.integrity-status-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: #111e2d; border: 1px solid #243041; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+.integrity-status-banner h2 { font-size: 20px; margin: 0 0 6px; }
+.integrity-status-pill { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.receipt-form { display: grid; gap: 16px; margin-top: 16px; }
+.receipt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.receipt-actions { margin-top: 12px; }
+.receipt-actions button { width: 100%; min-height: 44px; }
+@media (max-width: 600px) {
+  .warehouse-header { flex-direction: column; align-items: stretch; }
+  .warehouse-header-actions button { width: 100%; }
+  .receipt-row { grid-template-columns: 1fr; }
+  .filters-row { flex-direction: column; }
+  .filters-row .field { width: 100%; }
+}
+
