@@ -7,6 +7,7 @@ import type { AuthenticatedStaffRequest } from '../auth/auth.types';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { FilesService, type UploadedBytes } from './files.service';
 import { PrivateFileStore } from './private-file.store';
+import { JobFileAccessModule } from '../field/job-file-access.module';
 
 @Controller('files')
 @UseGuards(AuthGuard)
@@ -29,5 +30,5 @@ export class FilesController {
     return new StreamableFile(buffer, { type: file.mediaType, length: buffer.length, disposition: 'attachment; filename="' + file.id + '.' + extension + '"' });
   }
 }
-@Module({ imports: [AuthModule], controllers: [FilesController], providers: [FilesService, PrivateFileStore], exports: [FilesService] })
+@Module({ imports: [AuthModule, JobFileAccessModule], controllers: [FilesController], providers: [FilesService, PrivateFileStore], exports: [FilesService] })
 export class FilesModule {}

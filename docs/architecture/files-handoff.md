@@ -1,6 +1,6 @@
 # Private files handoff (B08)
 
-D2 owns transport, metadata and authorization. D3 owns evidence associations and completion gates; D4 owns ticket access. This branch supplies the core and an authorization port. Bound job/ticket routes stay unavailable until a real adapter is wired.
+D2 owns transport, metadata and its authorization port. D3 owns job access, evidence associations and completion gates; D4 owns ticket access. The production provider now wires D3's real JOB adapter. TICKET access stays unavailable until D4's adapter is supplied.
 
 ## HTTP
 
@@ -11,11 +11,11 @@ D2 owns transport, metadata and authorization. D3 owns evidence associations and
 
 ## Domain integration
 
-Export FILE_RECORD_AUTHORIZER from a module imported by FilesModule. It implements assertAccess(tx, actor, {contextType, contextId}, action), where action is UPLOAD, DOWNLOAD or ATTACH. It must check record existence, assignment/role access and the job/ticket/customer relationships; throw a safe 403/404 on refusal. Database access only, no independent commit or file/network I/O.
+`JobFileAccessModule` exports FILE_RECORD_AUTHORIZER and is imported by FilesModule without importing FieldModule. It implements assertAccess(tx, actor, {contextType, contextId}, action), where action is UPLOAD, DOWNLOAD or ATTACH. JOB checks the real job/order backlink, accepted quote and matching enquiry/customer, then applies the [D3 policy](../../apps/api/src/field/README.md). ADMIN and active assigned technicians may upload/attach unless the job is COMPLETED; ADMIN, SALES and active assigned technicians may download. Removed assignments revoke uploader access. Missing or inconsistent records return safe404, denied actors403. The adapter reads and locks through the caller transaction only, with no independent commit or file/network I/O. TICKET always fails503 FILE_AUTHORIZATION_UNAVAILABLE until D4 integration.
 
 Bound access always calls the adapter, including when the requester uploaded the file. Missing adapter returns 503 FILE_AUTHORIZATION_UNAVAILABLE. No blanket admin bypass is invented here.
 
-FilesService.attach(tx, fileId, context, actor) locks the file row, checks ownership for an orphan, authorizes the target and binds it inside the caller's transaction. Another record cannot claim the same file. A rollback leaves the upload unbound. This generic JOB/TICKET association deliberately adds no fictional Job/Ticket models or foreign keys; the domain adapter supplies referential and access checks until those schemas exist.
+FilesService.attach(tx, fileId, context, actor) checks the source, authorizes/claims the job before locking the file row, rechecks orphan ownership/association under that lock and binds it inside the caller's transaction. This Job-before-File ordering matches later field commands and avoids a cycle. Another record cannot claim the same file, including during concurrent attempts. A rollback leaves the upload unbound. This generic JOB/TICKET association adds no placeholder foreign keys; the real JOB adapter supplies referential/access checks and TICKET remains closed.
 
 Before a critical completion/stock/money transaction, call download(fileId, actor) to verify current private bytes (size and SHA-256). Inside the transaction, call requireEvidence(tx, fileId, context, actor) to require persisted metadata, exact association and current record access. It performs no file I/O. An unbound or wrong-record upload yields EVIDENCE_REQUIRED. The adapter must still validate the complete job/ticket/customer relationship; a matching UUID alone is insufficient.
 
@@ -31,6 +31,6 @@ Files are immutable through the public API; no public delete or rebind operation
 
 ## Schema and verification
 
-Migration 20261031255000_files was generated with Prisma migrate dev --create-only on isolated PostgreSQL 17.11, then given explicit BEGIN/COMMIT and six CHECKs: storage-key format, nonblank safe filename, known MIME, 1..10 MiB size, SHA-256 format, and paired context fields. Uploader is a real restrictive User foreign key. Canonical CHECK definitions are registered; bound-record adapters are still required.
+Migration 20261031255000_files was generated with Prisma migrate dev --create-only on isolated PostgreSQL 17.11, then given explicit BEGIN/COMMIT and six CHECKs: storage-key format, nonblank safe filename, known MIME, 1..10 MiB size, SHA-256 format, and paired context fields. Uploader is a real restrictive User foreign key. Canonical CHECK definitions are registered. The JOB adapter needs no schema changes; TICKET still needs its adapter.
 
 Real PostgreSQL/disk tests cover bytes/metadata, cross-user denial, missing/forged/oversize requests, disk/metadata failures, fail-closed adapters, exact associations, rollback and concurrent binding, missing/altered bytes, SQL backstops, multipart origin/login/limits, attachment headers and static non-disclosure. No GPS, certified signature or photo-authenticity claim is made.

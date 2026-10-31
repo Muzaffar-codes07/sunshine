@@ -10,7 +10,7 @@ D3 adds `inventory.ts`, `field.ts`, their exported inferred TypeScript types, an
 
 ## Implemented and planned command handoffs
 
-Paths are planned interfaces, not existing routes. Staff identity comes from D2 auth, not request bodies. The service and database must enforce record-level access, transitions and integrity independently of these schemas.
+This table includes implemented and planned interfaces; the inventory/field READMEs state runtime coverage. Staff identity comes from D2 auth, not request bodies. The service and database enforce record-level access, transitions and integrity independently of transport schemas.
 
 | Planned consumer | Request schema | Service responsibility beyond transport validation |
 |---|---|---|
@@ -55,6 +55,8 @@ D3 consumes D4’s single cost writer and warranty activation helper, passing th
 The original eighteen D3 schema tests cover serials, exact quantities/costs, allocation sources, scan methods and field input. Later tests add runtime receipt/stock/reservation/traceability and draft/scan evidence cases; see the inventory README and issue #13 for head-pinned execution results. Contract tests alone do not prove authorization, concurrency, delivery activation, uploads or physical scanner support.
 
 Remaining integrated acceptance: connect D4's real source/cost/warranty helpers and D2 private files, finish issue/delivery/repair/field commands, prove their PostgreSQL races/retries, connect D1 UI and run actual-device checks. A draft with complete scan evidence is still not dispatched. Required baseline workflows remain incomplete until these gates have evidence.
+
+D2 private files now use the D3 JOB access adapter: actual order/quote/enquiry/customer checks, current assignment, role matrix, completed-job write freeze and caller-transaction Job-before-File locking. TICKET remains unconfigured. Upload/attachment access is implemented, while photo/signature completion associations, completion commands and byte/evidence gates in those commands remain pending S03.
 
 ### Review clarifications
 
