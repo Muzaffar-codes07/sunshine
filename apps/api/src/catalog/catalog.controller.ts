@@ -12,11 +12,13 @@ import { CatalogService } from './catalog.service';
 export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}
   @Get('products')
+  @Roles('SALES', 'ADMIN', 'WAREHOUSE')
   products(@Query(new ZodValidationPipe(productListQuerySchema)) query: ProductListQuery) { return this.catalog.listProducts(query); }
   @Get('products/:id')
-  product(@Param('id', new ParseUUIDPipe()) id: string) { return this.catalog.getProduct(id); }
+  @Roles('SALES', 'ADMIN', 'WAREHOUSE')
+  product(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.catalog.getProduct(id); }
   @Get('packages')
   packages(@Query(new ZodValidationPipe(packageListQuerySchema)) query: PackageListQuery) { return this.catalog.listPackages(query); }
   @Get('packages/:id')
-  package(@Param('id', new ParseUUIDPipe()) id: string) { return this.catalog.getPackage(id); }
+  package(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) { return this.catalog.getPackage(id); }
 }
