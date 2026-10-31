@@ -68,6 +68,97 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "manufacturers_name_not_blank",
+      "table": "manufacturers",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((name)::text)) > 0))"
+    },
+    {
+      "name": "products_sku_format",
+      "table": "products",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((sku)::text ~ '^[A-Z0-9][A-Z0-9_-]{1,63}$'::text))"
+    },
+    {
+      "name": "products_name_not_blank",
+      "table": "products",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((name)::text)) > 0))"
+    },
+    {
+      "name": "products_price_nonnegative",
+      "table": "products",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"unitSalePrice\" >= (0)::numeric) AND (\"unitSalePrice\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "products_tracking_consistent",
+      "table": "products",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'SERVICE'::\"ProductKind\") AND (\"trackingMode\" = 'NONE'::\"ProductTrackingMode\") AND (\"manufacturerId\" IS NULL) AND (\"unitOfMeasure\" = 'JOB'::\"UnitOfMeasure\")) OR ((kind = 'HARDWARE'::\"ProductKind\") AND (\"trackingMode\" = ANY (ARRAY['SERIALIZED'::\"ProductTrackingMode\", 'BULK'::\"ProductTrackingMode\"])) AND (\"manufacturerId\" IS NOT NULL))))"
+    },
+    {
+      "name": "products_serialized_uom",
+      "table": "products",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"trackingMode\" <> 'SERIALIZED'::\"ProductTrackingMode\") OR (\"unitOfMeasure\" = 'PCS'::\"UnitOfMeasure\")))"
+    },
+    {
+      "name": "packages_capacity_range",
+      "table": "packages",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"capacityKw\" >= 1) AND (\"capacityKw\" <= 5)))"
+    },
+    {
+      "name": "packages_revision_positive",
+      "table": "packages",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "packages_prices_nonnegative",
+      "table": "packages",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"hardwarePrice\" >= (0)::numeric) AND (\"installationPrice\" >= (0)::numeric) AND (\"hardwarePrice\" <> 'NaN'::numeric) AND (\"installationPrice\" <> 'NaN'::numeric) AND ((\"hardwarePrice\" + \"installationPrice\") <= 999999999999.99)))"
+    },
+    {
+      "name": "packages_name_not_blank",
+      "table": "packages",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((name)::text)) > 0))"
+    },
+    {
+      "name": "package_items_quantity_positive",
+      "table": "package_items",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "package_items_position_positive",
+      "table": "package_items",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "packages_one_active_revision",
+      "table": "packages",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX packages_one_active_revision ON public.packages USING btree (\"capacityKw\", \"systemType\") WHERE active"
     }
   ]
 }
