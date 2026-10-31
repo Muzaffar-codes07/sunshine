@@ -85,13 +85,13 @@ export class StockReceiptsService {
     const movement = await this.ledger.post(tx, {
       documentLineId: created.id, productId: line.productId, toLocationId: args.locationId, quantity, actorId: args.actorId, occurredAt: args.occurredAt,
     });
-    for (const rawSerial of line.serials) {
-      const unit = await tx.unit.create({ data: {
-        productId: line.productId, manufacturerId: product.manufacturerId!, rawSerial, normalizedSerial: normalizeEquipmentSerial(rawSerial),
-        acquisitionCost: unitCost, receiptLineId: created.id,
-      } });
-      await tx.unitMovement.create({ data: { unitId: unit.id, movementId: movement.id } });
-    }
+    if (!serialized) return;
+    const units = line.serials.map((rawSerial) => ({
+      id: randomUUID(), productId: line.productId, manufacturerId: product.manufacturerId!, rawSerial,
+      normalizedSerial: normalizeEquipmentSerial(rawSerial), acquisitionCost: unitCost, receiptLineId: created.id,
+    }));
+    await tx.unit.createMany({ data: units });
+    await tx.unitMovement.createMany({ data: units.map((unit) => ({ unitId: unit.id, movementId: movement.id })) });
   }
 
   /** Runs under the Product lock, in posting order, before this line's stock is added. Backdating doesn't rewrite it. */
