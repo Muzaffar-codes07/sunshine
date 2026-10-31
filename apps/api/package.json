@@ -6,7 +6,8 @@
     "dev": "concurrently -k \"tsc -p tsconfig.json --watch\" \"node --watch dist/main.js\"",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "test:db": "node --test test/*.db.test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",
