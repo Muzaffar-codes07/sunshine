@@ -29,6 +29,7 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   ownedEnquiries Enquiry[]
+  commands       Command[]
 
   @@map("users")
 }
@@ -206,4 +207,25 @@ model PackageItem {
   @@unique([packageId, position])
   @@index([productId])
   @@map("package_items")
+}
+
+// Idempotent command results (TRD decision M6). One row per actor and Idempotency-Key, claimed at the start of the
+// business transaction and committed with its result, so a retry replays the recorded result instead of acting twice.
+model Command {
+  id             String   @id @default(uuid()) @db.Uuid
+  actorId        String   @db.Uuid
+  idempotencyKey String
+  // UPPER_SNAKE_CASE business action, such as ORDER_CONFIRM; a key reused for another action is refused.
+  action         String
+  // SHA-256 of the canonical JSON request body; a key reused with another body is refused.
+  payloadHash    String
+  // The response body returned to the first request; set before the transaction commits.
+  result         Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  // Restrict: the record of who issued a money or stock command is evidence.
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([actorId, idempotencyKey])
+  @@map("commands")
 }

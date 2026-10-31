@@ -32,6 +32,11 @@ export function readConstraintViolation(error: unknown): ConstraintViolation | n
 /** A CHECK that guards one input field becomes a 400 on that field; any other rule becomes a 409 refusal. */
 export type ConstraintRule = { field: string; message: string } | { refusal: RefusalReason };
 
+const COMMAND_RECORD_INVALID: RefusalReason = {
+  code: 'COMMAND_RECORD_INVALID', reason: 'The command could not be recorded.', source: 'PLATFORM',
+  nextAction: 'Try again; if it keeps failing, report it with the request ID.',
+};
+
 /**
  * Keyed by constraint name. Every rule in prisma/required-constraints.json owned by D2 must have an entry (a unit
  * test checks this); other owners add theirs here in the PR that adds the constraint.
@@ -76,6 +81,10 @@ export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
     code: 'STAFF_EMAIL_TAKEN', reason: 'A staff account with this email already exists.', source: 'AUTH',
     nextAction: 'Use a different email or reactivate the existing account.',
   } },
+  commands_key_format: { field: 'Idempotency-Key', message: 'Idempotency-Key must be 8–128 letters, digits, "-" or "_"' },
+  // Action and hash are server-made, so these firing is a bug the user cannot fix by editing.
+  commands_action_format: { refusal: COMMAND_RECORD_INVALID },
+  commands_payload_hash_format: { refusal: COMMAND_RECORD_INVALID },
 };
 
 const FALLBACK: Record<ConstraintKind, RefusalReason> = {
