@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/api && concurrently -k -n api,web \"npm run dev -w @sunshine/api\" \"npm run dev -w @sunshine/web\"",
     "build": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/web && npm run build -w @sunshine/api",
-    "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present && tsc -p prisma/tsconfig.json --noEmit",
-    "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present && npm run test:seed",
+    "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present && tsc -p prisma/tsconfig.json --noEmit && tsc -p tests/tsconfig.json",
+    "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present && npm run test:seed && npm run test:invariants",
+    "test:invariants": "tsc -p tests/tsconfig.json && node --experimental-strip-types --test tests/d4-invariants.spec.ts",
     "test:seed": "npm run db:generate && npm run build:seed && node --test prisma/seed/test/*.test.cjs",
     "build:seed": "tsc -p prisma/tsconfig.json",
     "db:seed": "npm run db:generate && npm run build:seed && node dist/seed/prisma/seed.js",
@@ -24,6 +25,7 @@
     "check:docs": "node scripts/check-docs.mjs && npm run check:plan",
     "check:plan": "node scripts/check-plan.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:docker": "node scripts/smoke.mjs --base-url http://127.0.0.1:3001",
     "check": "npm run check:docs && npm run db:validate && npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {

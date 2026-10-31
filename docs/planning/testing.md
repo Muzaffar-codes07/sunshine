@@ -4,7 +4,53 @@
 
 `npm run check`: documentation/source-copy references, Prisma validation, TypeScript checks, shared contract tests and frontend/backend production builds. Runtime smoke: liveness, readiness with/without DB, initial migration and SPA fallback. CI builds a clean install and applies the migration to PostgreSQL.
 
-These checks do **not** validate business logic that has not been implemented. Authentication, stock safety, money and coverage remain future work.
+These checks do **not** validate business logic that has not been implemented.
+Staff-session security and D4 service rules have automated tests; physical stock
+safety and live D4 database integration still require their upstream workflows.
+
+## D4 invariant and release verification (Task 5.2)
+
+`npm test` builds the API/contracts and runs the existing focused suites plus
+[`tests/d4-invariants.spec.ts`](../../tests/d4-invariants.spec.ts). The latter is
+typechecked and run with Node 22's explicit `--experimental-strip-types` flag.
+After `npm run build`, `npm run test:invariants` runs it independently. Rebuild
+the API after source changes before using that focused command; `npm test` and
+`npm run check` build it automatically. Root `npm run typecheck` also checks the
+invariant suite.
+
+The suite composes the real warranty engine, ticket lifecycle, repair billing,
+cost writer, replacement orchestrator and profitability engine. It verifies:
+
+- The millisecond before exclusive IST expiry is covered; exact midnight is
+  expired. The saved assessment drives zero customer price versus a 16800.00
+  pre-tax parts/labour invoice, with 14600.00 internal cost in both cases.
+- Reposting one source returns one cost ID. A covered repair reduces the
+  synthetic job's contribution from 12600.00 to -2000.00 without a receivable.
+- An 18-month replacement retains the original 24-month policy interval and
+  old/new lineage. Replay creates no second stock operation, warranty or billing.
+- Actual Nest HTTP confirmation rejects each missing name/channel/time with
+  400 and leaves the row unchanged. Valid confirmation closes; replay conflicts.
+
+All storage, inventory, source and invoice adapters in this suite are test-only
+doubles. Quarantine/assignment assertions verify the orchestration boundary;
+they do not prove D3's physical stock writer. No placeholder models, production
+authorization bypass, D4 migration or persisted demo seed is introduced.
+Real D4 PostgreSQL constraint/concurrency/rollback and authenticated lifecycle
+acceptance remain pending Unit/Job/time/source/invoice adapters and the
+[coordinated migration](../architecture/d4-schema-handoff.md).
+
+For infrastructure release verification, use the root README commands: start
+PostgreSQL with `docker compose up -d --wait db`, build, explicitly apply existing
+migrations, and run `npm run smoke`. Build the Compose image, apply migrations
+with `docker compose --profile app run --rm app npm run db:deploy`, start with
+`docker compose --profile app up -d --wait app`, then `npm run smoke:docker`.
+The app healthcheck uses real DB readiness. Docker smoke targets the running
+HTTP release; native smoke separately launches temporary APIs to test both
+healthy PostgreSQL and an isolated unavailable local port. Neither smoke mode
+seeds or resets data. Stop the app container before native development on 3001.
+
+See the [Task 5.2 review prompt](../reviews/d4-task-5.2-review-prompt.md) for
+independent checks and required actionable finding format.
 
 `npm run check:plan` separately checks the [backlog](build-backlog.json), [traceability](requirements-traceability.csv) and [oracle](demo-seed-oracle.json): exactly four owners, one dedicated frontend owner, hour budgets, no dependency cycles, all R1–R25 rows and worked financial arithmetic. Passing it does not mean the database returns those figures or that the demo fits three minutes.
 
