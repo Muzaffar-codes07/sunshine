@@ -1,117 +1,103 @@
-# Four-developer ownership — current decision
+# Four-developer ownership — current division
 
-**Exactly one dedicated frontend developer and three backend developers.** This replaces all earlier vertical/full-stack and two-frontend proposals. All backend developers supply contracts and realistic fixtures early so the frontend owner can work without waiting.
+**One frontend developer and three backend developers.** This detailed brief follows the [owner-confirmed role division](role-division-brief.md) and [TRD sections 2 and 13](../TRD.md). It reconciles this file's earlier assignments; it does not add scope or approve new tasks. Backend owners supply shared contracts, realistic fixtures, API examples and integration support to D1.
 
-| Developer | Role | Backend/domain ownership |
+| Developer | Role | Accountable scope |
 |---|---|---|
-| **D1** | Frontend & UI/UX | All screens, components, forms, responsive behavior, API integration |
-| **D2** | Backend: Platform, Sales & Finance | Auth, CRM, survey, quote, order, invoices, payments, cost-writing service, files, subsidy milestones, deployment |
-| **D3** | Backend: Inventory, Fulfillment & Database | Catalogue, package/BOM templates, receipts, stock, serials, allocation, scanning, dispatch, delivery, warranty activation, migration coordination |
-| **D4** | Backend: Installation, Service & Reporting | Jobs, assignments, evidence association, signatures, timesheets, tickets, coverage decisions, replacement orchestration, reports, pay summary, CSV |
+| D1 — Nirmayi | Frontend & UI/UX | All production screens, forms, responsive behavior, API integration and device controls |
+| D2 — Muzaffar | Backend: Platform, Catalogue & Sales | Auth, CRM, surveys, catalogue/packages, quotes/orders, invoices/receipts, private-file transport and shared API conventions |
+| D3 — Tuhin | Backend: Inventory, Fulfillment & Field | Ledger, serials, allocation, scans, dispatch/delivery, jobs/scheduling, installation evidence/time records and migration coordination |
+| D4 — Bhanu | Backend: Warranty, Service, Costs & Release | Warranty, service/replacement orchestration, cost single writer, pay/reporting/subsidy, E2E and local release |
 
 ## D1 — Frontend & UI/UX
 
 | Responsibility | Exact scope |
 |---|---|
-| Mission | Deliver one coherent customer lifecycle interface |
-| Features | Overview, Sales, Orders, Warehouse, Field & Service, Reports |
-| Frontend | Every production UI change, six page patterns, shared tokens, accessibility, mobile interactions |
-| Backend | None; business rules and financial totals come from APIs |
-| Database | Review response and display needs; no migration ownership |
-| Interfaces | Typed API client, error mapping, shared form/status contracts |
-| Directories | `apps/web/src/**` |
-| Dependencies | Each backend owner provides shared schemas, fixtures and error examples by H1.5 |
-| Deliverables | Connected screens, scan/upload/signature controls, loading/error/empty states |
-| Acceptance | Full lifecycle reads persisted APIs; refresh retains data; phone interactions tested |
-| Effort | 16–17 focused hours within 24 elapsed hours |
-| Checkpoints | H6 shell/intake/device spike; H13 sales; H19 fulfillment; H20.75 whole lifecycle; H22 timed presentation |
-| Tests | Important form validation, error handling and UI states; support domain E2E scenarios |
-| Independent work | Build against typed fixtures; risky scan/signature/photo controls first |
-| Backup tasks | Finish reusable states and keyboard/mobile behavior while APIs are blocked |
-| Exclusions | No duplicated stock, coverage, authorization or money rules; no new backend framework |
+| Mission | Deliver one connected customer lifecycle interface |
+| Frontend | Every production screen, shared components/tokens, validation display, navigation, accessibility and mobile capture |
+| Backend/database | Consume published APIs; no duplicated stock, money, coverage or authorization rules |
+| Interfaces/directories | Typed API client and forms in `apps/web/**`; shared contract changes coordinated with D2 |
+| Dependencies | D2–D4 provide schemas, realistic fixtures and error examples before their runtime routes are complete |
+| Deliverables | Sales, order, warehouse, field/service and reporting views with loading/error/empty/retry states |
+| Acceptance | Reads persist after refresh; unauthorized/error states are clear; actual device scan/photo/signature path is tested |
+| Tests | Important forms/error states, browser lifecycle and real-device capture with domain owners |
+| Independent/backup work | Build against fixtures; shared layouts and capture controls while routes are pending |
+| Exclusions | No second backend, client-authoritative totals, optimistic stock or independent domain rules |
 
-## D2 — Backend: Platform, Sales & Finance
+## D2 — Backend: Platform, Catalogue & Sales
 
 | Responsibility | Exact scope |
 |---|---|
-| Mission | Make intake-to-payment reliable and the app reproducibly runnable |
-| Features | Auth/roles, CRM, qualification, survey approval, quotations, orders, finance writes, subsidy, files |
-| Frontend | Supply contracts/examples; limited emergency UI rescue if D1 misses a checkpoint, coordinated with D1 |
-| Backend | Guards, validation adapter, error format, idempotency, SalesService, OrdersService, FinanceService, file access |
-| Database | Users/sessions, customers/enquiries/surveys, quotes/lines/orders, invoices/lines/payments/costs, files, subsidy, audit/commands |
-| APIs | `/auth`, `/customers`, `/enquiries`, `/surveys`, `/quotes`, `/orders`, `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
-| Directories | `apps/api/src/platform`, `auth`, `sales`, `finance`, `files`, `subsidy`; deployment and CI |
-| Dependencies | D3 package/BOM read interface; D4 `ensureJob(tx)`; all helpers accept same transaction |
-| Deliverables | Authenticated persisted enquiry; approved survey→frozen quote→order/invoice; deduplicated receipt; local release |
-| Acceptance | Unapproved survey cannot quote; retries do not duplicate invoices/payments; unauthorized access rejected |
-| Effort | 17–18 focused hours; platform is front-loaded; finance UI remains tables |
-| Checkpoints | H6 auth/intake; H13 order/payment; H19 sales join; H22 release |
-| Tests | Validation, approval gate, invoice/payment idempotency, auth/files; initial E2E harness |
-| Independent work | Auth, validation, finance unit tests, contract fixtures before inventory exists |
-| Backup tasks | README, CI, release rehearsal and E2E harness; D3 can assist release operations |
-| Exclusions | No inventory transaction implementation; no payment gateway; no universal approval bottleneck |
+| Mission | Make enquiry-to-payment and shared API foundations reliable |
+| Features | Auth/roles, CRM/enquiries, surveys, Product/Manufacturer/packages, quotes/BOM snapshots, orders, invoices/receipts, file transport |
+| Backend | Shared guards/errors/idempotency, catalogue facts, sales orchestration, invoice/receipt helpers, authorized file upload/download; read-only project summary |
+| Database | Users/sessions; customers/enquiries/surveys; manufacturer/product/package/items; quote/order/invoice/payment; files and shared audit/commands |
+| APIs | Auth, customers/enquiries/surveys, products/packages, quotes/orders, invoices/payments, files and read-only project summary |
+| Directories | `platform`, `auth`, `catalog`, `sales`, `finance` invoice/receipt core, `files`; shared contract coordination |
+| Dependencies | D3 `ensureJob(tx, confirmedOrder)` inside confirmation; D4 cost/reporting consumers use published DTOs |
+| Deliverables | Approved survey → frozen quote/BOM → confirmed order/job/invoice → deduplicated payment; authoritative catalogue and private files |
+| Acceptance | Unapproved survey cannot quote; retries do not duplicate financial effects; access and file association are checked |
+| Tests | Auth/CSRF, validation, survey revision/approval gate, catalogue integrity, invoice/payment replay and private-file authorization |
+| Independent/backup work | Catalogue and survey APIs, sales fixtures, shared errors and file metadata while downstream modules are pending |
+| Exclusions | No ledger writes, job implementation, warranty rules, cost-entry writer or release ownership |
 
-## D3 — Backend: Inventory, Fulfillment & Database
+## D3 — Backend: Inventory, Fulfillment & Field
 
 | Responsibility | Exact scope |
 |---|---|
-| Mission | Preserve stock correctness and physical equipment history |
-| Features | Catalogue/packages, goods receipt costs, stock, serials, allocations, scan records, dispatch, delivery/warranty activation |
-| Frontend | Supply fixtures; assist D1 with real-phone/scanner testing; no independent UI redesign |
-| Backend | Atomic stock services, unit traceability, replacement stock primitives, delivery activation |
-| Database | Product/package/items, stock movements (derived ledger), units/allocations, dispatches, warranties; coordinate migrations |
-| APIs | `/products`, `/packages`, `/stock`, `/units`, `/allocations`, `/dispatches`, `/warranties` |
-| Directories | `catalog`, `inventory`, `fulfillment`, `warranty`; `prisma/` coordination |
-| Dependencies | Confirmed order + recorded-payment gate; D2 `FinanceService.postCost(tx)` |
-| Deliverables | Receipt→allocation→scanned dispatch→delivery→warranty with actual costs |
-| Acceptance | Concurrent allocations have one winner; no negative stock; warranty starts once; installed unit cannot be allocated again |
-| Effort | 16–17 focused hours; one warehouse, no purchasing ERP |
-| Checkpoints | H6 catalogue/receipts; isolated allocation early; H15 delivery/warranty; H19 fulfillment/concurrency evidence |
-| Tests | Real PostgreSQL concurrency, insufficient-stock rollback, serial uniqueness, repeated dispatch/delivery, replacement history |
-| Independent work | Seed catalogue/stock and test locking before sales is complete |
-| Backup tasks | Integrity queries, migration replay, ER diagram, backup/restore evidence |
-| Exclusions | No financial definitions, customer billing, service coverage decision or multi-warehouse optimization |
+| Mission | Preserve equipment history and connect warehouse fulfillment to evidenced installation |
+| Features | Receipts/actual cost, derived stock ledger, serials, allocation, scans, dispatch/delivery, jobs/crew, installation completion and time records |
+| Backend | One ledger writer; atomic stock commands; unit traceability/returns; job helper; evidence association and completion gates |
+| Database | Stock locations/documents/movements, Unit/allocation/dispatch/scan, Job/assignment and installation time/evidence associations; migration sequencing |
+| APIs | Stock, units, allocations, dispatches, jobs/schedules and installation actions; exact route contracts in the architecture handoff |
+| Directories | `inventory`, `fulfillment`, `field`; reviewed `prisma/` coordination |
+| Dependencies | D2 catalogue/order/payment/file facts; D4 `postCost(tx, ...)` and delivery-triggered warranty activation |
+| Deliverables | Receipt → reservation → scanned dispatch → delivery; scheduled job → valid evidence/time → completion |
+| Acceptance | Concurrent claims have one winner; no negative stock or duplicate postings; delivery calls warranty activation once without deducting stock twice; evidence failure blocks completion |
+| Tests | Real-PG concurrency/rollback/replay, serial uniqueness, insufficient stock, dispatch/delivery, job access, timestamps, evidence and overlapping labour |
+| Independent/backup work | Contract fixtures, locking/integrity tests, migration reviews and device validation with D1; stack product-dependent schema only on D2's real catalogue |
+| Exclusions | No catalogue/package ownership, file transport, coverage decisions, financial definitions, pay rates or separate production UI |
 
-## D4 — Backend: Installation, Service & Reporting
+D3 calls D4's warranty helper in the delivery transaction; D4 owns that helper. D3 submits stock consumption and installation labour to D4's cost writer with stable unique sources. D4 orchestrates repairs/replacements using D3 stock primitives.
+
+## D4 — Backend: Warranty, Service, Costs & Release
 
 | Responsibility | Exact scope |
 |---|---|
-| Mission | Finish the field and after-sales lifecycle and explain its business outcome |
-| Features | Jobs/schedule, completion/time/size/photos/signature, tickets, coverage snapshots, repair/replacement, reports/pay/CSV |
-| Frontend | Supply contracts and fixtures; test field capture with D1; no separate UI ownership |
-| Backend | JobsService, ServiceService, coverage evaluation, replacement orchestration, read-only report queries |
-| Database | Jobs/assignments, time entries, tickets/lines and saved decisions; joins over posted financial data |
-| APIs | `/jobs`, `/time-entries`, `/tickets`, `/reports` |
-| Directories | `field`, `service`, `reporting` |
-| Dependencies | D3 delivered assets/coverage rows and stock helpers; D2 file and finance helpers |
-| Deliverables | Evidence-gated completion; explained free/chargeable repair; confirmed closure; reconciled reports |
-| Acceptance | Cannot complete without evidence or close without confirmer/channel/time; repair costs affect correct job |
-| Effort | 16–17 focused hours; staff-recorded customer confirmation, no full portal/payroll |
-| Checkpoints | H4 job/ticket fixtures; field backend in parallel; H20.75 lifecycle/reports; H22 rehearsal |
-| Tests | Evidence gates, date boundaries, unauthorized job access, confirmation gate, report reconciliation |
-| Independent work | Coverage function, seeded historic jobs, report fixtures |
-| Backup tasks | Demo script, acceptance checklist, historical seed scenarios and test evidence |
-| Exclusions | No direct invoice/payment/cost writes; no duplicated stock mutation; no AI diagnosis |
+| Mission | Preserve after-sales coverage, reconcile business outcomes and produce a repeatable release |
+| Features | Warranty activation/lookup, tickets/coverage, repair/replacement, service labour, costs/pay/reports/CSV/subsidy and local release |
+| Backend | Warranty and service helpers; replacement orchestration; single cost writer; rates/pay; report queries; E2E coordination |
+| Database | Warranty/policy facts, tickets/lines/coverage decisions, service time, cost entries/rates and subsidy; read other domains through agreed boundaries |
+| APIs | Warranties, tickets/service actions, reports/pay and subsidy milestones; cost writer is an internal transaction-aware interface |
+| Directories | `warranty`, `service`, `finance/costs`, `reporting`, `subsidy`, `compose.yaml`, `infra/` and release harness |
+| Dependencies | D3 delivery/unit/stock/job/time facts and D2 billing/private files; no direct writes to another owner's tables |
+| Deliverables | Explained free/chargeable repair, confirmed closure, traceable replacement, reconciled reports, seed/oracle and runnable backed-up release |
+| Acceptance | Covered repair charges zero while actual costs persist; closure requires confirmation; reports reconcile; DB/files restore works |
+| Tests | Warranty/calendar boundaries, cost replay/payload mismatch, replacement rollback, closure/coverage and financial reconciliation; integrated release tests |
+| Independent/backup work | Pure coverage/cost rules, report fixtures, historical scenarios, demo script and submission evidence |
+| Exclusions | No direct invoice/payment writer, stock mutation duplication, installation job/evidence implementation or production UI |
 
 ## Single-owner cross-cutting responsibilities
 
 | Responsibility | Owner |
 |---|---|
-| Visual consistency and frontend route tree | D1 |
-| Shared API conventions, runtime config, release integration | D2 |
-| Finance writes | D2 |
-| Migration sequencing and database diagram | D3 |
-| Warranty activation | D3 |
-| Warranty coverage decisions | D4 |
-| Reports and CSV | D4 |
-| Acceptance/demo coordination | D4 |
-| README/submission checklist | D2 |
+| Production UX, frontend routes and device controls | D1 |
+| Shared API/errors/auth/contracts conventions | D2 |
+| Catalogue and package/BOM templates | D2 |
+| Invoice and receipt writers; private-file transport | D2 |
+| Migration queue/review, stock ledger and equipment traceability | D3 |
+| Jobs/scheduling, installation evidence/time and completion | D3 |
+| Warranty activation and coverage helper | D4 |
+| Cost-entry writer, rates/pay, reports and subsidy | D4 |
+| E2E integration, seed helpers, ERD/restore evidence and local release | D4; each domain supplies valid facts |
+| Demo coordination and submission package | D4; each developer supplies contribution/setup/test evidence |
 | Domain tests and presentation explanation | Each domain owner; D1 explains UI |
 
-## Collaboration rules
+## Integration, workload and completion rules
 
-- Contracts and fixture payloads by H1.5, first persisted intake UI by H6; do not hand three incompatible APIs to D1 at once.
-- At checkpoints: D2 sales slot, D3 fulfillment slot, D4 field/service slot. That backend owner stays available during integration.
-- Each owner writes their own business transactions and tests. D3 coordinates migrations; D3 does not become the author of everyone's schema changes.
-- D2's FinanceService is the single writer for invoices, receipts and costs. D3/D4 call it with the existing transaction.
-- All four commit their own work and present a part of the demo. D2 coordinates merges; every author remains accountable.
+- The former H0 effort estimates and checkpoints are superseded. Use current estimates on the task board and the fixed gates in [TRD section 11](../TRD.md); do not treat a role table as a feasible remaining schedule.
+- One owner per module. Shared exports, schema/migrations, runtime wiring and package scripts require coordination. D3 reviews migration sequencing rather than authoring everyone's schema.
+- Every cross-domain helper accepts the caller's Prisma transaction, does not commit independently and avoids circular imports. D2 calls D3's job helper; D3 calls D4's cost/warranty helpers; D4 orchestrates service using D2 billing and D3 stock.
+- D1 can begin with typed fixtures. Final acceptance uses real persisted APIs, with successful and rejected paths; fixtures are development aids, not implemented business behavior.
+- Each PR names its exact head, interfaces, migration dependencies, tests, consumer and blocker. Authors own fixes; reviews of another owner's PR do not transfer merge ownership.
+- Only Tuhin approves scope/tasks and merges or authorizes merges. All four contributors supply their own work and explain it in the demonstration.
