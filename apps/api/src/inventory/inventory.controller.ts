@@ -5,6 +5,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import type { AuthenticatedStaffRequest } from '../auth/auth.types';
+import { IdempotencyKey } from '../platform/idempotency';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { StockReadService } from './stock-read.service';
 import { StockReceiptsService } from './stock-receipts.service';
@@ -15,8 +16,8 @@ import { StockReceiptsService } from './stock-receipts.service';
 export class InventoryController {
   constructor(private readonly receipts: StockReceiptsService, private readonly reads: StockReadService) {}
   @Post('stock/receipts')
-  receive(@Req() request: AuthenticatedStaffRequest, @Body(new ZodValidationPipe(receiveStockRequestSchema)) body: ReceiveStockRequest) {
-    return this.receipts.receive(request.user.id, body);
+  receive(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Body(new ZodValidationPipe(receiveStockRequestSchema)) body: ReceiveStockRequest) {
+    return this.receipts.receive(request.user.id, key, body);
   }
   @Get('stock/locations')
   locations() { return this.reads.listLocations(); }

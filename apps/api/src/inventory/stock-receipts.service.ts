@@ -2,7 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { normalizeEquipmentSerial, stockReceiptViewSchema, type RefusalReason, type StockReceiptView } from '@sunshine/contracts';
 import { ApiError, refusal } from '../platform/api-error';
-import { PrismaService } from '../platform/prisma.service';
+import { IdempotencyService } from '../platform/idempotency';
 import { Prisma } from '../generated/prisma/client';
 import { StockLedgerService } from './stock-ledger.service';
 
@@ -19,16 +19,19 @@ const notReceivable = (reason: string, nextAction: string): RefusalReason => ({ 
 
 @Injectable()
 export class StockReceiptsService {
-  constructor(private readonly prisma: PrismaService, private readonly ledger: StockLedgerService) {}
+  constructor(private readonly idempotency: IdempotencyService, private readonly ledger: StockLedgerService) {}
 
-  /** Records a receipt once: a retry with the same reference and body returns the saved result. */
-  async receive(actorId: string, input: ReceiveStockInput): Promise<{ data: StockReceiptView }> {
+  /**
+   * Records a receipt once. The Idempotency-Key makes a retry return the saved response. The reference and payload
+   * hash are the permanent guard: they outlive any key, so the same delivery can't be received twice under a new one.
+   */
+  async receive(actorId: string, key: string, input: ReceiveStockInput): Promise<{ data: StockReceiptView }> {
     const occurredAt = new Date(input.receivedAt);
     if (occurredAt.getTime() > Date.now()) {
       throw new ApiError(HttpStatus.BAD_REQUEST, 'INVALID_INPUT', 'Some fields need attention', { receivedAt: ['Receipt time cannot be in the future'] });
     }
     const payloadHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
-    return this.prisma.$transaction(async (tx) => {
+    return this.idempotency.run({ actorId, key, action: 'STOCK_RECEIPT', payload: input }, async (tx) => {
       const products = await this.lockProducts(tx, input.lines.map((line) => line.productId));
       const id = randomUUID();
       const claimed = await tx.stockDocument.createMany({ skipDuplicates: true, data: [{
@@ -47,7 +50,7 @@ export class StockReceiptsService {
       await tx.stockDocument.update({ where: { id }, data: { status: 'DONE', validatedAt: new Date(), version: { increment: 1 } } });
       for (const line of lines) await this.postLine(tx, { actorId, occurredAt, locationId: input.locationId, ...line });
       return { data: await this.view(tx, id) };
-    }, { timeout: 20_000 });
+    });
   }
 
   /** Product rows first, in sorted order: the start of the global lock order. No KEY lock, so FK inserts aren't blocked. */

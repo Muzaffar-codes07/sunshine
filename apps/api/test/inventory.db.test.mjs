@@ -48,8 +48,8 @@ after(async () => { await sql?.end(); await app?.close(); });
 
 const reference = () => 'REC-' + randomUUID();
 const serial = () => 'SN-' + randomUUID().slice(0, 13).toUpperCase();
-const post = (body, role = 'WAREHOUSE') => fetch(base + '/stock/receipts', {
-  method: 'POST', headers: { 'content-type': 'application/json', origin, ...(role ? { cookie: cookies[role] } : {}) }, body: JSON.stringify(body),
+const post = (body, role = 'WAREHOUSE', key = randomUUID()) => fetch(base + '/stock/receipts', {
+  method: 'POST', headers: { 'content-type': 'application/json', origin, ...(key ? { 'idempotency-key': key } : {}), ...(role ? { cookie: cookies[role] } : {}) }, body: JSON.stringify(body),
 });
 const get = (route, role = 'WAREHOUSE') => fetch(base + route, { headers: role ? { cookie: cookies[role] } : {} });
 const receipt = (lines, extra = {}) => ({ reference: reference(), locationId: main.id, receivedAt: '2026-10-30T10:00:00.000Z', lines, ...extra });
@@ -135,6 +135,37 @@ test('an identical retry replays the saved receipt; the same reference with othe
   const error = await expectError(await post({ ...body, lines: [bulkLine('6.000', '40.00')] }), 409, 'IDEMPOTENCY_CONFLICT');
   assert.equal(error.reasons[0].source, 'INVENTORY');
   assert.deepEqual(await counts(), before);
+});
+
+test('the Idempotency-Key is required, replays the saved response, and refuses a different request', async () => {
+  const body = receipt([bulkLine('2.000', '40.00')]);
+  await expectError(await post(body, 'WAREHOUSE', null), 400, 'INVALID_INPUT');
+  const key = randomUUID();
+  const first = await (await post(body, 'WAREHOUSE', key)).json();
+  const before = await counts();
+  const held = await onHand(bulk.id);
+  const retry = await post(body, 'WAREHOUSE', key);
+  assert.equal(retry.status, 201); assert.deepEqual(await retry.json(), first);
+  const error = await expectError(await post(receipt([bulkLine('2.000', '40.00')]), 'WAREHOUSE', key), 409, 'IDEMPOTENCY_CONFLICT');
+  assert.equal(error.reasons[0].source, 'PLATFORM');
+  assert.deepEqual(await counts(), before); assert.equal(await onHand(bulk.id), held);
+  // A failed attempt doesn't burn the key: the same key can run again once the problem is fixed.
+  const retryKey = randomUUID();
+  const reference = receipt([bulkLine('1.000', '40.00'), { productId: service.id, quantity: '1', unitCost: '10.00' }]);
+  await expectError(await post(reference, 'WAREHOUSE', retryKey), 409, 'NOT_RECEIVABLE');
+  assert.equal(await prisma.command.count({ where: { idempotencyKey: retryKey } }), 0);
+  assert.equal((await post({ ...reference, lines: [reference.lines[0]] }, 'WAREHOUSE', retryKey)).status, 201);
+});
+
+test('concurrent requests with one key post once',  async () => {
+  const body = receipt([bulkLine('3.000', '40.00')]);
+  const key = randomUUID();
+  const held = new Prisma.Decimal(await onHand(bulk.id));
+  const responses = await Promise.all([post(body, 'WAREHOUSE', key), post(body, 'WAREHOUSE', key), post(body, 'WAREHOUSE', key)]);
+  const bodies = await Promise.all(responses.map((response) => response.json()));
+  assert.deepEqual(responses.map((response) => response.status), [201, 201, 201]);
+  assert.equal(new Set(bodies.map((row) => row.data.id)).size, 1);
+  assert.equal(await onHand(bulk.id), held.plus(3).toFixed(3));
 });
 
 test('concurrent identical requests post once', async () => {
