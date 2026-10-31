@@ -169,6 +169,25 @@ try {
   const anonymous = await browser.newContext({ baseURL: origin }); contexts.push(anonymous);
   assert.equal((await anonymous.request.get(`/api/v1/tickets/${lastTicket.id}`)).status(), 401);
   await page.goto('/workspace/warehouse');
+  await page.getByRole('button', { name: 'Receive stock', exact: true }).click();
+  const receiptReference = `B44-UI-${randomUUID()}`;
+  await page.getByRole('textbox', { name: 'Delivery reference', exact: true }).fill(receiptReference);
+  await page.getByLabel('Product', { exact: true }).selectOption(catalogueDemoId(103));
+  await page.getByRole('textbox', { name: 'Quantity', exact: true }).fill('2');
+  await page.getByRole('textbox', { name: 'Actual cost per unit (₹)', exact: true }).fill('7.00');
+  const receipts = []; let loseReceipt = true;
+  await page.route('**/api/v1/stock/receipts', async route => {
+    const request = route.request(); receipts.push({ key: request.headers()['idempotency-key'], body: request.postData() });
+    const response = await route.fetch();
+    if (loseReceipt) { loseReceipt = false; assert.equal(response.status(), 201); await route.abort('failed'); }
+    else await route.fulfill({ response });
+  });
+  await page.getByRole('button', { name: 'Record receipt', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry this request' }).click();
+  await page.getByText(`Receipt ${receiptReference} recorded.`, { exact: true }).waitFor();
+  assert.equal(receipts.length, 2); assert.deepEqual(receipts[0], receipts[1]);
+  assert.equal(await prisma.stockDocument.count({ where: { reference: receiptReference } }), 1);
+  await page.unroute('**/api/v1/stock/receipts');
   for (const [button, table] of [['Stock Balances', /Current Stock Levels/], ['Movement Ledger', /Stock Movements Ledger/], ['Valuation', /Product Inventory Valuation/]]) {
     await page.getByRole('button', { name: button, exact: true }).click();
     await page.getByRole('table', { name: table }).waitFor();
