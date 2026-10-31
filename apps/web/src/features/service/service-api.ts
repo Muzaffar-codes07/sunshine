@@ -22,6 +22,10 @@ export function lookupWarranty(query: WarrantyLookupQuery, signal?: AbortSignal)
   return apiGet(`/warranties/lookup?${search.toString()}`, warrantyLookupResponseSchema, signal);
 }
 
+export function getTicket(id: string, signal?: AbortSignal): Promise<ServiceTicketResponse> {
+  return apiGet(`/tickets/${encodeURIComponent(id)}`, serviceTicketResponseSchema, signal);
+}
+
 export function createTicket(input: CreateTicketInput, idempotencyKey: string): Promise<ServiceTicketResponse> {
   return postTicket('/tickets', input, idempotencyKey);
 }
