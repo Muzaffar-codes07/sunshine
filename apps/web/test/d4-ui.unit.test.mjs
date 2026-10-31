@@ -51,7 +51,7 @@ function errorBody(code, reasons) {
 
 test('ticket mutations are disabled by default while warranty lookup remains usable', () => {
   const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage));
-  assert.match(markup, /Ticket actions are unavailable/);
+  assert.match(markup, /Ticket commands remain unavailable/);
   assert.match(markup, /<fieldset disabled=""/);
   assert.match(markup, /Look up serial/);
   assert.match(markup, /Load ticket/);
