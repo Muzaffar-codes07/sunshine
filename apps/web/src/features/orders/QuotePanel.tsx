@@ -51,7 +51,7 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
   const packagePicker = (fields: Record<string, string[]>, selected?: string) => <Field label="Package" error={fields.packageId?.[0]}>
     {control => <select {...control} name="packageId" defaultValue={kits.some(kit => kit.id === selected) ? selected : ''} required>
       <option value="">Choose the current package</option>
-      {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.name} · revision {kit.revision} · ₹{kit.totalPrice}</option>)}
+      {kits.map(kit => <option key={kit.id} value={kit.id}>{kit.name} · ₹{kit.totalPrice}</option>)}
     </select>}
   </Field>;
 
@@ -110,7 +110,8 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
 function QuoteFacts({ quote }: { quote: Quote }) {
   const components = quote.lines.filter(line => line.kind === 'COMPONENT');
   return <DetailPattern title={`Quote revision ${quote.revision}: ${humanize(quote.status)}`} entries={[
-    { id: 'package', label: 'Frozen package', value: `${quote.packageSnapshot.name}, revision ${quote.packageSnapshot.revision}` },
+    { id: 'package', label: 'Frozen package', value: quote.packageSnapshot.name },
+    { id: 'packageRevision', label: 'Package revision', value: quote.packageSnapshot.revision },
     { id: 'site', label: 'Customer and site', value: `${quote.customerSnapshot.contactName} · ${quote.customerSnapshot.addressLine}, ${quote.customerSnapshot.city} ${quote.customerSnapshot.pincode}` },
     { id: 'hardware', label: 'Package hardware', value: `₹${quote.hardwarePrice}` },
     { id: 'installation', label: 'Installation', value: `₹${quote.installationPrice}` },
