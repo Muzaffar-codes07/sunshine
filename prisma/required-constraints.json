@@ -514,6 +514,20 @@
       "definition": "CHECK ((version >= 1))"
     },
     {
+      "name": "job_assignments_removed_after_created",
+      "table": "job_assignments",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"removedAt\" IS NULL) OR (\"removedAt\" >= \"createdAt\")))"
+    },
+    {
+      "name": "jobs_schedule_ordered",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((((\"scheduledStart\" IS NULL) AND (\"scheduledFinish\" IS NULL)) OR ((\"scheduledStart\" IS NOT NULL) AND (\"scheduledFinish\" IS NOT NULL) AND (\"scheduledStart\" < \"scheduledFinish\"))))"
+    },
+    {
       "name": "jobs_version_positive",
       "table": "jobs",
       "kind": "check",
@@ -806,6 +820,13 @@
       "kind": "unique_partial_index",
       "owner": "D3",
       "definition": "CREATE UNIQUE INDEX allocations_one_active_unit ON public.allocations USING btree (\"unitId\") WHERE ((\"unitId\" IS NOT NULL) AND (status <> 'RELEASED'::\"AllocationStatus\"))"
+    },
+    {
+      "name": "job_assignments_one_active",
+      "table": "job_assignments",
+      "kind": "unique_partial_index",
+      "owner": "D3",
+      "definition": "CREATE UNIQUE INDEX job_assignments_one_active ON public.job_assignments USING btree (\"jobId\", \"technicianId\") WHERE (\"removedAt\" IS NULL)"
     },
     {
       "name": "stock_on_hand",

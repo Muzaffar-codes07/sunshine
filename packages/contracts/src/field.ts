@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 const version = z.number().int().positive();
 const timestamp = z.iso.datetime({ offset: true });
-const uniqueIds = z.array(z.uuid()).refine((ids) => new Set(ids).size === ids.length, 'Duplicate IDs are not allowed');
+// PostgreSQL returns UUIDs in lower case, so request IDs are made to match before they're compared.
+const uniqueIds = z.array(z.uuid().transform((value) => value.toLowerCase())).refine((ids) => new Set(ids).size === ids.length, 'Duplicate IDs are not allowed');
 const ordered = (value: { startedAt: string; finishedAt: string }) => Date.parse(value.startedAt) < Date.parse(value.finishedAt);
 export const installationStatusSchema = z.enum(['SCHEDULED', 'IN_PROGRESS', 'AWAITING_ACCEPTANCE', 'COMPLETED']);
 export const installationCheckSchema = z.enum(['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION', 'BATTERY']);
@@ -59,6 +60,14 @@ export const jobViewSchema = z.object({
   installedCapacityKw: z.number().int().min(1).max(5).nullable(),
   photoFileIds: uniqueIds, signatureFileId: z.uuid().nullable(),
 });
+export const jobResponseSchema = z.object({ data: jobViewSchema });
+export const jobListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+export const jobListResponseSchema = z.object({ data: z.object({
+  items: z.array(jobViewSchema), total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),
+}) });
+export type JobListQuery = z.infer<typeof jobListQuerySchema>;
 export type ScheduleJobRequest = z.infer<typeof scheduleJobRequestSchema>;
 export type CompleteInstallationRequest = z.infer<typeof completeInstallationRequestSchema>;
 export type InstallationTimeRecordInput = z.infer<typeof installationTimeRecordInputSchema>;
