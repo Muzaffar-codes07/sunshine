@@ -227,6 +227,8 @@ test('HTTP lookup enforces access before reads, validates query, and emits stand
 });
 
 test('production AppModule registers lookup with unavailable authorization and boots without a DB query', async () => {
+  process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core');
   const { AppModule } = require('../dist/app.module');
   const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');

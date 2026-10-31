@@ -259,6 +259,8 @@ test('corrupt saved billing fails closed; unavailable production adapters do not
   await assert.rejects(f.run(), code(503, 'INVALID_REPAIR_BILLING_RECORD')); assert.equal(result.internalCost, '14600.00');
   await assert.rejects(new UnavailableRepairSourceReader().read(), code(503, 'REPAIR_SOURCES_UNAVAILABLE'));
   await assert.rejects(new UnavailableServiceInvoiceWriter().ensureServiceInvoice(), code(503, 'SERVICE_INVOICE_UNAVAILABLE'));
+  process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core'); const { AppModule } = require('../dist/app.module');
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   try { assert.ok(app.get(RepairBillingService) instanceof RepairBillingService); } finally { await app.close(); }

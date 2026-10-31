@@ -252,6 +252,8 @@ test('HTTP reports enforce authorization before queries, strict inputs and respo
 });
 
 test('production reports are registered and reject forged admin headers without querying database', async () => {
+  process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core');
   const { AppModule } = require('../dist/app.module');
   const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');

@@ -287,6 +287,8 @@ test('HTTP routes validate all commands and reject closure without confirmation 
 });
 
 test('production AppModule registers every ticket route behind unavailable verified access', async () => {
+  process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core');
   const { AppModule } = require('../dist/app.module');
   const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
@@ -296,7 +298,13 @@ test('production AppModule registers every ticket route behind unavailable verif
     await app.listen(0, '127.0.0.1');
     for (const path of ['', `/${unitId}/assess`, `/${unitId}/resolve`, `/${unitId}/confirm`]) {
       const response = await fetch(`${await app.getUrl()}/api/v1/tickets${path}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-role': 'ADMIN' }, body: '{}',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://127.0.0.1:3001',
+          'x-role': 'ADMIN',
+        },
+        body: '{}',
       });
       assert.equal(response.status, 503); assert.equal((await response.json()).error.code, 'SERVICE_AUTH_UNAVAILABLE');
     }
