@@ -1,0 +1,46 @@
+# API contracts and module handoffs
+
+Only `GET /api/v1/health` and `GET /api/v1/health/ready` are implemented. Everything else below is planned and must acquire shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
+
+## Response convention
+
+Success: `{ "data": ... }`. Error: `{ "error": { "code", "message", "fieldErrors": {}, "requestId" } }`. Shared Zod contracts live in `packages/contracts/src/`. No direct ORM models in the browser.
+
+Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable record, 409 invalid transition/stale update, 503 temporary unavailability. Critical mutations receive `Idempotency-Key`; same key/different body is rejected, retry of committed identical command returns its recorded result. Business effect, audit and command result share a transaction.
+
+| Owner | Planned routes |
+|---|---|
+| D2 | `/auth/login`, `/auth/logout`, `/auth/me`; `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
+| D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
+| D3 | `/products`, `/packages`, `/stock/receipts`, `/units`, `/orders/:id/allocations`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
+| D4 | `/jobs` and schedule/start/complete actions, `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
+
+## H1.5 interfaces
+
+```text
+JobsService.ensureJob(tx, confirmedOrder)
+FinanceService.ensureSalesInvoice(tx, order)
+FinanceService.recordPayment(tx, invoice, receipt)
+FinanceService.postCost(tx, uniqueSource, job, amount)
+InventoryService.allocate(tx, sourceRequirement)
+InventoryService.dispatch(tx, allocationIds, scannedUnitIds)
+WarrantyService.activateFromDelivery(tx, delivery)
+ServiceService.resolve(tx, ticket, repairResult)
+```
+
+Helpers accept the caller's transaction. No upload/network request inside a stock/money transaction. Confirmation creates obligations/job/invoice; separately recorded payment gates allocation and work. D4 replacement orchestration invokes D3 stock helpers and D2 finance helpers atomically.
+
+## Planned state transitions
+
+- Survey: DRAFT → SCHEDULED → SUBMITTED → APPROVED/REJECTED. Approved edits create a new revision.
+- Quote: DRAFT → SENT → ACCEPTED/REJECTED. Quote creation requires approved survey.
+- Order: CONFIRMED → PAYMENT_PENDING → READY → FULFILLMENT → COMPLETED.
+- Allocation: RESERVED → DISPATCHED → DELIVERED/INSTALLED → RELEASED explicitly; installed unit remains assigned.
+- Dispatch: DRAFT → DISPATCHED → DELIVERED.
+- Installation: SCHEDULED → IN_PROGRESS → AWAITING_ACCEPTANCE → COMPLETED.
+- Ticket: OPEN → ASSESSED → IN_PROGRESS → AWAITING_CUSTOMER_CONFIRMATION → CLOSED.
+- Invoice: DRAFT → POSTED → PART_PAID/PAID; corrections through reversal.
+
+## Early validation rules
+
+Valid email/phone/address; finite nonnegative measurements and bill values; capacity 1–5 kW; on/off-grid explicit; positive quantities; valid timestamp ordering; nonnegative rates; rejected/unapproved survey cannot quote; incomplete BOM cannot confirm; authorization per record/file; no free-form client overrides of totals or warranty status.

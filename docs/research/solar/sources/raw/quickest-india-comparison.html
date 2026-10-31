@@ -1,0 +1,1013 @@
+<!DOCTYPE html><html lang="en-IN" data-astro-cid-37fxchfa> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Solar CRM Software in India: 7 Platforms Compared (2026)</title><meta name="description" content="Solar CRM software in India compared: 7 platforms, dated prices, PM Surya Ghar, DISCOM and WhatsApp fit. We sell Quickest, so it is a declared ranking."><!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-KM55T0QPK5"></script><script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    // linker: decorate links to the app host so a visitor who clicks "Start free"
+    // keeps one GA4 client ID across quickestimate.co -> app.quickestimate.co.
+    // (It only joins the sessions if the app's own GA4 tag uses the same
+    // measurement ID and lists quickestimate.co in its cross-domain config.)
+    gtag('config', 'G-KM55T0QPK5', { linker: { domains: ['app.quickestimate.co'] } });
+  </script><script>
+    // -----------------------------------------------------------------------
+    // GA4 event tracking, site-wide (this layout renders every page, the
+    // homepage included).
+    //
+    // The site loads plain gtag.js with no GTM container, and gtag.js IGNORES
+    // object-style dataLayer.push({event: ...}), so those pushes never reach
+    // GA4 (audit Q02). Everything below calls gtag('event', ...) instead.
+    //
+    // Events sent:
+    //   generate_lead       a lead form was accepted (demo, masterclass, landing
+    //                       signup, SurgePV demo, solar service quote)
+    //   newsletter_signup   a newsletter form was accepted (kept apart from
+    //                       generate_lead so low-intent signups do not inflate it)
+    //   sign_up_click       click on a link to app.quickestimate.co/register
+    //   app_click           click on any other link to app.quickestimate.co
+    //   whatsapp_click      click on a wa.me / api.whatsapp.com link
+    //   phone_click         click on a tel: link
+    //   email_click         click on a mailto: link
+    //   store_click         click on a Google Play / App Store link
+    // Never throws, never blocks a click or a submit.
+    // -----------------------------------------------------------------------
+    (function () {
+      function clip(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 100); }
+
+      function send(name, params) {
+        try {
+          if (typeof window.gtag !== 'function') return;
+          var p = { page_path: location.pathname, transport_type: 'beacon' };
+          for (var k in params) {
+            if (Object.prototype.hasOwnProperty.call(params, k) && params[k] !== '' && params[k] != null) p[k] = clip(params[k]);
+          }
+          window.gtag('event', name, p);
+        } catch (e) { /* analytics must never break the page */ }
+      }
+      window.qeTrack = send;
+
+      function rememberPlan(plan) {
+        try { if (plan) sessionStorage.setItem('qe_plan', plan); } catch (e) {}
+      }
+      function recallPlan() {
+        try { return sessionStorage.getItem('qe_plan') || ''; } catch (e) { return ''; }
+      }
+      function planOf(a, url) {
+        var p = (a && a.getAttribute && a.getAttribute('data-plan')) || '';
+        if (!p && url) { try { p = url.searchParams.get('plan') || ''; } catch (e) {} }
+        return p;
+      }
+
+      // Called by qeSubmitForm after a form is accepted by FormSubmit.
+      window.qeTrackLead = function (d) {
+        try {
+          var summary = (d.tracking && d.tracking.summary) ||
+            (window.qeTracking && window.qeTracking.summary ? window.qeTracking.summary() : {}) || {};
+          var type = d.formType || 'unknown';
+          send(type === 'newsletter' ? 'newsletter_signup' : 'generate_lead', {
+            form_id: type,
+            form_type: type,
+            plan: d.plan || planOf(null, new URL(location.href)) || recallPlan(),
+            team_size: d.size,
+            service: d.service,
+            project_type: d.projectType,
+            lead_channel: summary.channel,
+            lead_landing_page: summary.landingPage,
+            partner: type === 'surgepv-demo' ? 'SurgePV' : ''
+          });
+        } catch (e) { /* ignore */ }
+      };
+
+      document.addEventListener('click', function (ev) {
+        try {
+          var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+          if (!a) return;
+          var href = a.getAttribute('href') || '';
+          var text = a.getAttribute('aria-label') || a.textContent;
+          var area = a.closest('nav, header, footer, aside, main');
+          var base = { link_text: text, link_area: area ? area.tagName.toLowerCase() : '' };
+          var url = null;
+          try { url = new URL(href, location.href); } catch (e) {}
+
+          if (/^tel:/i.test(href)) {
+            base.link_url = href.replace(/^tel:/i, '');
+            send('phone_click', base);
+          } else if (/^mailto:/i.test(href)) {
+            base.link_url = href.replace(/^mailto:/i, '').split('?')[0];
+            send('email_click', base);
+          } else if (url && /^(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)$/.test(url.hostname)) {
+            base.link_url = url.origin + url.pathname;
+            send('whatsapp_click', base);
+          } else if (url && url.hostname === 'app.quickestimate.co') {
+            var plan = planOf(a, url);
+            rememberPlan(plan);
+            base.link_url = url.origin + url.pathname;
+            base.plan = plan;
+            send(/\/register/.test(url.pathname) ? 'sign_up_click' : 'app_click', base);
+          } else if (url && (url.hostname === 'play.google.com' || url.hostname === 'apps.apple.com')) {
+            base.link_url = url.origin + url.pathname;
+            base.store = url.hostname === 'play.google.com' ? 'google_play' : 'app_store';
+            send('store_click', base);
+          }
+        } catch (e) { /* ignore */ }
+      }, true);
+    })();
+  </script><!-- Accumulates campaign / journey / device context on every page. The demo
+       form reads it at submit time via window.qeTracking. --><script>
+(function () {
+  'use strict';
+
+  var NS = 'qeTracking';
+  if (window[NS]) return;
+
+  var K_VISITOR = 'qe_visitor';
+  var K_FIRST = 'qe_first_touch';
+  var K_LAST = 'qe_last_touch';
+  var K_SESSION = 'qe_session';
+  var K_GEO = 'qe_geo';
+
+  var SESSION_GAP_MS = 30 * 60 * 1000;  // GA4's rule: 30 idle minutes ends a session
+  var MAX_PAGES = 30;
+
+  var UTM_KEYS = [
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+    'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic'
+  ];
+  var CLICK_IDS = [
+    'gclid', 'gbraid', 'wbraid', 'dclid',   // Google Ads
+    'fbclid',                                // Meta
+    'msclkid',                               // Microsoft Ads
+    'ttclid',                                // TikTok
+    'li_fat_id',                             // LinkedIn
+    'twclid',                                // X
+    'rdt_cid',                               // Reddit
+    'epik',                                  // Pinterest
+    'irclickid',                             // Impact affiliates
+    'ref', 'referral_code'                   // hand-rolled partner links
+  ];
+
+  var SEARCH_HOSTS = /(^|\.)(google\.[a-z.]+|bing\.com|duckduckgo\.com|yahoo\.[a-z.]+|yandex\.[a-z.]+|baidu\.com|ecosia\.org|search\.brave\.com|startpage\.com|qwant\.com)$/;
+  var SOCIAL_HOSTS = /(^|\.)(facebook\.com|fb\.com|instagram\.com|linkedin\.com|lnkd\.in|twitter\.com|x\.com|t\.co|youtube\.com|youtu\.be|whatsapp\.com|wa\.me|reddit\.com|pinterest\.[a-z.]+|quora\.com|threads\.net|telegram\.org|t\.me|tiktok\.com|snapchat\.com)$/;
+  // Answer engines now send real buying traffic and none of it looks like search
+  // in a referrer report, so it gets its own channel rather than "Referral".
+  var AI_HOSTS = /(^|\.)(chatgpt\.com|chat\.openai\.com|openai\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|bard\.google\.com|copilot\.microsoft\.com|you\.com|phind\.com|poe\.com|grok\.com|mistral\.ai)$/;
+
+  // ---------------------------------------------------------------- storage
+
+  function memoryShim() {
+    var bag = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(bag, k) ? bag[k] : null; },
+      setItem: function (k, v) { bag[k] = String(v); },
+      removeItem: function (k) { delete bag[k]; }
+    };
+  }
+
+  // Touching window.localStorage itself throws when site data is blocked, so the
+  // probe has to be inside the try, not just the read.
+  function pick(kind) {
+    try {
+      var s = kind === 'session' ? window.sessionStorage : window.localStorage;
+      var probe = '__qe_probe__';
+      s.setItem(probe, '1');
+      s.removeItem(probe);
+      return { store: s, ok: true };
+    } catch (e) {
+      return { store: memoryShim(), ok: false };
+    }
+  }
+
+  var localPick = pick('local');
+  var sessionPick = pick('session');
+  var local = localPick.store;
+  var session = sessionPick.store;
+  var storageOK = localPick.ok && sessionPick.ok;
+
+  function readJSON(store, key) {
+    try {
+      var raw = store.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function writeJSON(store, key, value) {
+    try { store.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; }
+  }
+
+  // ----------------------------------------------------------------- utils
+
+  function uid() {
+    try {
+      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    } catch (e) { /* fall through */ }
+    return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  }
+
+  function hostOf(url) {
+    if (!url) return '';
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+  }
+
+  function currentPath() {
+    return location.pathname.replace(/\.html$/, '') + location.search;
+  }
+
+  function cookie(name) {
+    try {
+      var m = document.cookie.match('(?:^|; )' + name.replace(/([.*+?^${}()|[\]\\])/g, '\\$1') + '=([^;]*)');
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch (e) { return ''; }
+  }
+
+  function duration(ms) {
+    // 0 is a real answer ("0s"), not a missing one. Only null/negative is empty.
+    if (ms == null || ms < 0) return '';
+    var s = Math.round(ms / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    if (m < 60) return m + 'm ' + r + 's';
+    return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+  }
+
+  function isoDay(ts) {
+    try { return new Date(ts).toISOString().slice(0, 10); } catch (e) { return ''; }
+  }
+
+  // ------------------------------------------------------- campaign parsing
+
+  function grabParams() {
+    var out = {};
+    try {
+      var q = new URLSearchParams(location.search);
+      UTM_KEYS.concat(CLICK_IDS).forEach(function (k) {
+        var v = q.get(k);
+        if (v) out[k] = String(v).slice(0, 200);
+      });
+    } catch (e) { /* no URLSearchParams, skip */ }
+    return out;
+  }
+
+  function hasCampaign(params) {
+    for (var k in params) { if (Object.prototype.hasOwnProperty.call(params, k)) return true; }
+    return false;
+  }
+
+  function classify(params, referrer) {
+    params = params || {};
+    var src = (params.utm_source || '').toLowerCase();
+    var med = (params.utm_medium || '').toLowerCase();
+    var pair = [src, med].filter(Boolean).join(' / ');
+
+    if (params.gclid || params.gbraid || params.wbraid || params.dclid) return 'Paid search (Google Ads)';
+    if (params.msclkid) return 'Paid search (Microsoft Ads)';
+    if (params.fbclid) return 'Paid social (Meta)';
+    if (params.ttclid) return 'Paid social (TikTok)';
+    if (params.li_fat_id) return 'Paid social (LinkedIn)';
+    if (params.twclid) return 'Paid social (X)';
+    if (params.rdt_cid) return 'Paid social (Reddit)';
+    if (params.irclickid) return 'Affiliate (Impact)';
+
+    if (/cpc|ppc|paid|display|banner|cpm|retarget|remarket/.test(med)) return 'Paid' + (pair ? ' (' + pair + ')' : '');
+    if (/email|newsletter|e-?mail/.test(med)) return 'Email' + (pair ? ' (' + pair + ')' : '');
+    if (/affiliate|partner/.test(med)) return 'Affiliate' + (pair ? ' (' + pair + ')' : '');
+    if (/social/.test(med)) return 'Social' + (pair ? ' (' + pair + ')' : '');
+    if (/whatsapp|wa/.test(src) && med) return 'WhatsApp (' + pair + ')';
+    if (pair) return 'Campaign (' + pair + ')';
+
+    var host = hostOf(referrer);
+    if (!host) return 'Direct';
+    if (host === location.hostname.replace(/^www\./, '')) return 'Internal';
+    if (AI_HOSTS.test(host)) return 'AI assistant (' + host + ')';
+    if (SEARCH_HOSTS.test(host)) return 'Organic search (' + host + ')';
+    if (SOCIAL_HOSTS.test(host)) return 'Organic social (' + host + ')';
+    return 'Referral (' + host + ')';
+  }
+
+  // ------------------------------------------------------------ device / UA
+
+  var UA = navigator.userAgent || '';
+
+  function parseBrowser() {
+    var m;
+    // In-app webviews first: they match Chrome/Safari too, and knowing a lead
+    // arrived inside the Facebook or Instagram browser explains a lot of
+    // half-filled forms.
+    if (/FBAN|FBAV|FB_IAB/.test(UA)) return { name: 'Facebook in-app browser', version: (UA.match(/FBAV\/([\d.]+)/) || [])[1] || '' };
+    if (/Instagram/.test(UA)) return { name: 'Instagram in-app browser', version: (UA.match(/Instagram ([\d.]+)/) || [])[1] || '' };
+    if (/\bWhatsApp\b/i.test(UA)) return { name: 'WhatsApp in-app browser', version: '' };
+    if (/LinkedInApp/i.test(UA)) return { name: 'LinkedIn in-app browser', version: '' };
+    if (/MicroMessenger/i.test(UA)) return { name: 'WeChat in-app browser', version: '' };
+
+    if ((m = UA.match(/Edg(?:e|A|iOS)?\/([\d.]+)/))) return { name: 'Edge', version: m[1] };
+    if ((m = UA.match(/OPR\/([\d.]+)/)) || (m = UA.match(/Opera\/([\d.]+)/))) return { name: 'Opera', version: m[1] };
+    if ((m = UA.match(/SamsungBrowser\/([\d.]+)/))) return { name: 'Samsung Internet', version: m[1] };
+    if ((m = UA.match(/UCBrowser\/([\d.]+)/))) return { name: 'UC Browser', version: m[1] };
+    if (/\bBrave\b/.test(UA) || (navigator.brave && navigator.brave.isBrave)) return { name: 'Brave', version: (UA.match(/Chrome\/([\d.]+)/) || [])[1] || '' };
+    if ((m = UA.match(/(?:Firefox|FxiOS)\/([\d.]+)/))) return { name: 'Firefox', version: m[1] };
+    if ((m = UA.match(/CriOS\/([\d.]+)/))) return { name: 'Chrome (iOS)', version: m[1] };
+    if ((m = UA.match(/Chrome\/([\d.]+)/))) return { name: 'Chrome', version: m[1] };
+    if (/Safari/.test(UA) && (m = UA.match(/Version\/([\d.]+)/))) return { name: 'Safari', version: m[1] };
+    if (/\bwv\b|; wv\)/.test(UA)) return { name: 'Android WebView', version: '' };
+    return { name: 'Unknown', version: '' };
+  }
+
+  function parseOS() {
+    var m;
+    if ((m = UA.match(/Windows NT ([\d.]+)/))) {
+      // Windows 11 is indistinguishable from 10 in the UA string; UA-CH
+      // platformVersion (merged in below) is the only way to tell them apart.
+      var map = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
+      return { name: 'Windows', version: map[m[1]] || m[1] };
+    }
+    if ((m = UA.match(/Android ([\d.]+)/))) return { name: 'Android', version: m[1] };
+    if ((m = UA.match(/(?:iPhone OS|CPU OS) ([\d_]+)/))) return { name: 'iOS', version: m[1].replace(/_/g, '.') };
+    if (/iPad|iPhone|iPod/.test(UA)) return { name: 'iOS', version: '' };
+    if ((m = UA.match(/Mac OS X ([\d_.]+)/))) return { name: 'macOS', version: m[1].replace(/_/g, '.') };
+    if (/CrOS/.test(UA)) return { name: 'ChromeOS', version: (UA.match(/CrOS \S+ ([\d.]+)/) || [])[1] || '' };
+    if (/Linux/.test(UA)) return { name: 'Linux', version: '' };
+    return { name: 'Unknown', version: '' };
+  }
+
+  function deviceType() {
+    var touch = (navigator.maxTouchPoints || 0) > 1;
+    // iPadOS 13+ reports itself as Macintosh; touch points are the tell.
+    if (/iPad/.test(UA) || (/Macintosh/.test(UA) && touch)) return 'Tablet';
+    if (/Android/.test(UA) && !/Mobile/.test(UA)) return 'Tablet';
+    if (/Mobi|iPhone|iPod|Windows Phone|IEMobile/.test(UA)) return 'Mobile';
+    return 'Desktop';
+  }
+
+  // High-entropy client hints are async and Chromium-only. Fire once at load and
+  // fold whatever arrives into the snapshot; nothing waits on it.
+  var hints = null;
+  try {
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      navigator.userAgentData.getHighEntropyValues([
+        'platform', 'platformVersion', 'architecture', 'bitness', 'model', 'uaFullVersion', 'fullVersionList'
+      ]).then(function (h) { hints = h; }).catch(function () { /* ignore */ });
+    }
+  } catch (e) { /* ignore */ }
+
+  // ------------------------------------------------------ engagement timers
+
+  var pageStart = Date.now();
+  var visibleSince = document.hidden ? 0 : Date.now();
+  var engagedMs = 0;
+  var maxScrollPct = 0;
+  var firstFieldTs = 0;
+  var fieldsTouched = [];
+  var clickCount = 0;
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (visibleSince) engagedMs += Date.now() - visibleSince;
+      visibleSince = 0;
+    } else {
+      visibleSince = Date.now();
+    }
+  });
+
+  function engaged() {
+    return engagedMs + (visibleSince ? Date.now() - visibleSince : 0);
+  }
+
+  window.addEventListener('scroll', function () {
+    var el = document.documentElement;
+    var total = el.scrollHeight - el.clientHeight;
+    if (total <= 0) return;
+    var pct = Math.round(((el.scrollTop) / total) * 100);
+    if (pct > maxScrollPct) maxScrollPct = Math.min(100, pct);
+  }, { passive: true });
+
+  document.addEventListener('click', function () { clickCount++; }, { passive: true, capture: true });
+
+  // Which fields they touched, in order, tells you where a half-filled form
+  // stalled. Names only, never values.
+  document.addEventListener('focusin', function (e) {
+    var t = e.target;
+    if (!t || !t.closest || !t.closest('form')) return;
+    if (!/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    var name = t.getAttribute('name') || t.id || '';
+    if (!name || name.charAt(0) === '_') return;   // skip the honeypot
+    if (!firstFieldTs) firstFieldTs = Date.now();
+    if (fieldsTouched.indexOf(name) === -1) fieldsTouched.push(name);
+  }, true);
+
+  // ------------------------------------------------------- record this view
+
+  var now = Date.now();
+  var params = grabParams();
+  var referrer = document.referrer || '';
+  var path = currentPath();
+
+  // Visitor (cross-session)
+  var visitor = readJSON(local, K_VISITOR) || { id: uid(), first: now, visits: 0, last: 0 };
+
+  // Session (this visit)
+  var sess = readJSON(session, K_SESSION);
+  var freshSession = !sess || (now - (sess.last || 0)) > SESSION_GAP_MS;
+  if (freshSession) {
+    sess = {
+      id: uid(),
+      start: now,
+      landing: path,
+      landingRef: referrer,
+      landingParams: params,
+      channel: classify(params, referrer),
+      pages: []
+    };
+    visitor.visits = (visitor.visits || 0) + 1;
+  }
+
+  // Close out the dwell on the page they just left, then append this one.
+  // A reload of the same URL reopens the existing entry instead of appending a
+  // duplicate, so the timer keeps running rather than freezing.
+  var pages = sess.pages || [];
+  var samePage = pages.length > 0 && pages[pages.length - 1].u === path;
+  if (samePage) {
+    pages[pages.length - 1].t = now;
+    pages[pages.length - 1].d = 0;
+  } else {
+    if (pages.length) {
+      var prev = pages[pages.length - 1];
+      prev.d = Math.max(0, Math.round((now - prev.t) / 1000));
+    }
+    pages.push({ u: path, t: now, ti: (document.title || '').slice(0, 90), d: 0 });
+  }
+  if (pages.length > MAX_PAGES) pages = pages.slice(-MAX_PAGES);
+  sess.pages = pages;
+  sess.last = now;
+  writeJSON(session, K_SESSION, sess);
+
+  visitor.last = now;
+  writeJSON(local, K_VISITOR, visitor);
+
+  // First touch is written once and never overwritten: it is the campaign that
+  // deserves the credit even if the lead converts three visits later.
+  var firstTouch = readJSON(local, K_FIRST);
+  if (!firstTouch) {
+    firstTouch = { t: now, url: path, ref: referrer, params: params, channel: classify(params, referrer) };
+    writeJSON(local, K_FIRST, firstTouch);
+  }
+
+  // Last touch only moves when something actually re-acquired them: a campaign
+  // link or an external referrer. Internal navigation must not overwrite it.
+  var extRef = referrer && hostOf(referrer) !== location.hostname.replace(/^www\./, '');
+  if (hasCampaign(params) || extRef) {
+    writeJSON(local, K_LAST, { t: now, url: path, ref: referrer, params: params, channel: classify(params, referrer) });
+  }
+  var lastTouch = readJSON(local, K_LAST) || firstTouch;
+
+  // ------------------------------------------------------------------- geo
+
+  var geo = readJSON(session, K_GEO);
+  if (!geo) {
+    try {
+      fetch('/api/geo', { credentials: 'omit', cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (g) { if (g) { geo = g; writeJSON(session, K_GEO, g); } })
+        .catch(function () { /* offline or endpoint down: snapshot just omits geo */ });
+    } catch (e) { /* ignore */ }
+  }
+
+  // -------------------------------------------------------------- snapshot
+
+  function gaIds() {
+    // _ga is "GA1.1.<clientId>"; the per-property _ga_<ID> cookie carries the
+    // session id. Both let a lead in the inbox be matched to its GA4 session.
+    var out = { clientId: '', sessionId: '' };
+    var ga = cookie('_ga');
+    if (ga) {
+      var parts = ga.split('.');
+      if (parts.length >= 4) out.clientId = parts[2] + '.' + parts[3];
+    }
+    try {
+      var m = document.cookie.match(/_ga_[A-Z0-9]+=GS\d\.\d\.([^;.]+)/);
+      if (m) out.sessionId = m[1];
+    } catch (e) { /* ignore */ }
+    return out;
+  }
+
+  function snapshot() {
+    var s = readJSON(session, K_SESSION) || sess;
+    var v = readJSON(local, K_VISITOR) || visitor;
+    var g = readJSON(session, K_GEO) || geo || {};
+    var br = parseBrowser();
+    var os = parseOS();
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
+    var journey = (s.pages || []).slice(-MAX_PAGES);
+
+    // The current page's dwell is still open, so fill it in for the read.
+    if (journey.length) {
+      var head = journey[journey.length - 1];
+      if (!head.d) head = { u: head.u, t: head.t, ti: head.ti, d: Math.round((Date.now() - head.t) / 1000) };
+      journey = journey.slice(0, -1).concat([head]);
+    }
+
+    return {
+      v: 1,
+      capturedAt: new Date().toISOString(),
+      storage: storageOK ? 'ok' : 'blocked',
+
+      visitor: {
+        id: v.id,
+        firstSeen: isoDay(v.first),
+        daysKnown: Math.max(0, Math.round((Date.now() - v.first) / 86400000)),
+        visitNumber: v.visits || 1,
+        returning: (v.visits || 1) > 1
+      },
+
+      attribution: {
+        channel: s.channel || classify(params, referrer),
+        firstTouch: firstTouch ? {
+          channel: firstTouch.channel, at: isoDay(firstTouch.t),
+          landingPage: firstTouch.url, referrer: firstTouch.ref, params: firstTouch.params
+        } : null,
+        lastTouch: lastTouch ? {
+          channel: lastTouch.channel, at: isoDay(lastTouch.t),
+          landingPage: lastTouch.url, referrer: lastTouch.ref, params: lastTouch.params
+        } : null,
+        session: {
+          landingPage: s.landing,
+          referrer: s.landingRef || 'direct',
+          referrerHost: hostOf(s.landingRef),
+          params: s.landingParams || {}
+        }
+      },
+
+      journey: {
+        sessionId: s.id,
+        startedAt: new Date(s.start).toISOString(),
+        pageCount: journey.length,
+        sessionSeconds: Math.round((Date.now() - s.start) / 1000),
+        pages: journey.map(function (p) { return { url: p.u, title: p.ti, seconds: p.d }; })
+      },
+
+      page: {
+        url: location.href,
+        path: path,
+        title: document.title,
+        referrer: referrer || 'direct',
+        secondsOnPage: Math.round((Date.now() - pageStart) / 1000),
+        engagedSeconds: Math.round(engaged() / 1000),
+        maxScrollPercent: maxScrollPct,
+        clicks: clickCount
+      },
+
+      form: {
+        fieldsTouched: fieldsTouched.slice(0, 25),
+        secondsToFirstField: firstFieldTs ? Math.round((firstFieldTs - pageStart) / 1000) : null,
+        secondsFilling: firstFieldTs ? Math.round((Date.now() - firstFieldTs) / 1000) : null
+      },
+
+      device: {
+        type: deviceType(),
+        os: os.name + (os.version ? ' ' + os.version : ''),
+        model: (hints && hints.model) || '',
+        architecture: hints ? [hints.architecture, hints.bitness].filter(Boolean).join('-') : '',
+        platformVersion: (hints && hints.platformVersion) || '',
+        screen: (screen.width || 0) + 'x' + (screen.height || 0),
+        viewport: (window.innerWidth || 0) + 'x' + (window.innerHeight || 0),
+        pixelRatio: window.devicePixelRatio || 1,
+        touchPoints: navigator.maxTouchPoints || 0,
+        orientation: (screen.orientation && screen.orientation.type) || '',
+        cpuCores: navigator.hardwareConcurrency || null,
+        memoryGB: navigator.deviceMemory || null
+      },
+
+      browser: {
+        name: br.name,
+        version: br.version,
+        fullVersion: (hints && hints.uaFullVersion) || '',
+        userAgent: UA,
+        language: navigator.language || '',
+        languages: (navigator.languages || []).slice(0, 5).join(', '),
+        timezone: (function () {
+          try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+        })(),
+        utcOffsetMinutes: -new Date().getTimezoneOffset(),
+        cookiesEnabled: navigator.cookieEnabled === true,
+        doNotTrack: navigator.doNotTrack === '1' || window.doNotTrack === '1',
+        colorScheme: (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light',
+        reducedMotion: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)
+      },
+
+      network: {
+        effectiveType: conn.effectiveType || '',
+        downlinkMbps: conn.downlink || null,
+        rttMs: conn.rtt || null,
+        saveData: conn.saveData === true
+      },
+
+      // Edge-resolved; empty when /api/geo has not answered yet.
+      geo: {
+        ip: g.ip || '', country: g.country || '', region: g.countryRegion || '',
+        city: g.city || '', postalCode: g.postalCode || '',
+        latitude: g.latitude || '', longitude: g.longitude || '',
+        timezone: g.timezone || '', isp: g.isp || '', asn: g.asn || '',
+        edgeColo: g.colo || '', httpProtocol: g.httpProtocol || '',
+        tlsVersion: g.tlsVersion || '', botScore: g.botScore || ''
+      },
+
+      analytics: gaIds()
+    };
+  }
+
+  // Flat one-line strings for the notification email. A salesperson reads these;
+  // the JSON blob underneath is there so nothing is lost.
+  function summary() {
+    var t = snapshot();
+    var g = t.geo, d = t.device, b = t.browser;
+
+    var place = [g.city, g.region, g.country].filter(Boolean).join(', ');
+    var journey = t.journey.pages.map(function (p) {
+      return p.url + (p.seconds ? ' (' + duration(p.seconds * 1000) + ')' : '');
+    }).join('  →  ');
+
+    var ft = t.attribution.firstTouch;
+    var camp = t.attribution.session.params;
+    var campBits = UTM_KEYS.concat(CLICK_IDS)
+      .filter(function (k) { return camp[k]; })
+      .map(function (k) { return k + '=' + camp[k]; })
+      .join(' | ');
+
+    return {
+      channel: t.attribution.channel,
+      campaign: campBits,
+      firstTouch: ft ? ft.channel + ' · ' + ft.at + ' · landed on ' + ft.landingPage : '',
+      landingPage: t.attribution.session.landingPage + '  (ref: ' + t.attribution.session.referrer + ')',
+      journey: t.journey.pageCount + ' pages in ' + duration(t.journey.sessionSeconds * 1000) + ':  ' + journey,
+      visitor: (t.visitor.returning
+        ? 'Visit #' + t.visitor.visitNumber + ' · first seen ' + t.visitor.firstSeen + ' (' + t.visitor.daysKnown + ' days ago)'
+        : 'First-time visitor'),
+      location: place ? place + (g.postalCode ? ' ' + g.postalCode : '') + ' · ' + (g.isp || 'unknown ISP') + (g.asn ? ' (AS' + g.asn + ')' : '') : '',
+      ip: g.ip,
+      device: [d.type, d.os, d.model].filter(Boolean).join(' · ') +
+        ' · screen ' + d.screen + ' · viewport ' + d.viewport + ' @' + d.pixelRatio + 'x',
+      browser: [b.name, b.version].filter(Boolean).join(' ') +
+        ' · ' + (b.language || '?') + ' · ' + (b.timezone || '?') +
+        (b.doNotTrack ? ' · DNT on' : ''),
+      network: t.network.effectiveType
+        ? t.network.effectiveType + (t.network.downlinkMbps ? ' · ' + t.network.downlinkMbps + ' Mbps' : '') + (t.network.rttMs ? ' · ' + t.network.rttMs + 'ms RTT' : '')
+        : '',
+      engagement: 'on page ' + duration(t.page.secondsOnPage * 1000) +
+        ' · engaged ' + duration(t.page.engagedSeconds * 1000) +
+        ' · scrolled ' + t.page.maxScrollPercent + '%' +
+        (t.form.secondsFilling != null ? ' · form filled in ' + duration(t.form.secondsFilling * 1000) : '') +
+        (t.form.fieldsTouched.length ? ' · fields: ' + t.form.fieldsTouched.join(' → ') : ''),
+      gaClientId: t.analytics.clientId + (t.analytics.sessionId ? ' / session ' + t.analytics.sessionId : ''),
+      userAgent: b.userAgent
+    };
+  }
+
+  window[NS] = { snapshot: snapshot, summary: summary, duration: duration };
+})();
+</script><meta name="theme-color" content="#2D2878"><link rel="canonical" href="https://quickestimate.co/best-solar-crm/india"><!-- Open Graph. ogTitle/ogDescription default to the page title/description;
+       a page can override them when its social copy differs from its <title>. --><meta property="og:title" content="Solar CRM Software in India: 7 Platforms Compared (2026)"><meta property="og:description" content="Solar CRM software in India compared: 7 platforms, dated prices, PM Surya Ghar, DISCOM and WhatsApp fit. We sell Quickest, so it is a declared ranking."><meta property="og:type" content="website"><meta property="og:url" content="https://quickestimate.co/best-solar-crm/india"><meta property="og:image" content="/images/og-default.png"><!-- Twitter --><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Solar CRM Software in India: 7 Platforms Compared (2026)"><meta name="twitter:description" content="Solar CRM software in India compared: 7 platforms, dated prices, PM Surya Ghar, DISCOM and WhatsApp fit. We sell Quickest, so it is a declared ranking."><meta name="twitter:image" content="/images/og-default.png"><!-- Favicons --><link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicons/favicon-192x192.png"><link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png"><!-- Preconnect to runtime-critical origins --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://app.quickestimate.co"><link rel="dns-prefetch" href="https://app.quickestimate.co"><!-- Fonts: one consolidated stack across the site (Plus Jakarta Sans for all
+       text, JetBrains Mono 400/500/600 for numbers, labels and code). --><link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><!-- Page scroll progress bar + a11y --><noscript><style>.reveal,.reveal-stagger>*{opacity:1!important;transform:none!important;}</style></noscript><script type="application/ld+json">[{"@context":"https://schema.org","@type":"WebPage","name":"Solar CRM Software in India: 7 Platforms Compared (2026)","description":"Solar CRM software in India compared: 7 platforms, dated prices, PM Surya Ghar, DISCOM and WhatsApp fit. We sell Quickest, so it is a declared ranking.","url":"https://quickestimate.co/best-solar-crm/india","dateModified":"2026-09-06","inLanguage":"en-IN","reviewedBy":{"@type":"Person","name":"Parth Maru","url":"https://quickestimate.co/authors/parth-maru"},"publisher":{"@type":"Organization","@id":"https://quickestimate.co/#organization","name":"Heaven Softech Pvt. Ltd.","alternateName":["Quickest Solar CRM","QuickEstimate"],"url":"https://quickestimate.co","logo":{"@type":"ImageObject","url":"https://quickestimate.co/images/logo-768x250.png"}}},{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quickestimate.co/"},{"@type":"ListItem","position":2,"name":"Best Solar CRM","item":"https://quickestimate.co/best-solar-crm"},{"@type":"ListItem","position":3,"name":"India","item":"https://quickestimate.co/best-solar-crm/india"}]},{"@context":"https://schema.org","@type":"ItemList","name":"Best solar CRM platforms in India","itemListOrder":"https://schema.org/ItemListOrderAscending","numberOfItems":7,"itemListElement":[{"@type":"ListItem","position":1,"name":"Quickest Solar CRM"},{"@type":"ListItem","position":2,"name":"OpenSolar"},{"@type":"ListItem","position":3,"name":"Pylon"},{"@type":"ListItem","position":4,"name":"SolarPlus"},{"@type":"ListItem","position":5,"name":"Zoho CRM"},{"@type":"ListItem","position":6,"name":"Odoo"},{"@type":"ListItem","position":7,"name":"HubSpot CRM"}]},{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the best solar CRM in India?","acceptedAnswer":{"@type":"Answer","text":"Quickest is our first proposal-focused trial for a small or growing Indian solar team because it connects lead ownership, mobile proposals, follow-up, WhatsApp-oriented work, and pipeline visibility. QuickEstimate publishes this ranking and sells Quickest, so it is not independent. Choose it only after your state, DISCOM, subsidy, ALMM, GST, privacy, accounting, field, and export tests pass."}},{"@type":"Question","name":"Can a solar CRM connect directly to PM Surya Ghar?","acceptedAnswer":{"@type":"Answer","text":"Do not assume that a portal logo or subsidy field means direct integration. Ask the vendor to demonstrate the current authorised route, credentials, data fields, consent, submission, status retrieval, corrections, audit log, and manual fallback. The official process involves the consumer, registered vendor, National Portal, and serving DISCOM, with state-specific requirements still relevant."}},{"@type":"Question","name":"Which DISCOM stages should the CRM track?","acceptedAnswer":{"@type":"Answer","text":"At minimum, preserve consumer and connection identity, registration, feasibility where applicable, document versions, vendor agreement, installation, system and geo-photo upload, inspection, corrections, metering agreement, meter procurement and installation, commissioning, portal approval, and CFA status. Names and order vary by state and DISCOM, so use a dated configurable workflow."}},{"@type":"Question","name":"Should a proposal show PM Surya Ghar subsidy as guaranteed?","acceptedAnswer":{"@type":"Answer","text":"No. Show the scheme source and date, customer and property assumptions, module DC capacity basis, central CFA calculation, any state support, eligibility conditions, application status, and who verifies the result. Keep customer price, payable amount, financing, and expected subsidy distinct. Update the assumption without overwriting the accepted proposal."}},{"@type":"Question","name":"How should a CRM store ALMM and DCR evidence?","acceptedAnswer":{"@type":"Answer","text":"Store the exact manufacturer, model, relevant ALMM list, revision and check date, DCR evidence when required, datasheet, supplier, purchase record, serial numbers, substitution approval, installation photos, and warranty. A brand name alone is insufficient because eligibility attaches to applicable models, rules, project routes, and dates."}},{"@type":"Question","name":"What GST rate should solar CRM software apply?","acceptedAnswer":{"@type":"Answer","text":"Do not use one universal switch without tax review. A contract can combine goods, installation, civil or electrical work, services, discounts, advances, and changes. Have the installer's tax adviser approve classification, rate, place of supply, time of supply, invoice fields, e-invoicing or e-way-bill obligations, credit notes, and records for the actual contract."}},{"@type":"Question","name":"Does the DPDP Act apply to solar leads and documents?","acceptedAnswer":{"@type":"Answer","text":"Solar records can include contact details, electricity bills, identity documents, property images, bank information, calls, signatures, and messages. Map the lawful purpose, notice, consent or other basis, access, processors, security, retention, withdrawal, correction, erasure, breach response, and export. Confirm current commencement and rule obligations with counsel before rollout."}},{"@type":"Question","name":"What should an installer test in WhatsApp integration?","acceptedAnswer":{"@type":"Answer","text":"Confirm the official business account and provider, consent, templates, service and marketing categories, opt-out, assignment, delivery state, attachments, conversation charges, retention, and CRM write-back. Test a customer reply, reassignment, failed delivery, number change, deletion request, and an alternate channel. Do not treat access to a share button as full integration."}},{"@type":"Question","name":"What is the solar CRM software price in India?","acceptedAnswer":{"@type":"Answer","text":"Quickest Solar CRM has a free plan (one user, 10 proposals a month) and Pro at ₹6,999 per user per year with a three-user minimum, which is ₹20,997 a year for a three-person team. As of October 2026, OpenSolar publishes a free core platform, Zoho CRM publishes a free edition for three users, Odoo makes one app free, and Pylon lists $4 or $10 per project with a Solar CRM add-on from $49 per user per month. SolarPlus lists USD 135, 260 and 450 a month on annual prepay. Zoho's paid Indian rates and HubSpot's paid totals could not be confirmed from their public pages, so ask each for a written quote that includes GST, onboarding and renewal."}},{"@type":"Question","name":"Which solar CRM software suits an Indian EPC company with a sales team and site crews?","acceptedAnswer":{"@type":"Answer","text":"Pick by the handoff that loses you the most money. If enquiries go unanswered and proposals take hours, a focused solar CRM such as Quickest fits. If your EPC runs purchasing, inventory and accounting in one system, Odoo is the broader answer but needs configuration. If designs and shading drive the sale, test OpenSolar or Pylon beside your CRM. Whichever you choose, run one clean deal, one revision-heavy deal and one failed handoff through it before signing."}}]}]</script><link rel="stylesheet" href="/_astro/quickest-vs-excel.UvTB-rts.css">
+<style>.crm-ad[data-astro-cid-blfpvuap]{display:flex;align-items:center;justify-content:space-between;gap:30px;max-width:1180px;margin:0 auto;padding:28px 32px;border-radius:20px;background:linear-gradient(135deg,var(--qe-primary-900),var(--qe-primary));color:#fff;box-shadow:var(--shadow-lg)}.crm-ad-copy[data-astro-cid-blfpvuap]{max-width:640px}.crm-ad-kicker[data-astro-cid-blfpvuap]{display:block;margin-bottom:8px;color:var(--qe-amber);font:700 11px var(--font-mono);letter-spacing:.11em;text-transform:uppercase}.crm-ad-title[data-astro-cid-blfpvuap]{display:block;margin:0 0 6px;font-size:21px;letter-spacing:-.02em;line-height:1.25}.crm-ad-body[data-astro-cid-blfpvuap]{margin:0;color:color-mix(in srgb,#fff 72%,transparent);font-size:13px;line-height:1.65}.crm-ad-actions[data-astro-cid-blfpvuap]{display:flex;flex:none;flex-wrap:wrap;gap:10px}.crm-ad-btn[data-astro-cid-blfpvuap]{display:inline-flex;align-items:center;padding:12px 22px;border-radius:999px;background:var(--qe-accent);color:#fff;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap}.crm-ad-btn[data-astro-cid-blfpvuap]:hover{background:var(--qe-accent-700)}.crm-ad-btn[data-astro-cid-blfpvuap].ghost{background:transparent;border:1px solid color-mix(in srgb,#fff 35%,transparent);color:#fff}.crm-ad-btn[data-astro-cid-blfpvuap].ghost:hover{border-color:color-mix(in srgb,#fff 60%,transparent);background:color-mix(in srgb,#fff 8%,transparent)}@media(max-width:760px){.crm-ad[data-astro-cid-blfpvuap]{flex-direction:column;align-items:flex-start;gap:18px;padding:24px 22px}.crm-ad-actions[data-astro-cid-blfpvuap]{width:100%}.crm-ad-btn[data-astro-cid-blfpvuap]{flex:1;justify-content:center;white-space:normal}}.listing-cta[data-astro-cid-mmwtvsfm]{display:flex;align-items:center;justify-content:space-between;gap:26px;margin:26px 0 0;padding:22px 26px;border:1px solid var(--qe-accent-100);border-left:4px solid var(--qe-accent);border-radius:14px;background:var(--qe-accent-50)}.listing-cta-copy[data-astro-cid-mmwtvsfm]{max-width:620px}.listing-cta-kicker[data-astro-cid-mmwtvsfm]{display:block;margin-bottom:6px;color:var(--qe-accent-700);font:700 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase}.listing-cta-title[data-astro-cid-mmwtvsfm]{display:block;margin:0 0 4px;color:var(--qe-primary-900);font-size:17px;letter-spacing:-.015em;line-height:1.3}.listing-cta-body[data-astro-cid-mmwtvsfm]{margin:0;color:var(--qe-ink-500);font-size:13px;line-height:1.6}.listing-cta-actions[data-astro-cid-mmwtvsfm]{display:flex;flex:none;flex-wrap:wrap;gap:10px}.listing-cta-btn[data-astro-cid-mmwtvsfm]{display:inline-flex;align-items:center;padding:11px 20px;border-radius:999px;background:var(--qe-accent);color:#fff;font-size:12.5px;font-weight:700;text-decoration:none;white-space:nowrap}.listing-cta-btn[data-astro-cid-mmwtvsfm]:hover{background:var(--qe-accent-700)}.listing-cta-btn[data-astro-cid-mmwtvsfm].ghost{background:#fff;border:1px solid var(--qe-primary-100);color:var(--qe-primary)}.listing-cta-btn[data-astro-cid-mmwtvsfm].ghost:hover{border-color:var(--qe-primary-200);background:var(--qe-primary-50)}@media(max-width:760px){.listing-cta[data-astro-cid-mmwtvsfm]{flex-direction:column;align-items:flex-start;gap:16px;padding:20px}.listing-cta-actions[data-astro-cid-mmwtvsfm]{width:100%}.listing-cta-btn[data-astro-cid-mmwtvsfm]{flex:1;justify-content:center;white-space:normal}}
+</style>
+<link rel="stylesheet" href="/_astro/india.qoauEDjx.css"></head> <body class="crm-country-page" data-astro-cid-37fxchfa>  <a href="#main" class="qe-skip" data-astro-cid-37fxchfa>Skip to main content</a> <svg width="0" height="0" style="position:absolute" aria-hidden="true"> <defs> <symbol id="ic-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 L4 14 h7 l-1 8 9-12 h-7 z"></path></symbol> <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 H6 a2 2 0 0 0-2 2 v16 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2-2 V8 z"></path><path d="M14 2 v6 h6"></path><path d="M9 14 l2 2 4-4"></path></symbol> <symbol id="ic-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12 a9 9 0 1 1-3.5-7.1 L21 4 l-1 4.5 A9 9 0 0 1 21 12 z"></path><circle cx="9" cy="12" r="0.8" fill="currentColor"></circle><circle cx="13" cy="12" r="0.8" fill="currentColor"></circle><circle cx="17" cy="12" r="0.8" fill="currentColor"></circle></symbol> <symbol id="ic-pipeline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="4" height="16" rx="1"></rect><rect x="9.5" y="4" width="4" height="11" rx="1"></rect><rect x="16" y="4" width="4" height="7" rx="1"></rect></symbol> <symbol id="ic-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle></symbol> <symbol id="ic-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"></rect><line x1="11" y1="18" x2="13" y2="18"></line></symbol> <symbol id="ic-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20 c0-3.3 2.7-6 6-6 s6 2.7 6 6"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14 c3 0 5 2 5 5"></path></symbol> <symbol id="ic-rupee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5 h10"></path><path d="M7 9 h10"></path><path d="M9 5 c4 0 5 1.5 5 4 s-2 4-5 4 H7 l8 8"></path></symbol> <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7 v5 l3 2"></path></symbol> <symbol id="ic-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></symbol> <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"></polyline></symbol> <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></symbol> <symbol id="ic-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L14.5 8.5 L21.5 9.3 L16.3 14 L17.8 21 L12 17.4 L6.2 21 L7.7 14 L2.5 9.3 L9.5 8.5 z"></path></symbol> <symbol id="ic-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 v16 l13-8 z"></path></symbol> <symbol id="ic-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 h5 l1.5 3 h5 l1.5-3 h5"></path><path d="M5 13 L7 5 h10 l2 8 v6 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 z"></path></symbol> <symbol id="ic-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L13.5 8.5 L19 10 L13.5 11.5 L12 17 L10.5 11.5 L5 10 L10.5 8.5 z"></path><path d="M19 17 L19.7 19 L21.5 19.5 L19.7 20 L19 22 L18.3 20 L16.5 19.5 L18.3 19 z"></path></symbol> <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4.5"></line><line x1="12" y1="19.5" x2="12" y2="22"></line><line x1="4.5" y1="4.5" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.5" y2="19.5"></line><line x1="2" y1="12" x2="4.5" y2="12"></line><line x1="19.5" y1="12" x2="22" y2="12"></line><line x1="4.5" y1="19.5" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.5" y2="4.5"></line></symbol> <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></symbol> <symbol id="ic-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2 v6"></path><path d="M15 2 v6"></path><rect x="6" y="8" width="12" height="6" rx="1"></rect><path d="M12 14 v3 a3 3 0 0 1-3 3 H8"></path></symbol> <symbol id="ic-leak" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4 v6 a7 7 0 0 0 14 0 V4"></path><path d="M9 4 h6"></path><line x1="12" y1="13" x2="12" y2="22" stroke-dasharray="2 3"></line></symbol> <symbol id="ic-trend-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"></polyline><polyline points="15 7 21 7 21 13"></polyline></symbol> <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12 s4-7 10-7 10 7 10 7 -4 7-10 7 -10-7-10-7 z"></path><circle cx="12" cy="12" r="3"></circle></symbol> <symbol id="ic-spread" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="14" x2="21" y2="14"></line><line x1="9" y1="4" x2="9" y2="20"></line><line x1="15" y1="4" x2="15" y2="20"></line></symbol> <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L4 5 v6 c0 5 3.5 9 8 11 4.5-2 8-6 8-11 V5 z"></path><path d="M9 12 l2 2 4-4"></path></symbol> <symbol id="ic-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 a9 9 0 0 1 15-6.7 L21 7"></path><path d="M21 4 v3 h-3"></path><path d="M21 12 a9 9 0 0 1-15 6.7 L3 17"></path><path d="M3 20 v-3 h3"></path></symbol> <symbol id="ic-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.4 L1.8 18.5 a2 2 0 0 0 1.7 3 h17 a2 2 0 0 0 1.7-3 L13.7 3.4 a2 2 0 0 0-3.4 0 z"></path><line x1="12" y1="9" x2="12" y2="13"></line><circle cx="12" cy="17" r="0.8" fill="currentColor"></circle></symbol> <symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><polyline points="3 7 12 13 21 7"></polyline></symbol> <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10 c0 7-9 13-9 13 s-9-6-9-13 a9 9 0 0 1 18 0 z"></path><circle cx="12" cy="10" r="3"></circle></symbol> <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></symbol> <symbol id="ic-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></symbol> <symbol id="ic-twitter" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2H21l-6.5 7.43L22.5 22h-7.05l-4.95-6.5L4.5 22H1l7.18-8.21L1 2h7.2l4.5 5.95zm-2.4 18h1.95L7.27 4H5.27z"></path></symbol> <symbol id="ic-linkedin" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM8 18H5V9h3v9zM6.5 7.5A1.5 1.5 0 118 6a1.5 1.5 0 01-1.5 1.5zM18 18h-3v-4.5c0-1.1-.9-2-2-2s-2 .9-2 2V18h-3V9h3v1.2c.6-.7 1.5-1.2 2.5-1.2a3.5 3.5 0 014.5 3.5V18z"></path></symbol> <symbol id="ic-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13 a5 5 0 0 0 7.54.54 l3-3 a5 5 0 0 0-7.07-7.07 l-1.72 1.71"></path><path d="M14 11 a5 5 0 0 0-7.54-.54 l-3 3 a5 5 0 0 0 7.07 7.07 l1.71-1.71"></path></symbol> <symbol id="ic-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="0.9" fill="currentColor" stroke="none"></circle></symbol> </defs> </svg> <div class="progress" id="progress" aria-hidden="true" data-astro-cid-37fxchfa></div> <header class="nav" id="nav" data-nav> <div class="nav-inner"> <a class="brand" href="/" aria-label="Quickest Solar CRM home"> <img class="logo-img" src="/images/logo-768x250.png" alt="Quickest Solar CRM" width="120" height="32"> </a> <button class="nav-burger" id="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile"> <span></span><span></span><span></span> </button> <nav class="nav-links" aria-label="Primary"> <div class="nav-dropdown"> <a href="/features/proposal-generator" aria-haspopup="true">Product</a> <div class="nav-dropdown-menu" role="menu"> <a href="/features/proposal-generator" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M9 15l2 2 4-4"></path><path d="M12 12h.01"></path></svg></span>Proposal Generator</a> <a href="/features/lead-capture" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l1.5 3h5l1.5-3h5"></path><path d="M5 13L7 5h10l2 8v6a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"></path><circle cx="12" cy="9" r="2"></circle></svg></span>Lead Capture</a> <a href="/features/whatsapp-follow-up" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.5-7.1L21 4l-1 4.5A9 9 0 0 1 21 12z"></path><path d="M9 12l2 2 4-4"></path></svg></span>WhatsApp Follow-Up</a> <a href="/features/pipeline-management" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="5" height="16" rx="1"></rect><rect x="9" y="9" width="5" height="11" rx="1"></rect><rect x="16" y="14" width="5" height="6" rx="1"></rect></svg></span>Pipeline Management</a> <a href="/features/quotation-system" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5h10"></path><path d="M7 9h10"></path><path d="M9 5c4 0 5 1.5 5 4s-2 4-5 4H7l8 8"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg></span>Quotation System</a> <a href="/solar-pricing-calculator" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span>Pricing Calculator</a> <a href="/features/sales-reports" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path><path d="M3 20h18"></path></svg></span>Sales Reports</a> </div> </div> <div class="nav-dropdown nav-dropdown-wide"> <a href="/services" aria-haspopup="true">Solar Services</a> <div class="nav-dropdown-menu nav-mega" role="menu"> <div class="nav-mega-head"> <strong>Solar Services</strong> <span>Professional design &amp; engineering support for solar businesses</span> </div> <div class="nav-mega-cols"> <div class="nav-mega-col"> <h4>Design</h4> <a href="/services/solar-3d-pre-design" role="menuitem">Solar 3D Pre-Design</a><a href="/services/solar-post-design" role="menuitem">Solar Post-Design</a> </div><div class="nav-mega-col"> <h4>Engineering</h4> <a href="/services/rooftop-detailed-engineering" role="menuitem">Rooftop Detailed Engineering</a><a href="/services/ground-mount-design" role="menuitem">Ground Mount Design</a><a href="/services/civil-structural-engineering" role="menuitem">Civil &amp; Structural Engineering</a><a href="/services/electrical-ceig-drawings" role="menuitem">Electrical CEIG Drawings</a> </div><div class="nav-mega-col"> <h4>Project Support</h4> <a href="/services/solar-permit-design" role="menuitem">Solar Permit Design</a><a href="/services/site-survey-feasibility" role="menuitem">Site Survey &amp; Feasibility</a><a href="/services/mw-scale-project-management" role="menuitem">MW Scale Project Management</a> </div> </div> <div class="nav-mega-foot"> <a href="/services" role="menuitem" class="nav-mega-all">
+View All Solar Services
+<span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> <a href="/services#quote" role="menuitem" class="nav-mega-quote">
+Get a Free Quote
+<span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> </div> </div> </div> <a href="/crm">Solar CRM</a> <a href="/#how">How it works</a> <a href="/pricing">Pricing</a> <a href="/surgepv">SurgePV</a> <div class="nav-dropdown"> <a href="/blog" class="is-active" aria-haspopup="true">Resources</a> <div class="nav-dropdown-menu nav-resources-menu" role="menu"> <a href="/#testimonials" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span> <span><strong>Customers</strong><small>Stories from solar businesses</small></span> </a> <a href="/blog" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span> <span><strong>Blog</strong><small>Solar sales and CRM guides</small></span> </a> <a href="/glossary" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M8 7h8M8 11h6"></path></svg></span> <span><strong>Glossary</strong><small>Solar and CRM definitions</small></span> </a> <a href="/best-solar-crm" role="menuitem" class="is-active"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg></span> <span><strong>Solar CRM Lists</strong><small>Best solar CRM software compared</small></span> </a> <a href="/compare" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M8 21H3v-5"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg></span> <span><strong>Compare Quickest</strong><small>vs Zoho CRM and Excel</small></span> </a> </div> </div> </nav> <div class="nav-cta"> <a class="nav-btn nav-btn-ghost" href="https://app.quickestimate.co/" target="_blank" rel="noopener noreferrer">Sign in</a> <a class="nav-btn nav-btn-primary" href="https://app.quickestimate.co/register" target="_blank" rel="noopener noreferrer"> <span>Start free</span> <span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> </div> </div> </header> <!-- Mobile drawer --> <div class="nav-mobile" id="nav-mobile" hidden> <nav aria-label="Mobile"> <a href="/features/proposal-generator">Product</a> <a href="/features/lead-capture">Lead capture</a> <a href="/features/whatsapp-follow-up">WhatsApp follow-up</a> <a href="/features/pipeline-management">Pipeline</a> <a href="/features/quotation-system">Quotation</a> <a href="/solar-pricing-calculator">Pricing calculator</a> <a href="/features/sales-reports">Sales reports</a> <hr> <a href="/services"><strong>Solar Services</strong></a>  <span class="nav-mobile-group">Design</span> <a href="/services/solar-3d-pre-design">Solar 3D Pre-Design</a><a href="/services/solar-post-design">Solar Post-Design</a> <span class="nav-mobile-group">Engineering</span> <a href="/services/rooftop-detailed-engineering">Rooftop Detailed Engineering</a><a href="/services/ground-mount-design">Ground Mount Design</a><a href="/services/civil-structural-engineering">Civil &amp; Structural Engineering</a><a href="/services/electrical-ceig-drawings">Electrical CEIG Drawings</a> <span class="nav-mobile-group">Project Support</span> <a href="/services/solar-permit-design">Solar Permit Design</a><a href="/services/site-survey-feasibility">Site Survey &amp; Feasibility</a><a href="/services/mw-scale-project-management">MW Scale Project Management</a> <hr> <a href="/#how">How it works</a> <a href="/pricing">Pricing</a> <a href="/surgepv">SurgePV</a> <a href="/about">About</a> <a href="/security">Security</a> <span class="nav-mobile-group">Resources</span> <a href="/#testimonials">Customers</a> <a href="/blog">Blog</a> <a href="/glossary">Glossary</a> <a href="/best-solar-crm" class="is-active">Solar CRM Lists</a> <a href="/compare">Compare Quickest</a> <a href="/faq">FAQ</a> <a href="tel:+919274486197">Call +91 92744 86197</a> <a href="https://wa.me/919274486197" target="_blank" rel="noopener noreferrer">WhatsApp us</a> <hr> <a class="nav-mobile-cta primary" href="https://app.quickestimate.co/register" target="_blank" rel="noopener noreferrer">Start free →</a> </nav> </div>  <script>
+  (function () {
+    const nav = document.getElementById('nav');
+    if (!nav) return;
+    const onScroll = () => {
+      const scrolled = window.scrollY > 16;
+      nav.classList.toggle('scrolled', scrolled);
+      nav.classList.toggle('qe-scrolled', scrolled);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    const burger = document.getElementById('nav-burger');
+    const drawer = document.getElementById('nav-mobile');
+    if (burger && drawer) {
+      // Keep the drawer's top edge pinned to the bottom of the header, whose
+      // height changes with the logo size across breakpoints.
+      const syncHeight = () =>
+        document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+      syncHeight();
+      window.addEventListener('resize', syncHeight, { passive: true });
+
+      const setOpen = (open) => {
+        if (open) syncHeight();
+        burger.setAttribute('aria-expanded', String(open));
+        burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        if (open) { drawer.removeAttribute('hidden'); document.body.classList.add('nav-mobile-open'); }
+        else { drawer.setAttribute('hidden', ''); document.body.classList.remove('nav-mobile-open'); }
+      };
+      burger.addEventListener('click', () => setOpen(burger.getAttribute('aria-expanded') !== 'true'));
+      drawer.addEventListener('click', (e) => {
+        if (e.target instanceof HTMLAnchorElement) setOpen(false);
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+    }
+
+    // Touch has no hover, so the desktop dropdowns (visible 881-1240px) would
+    // be unreachable. First tap opens the menu, second tap follows the link;
+    // any tap outside or Escape closes. Pointer devices keep pure hover.
+    if (window.matchMedia('(hover: none)').matches) {
+      const closeAll = () =>
+        nav.querySelectorAll('.nav-dropdown.is-open').forEach((d) => d.classList.remove('is-open'));
+      nav.querySelectorAll('.nav-dropdown > a').forEach((a) => {
+        a.addEventListener('click', (e) => {
+          const dd = a.parentElement;
+          if (!dd || !dd.classList.contains('is-open')) {
+            e.preventDefault();
+            closeAll();
+            if (dd) dd.classList.add('is-open');
+          }
+        });
+      });
+      document.addEventListener('click', (e) => { if (!nav.contains(e.target)) closeAll(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
+    }
+  })();
+</script> <main id="main" data-astro-cid-37fxchfa>  <section class="comparison-hero"> <div class="hero-grid"> <div class="hero-copy reveal">  <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep" aria-hidden="true">/</span><a href="/best-solar-crm">Best Solar CRM</a><span class="sep" aria-hidden="true">/</span><span aria-current="page">India</span></nav> <div class="eyebrow"><span class="eyebrow-dot"></span>Documentation-based comparison · India</div> <h1>Solar CRM software in <span>India</span>: 7 platforms compared</h1> <p class="hero-lede">An Indian solar installer should use Quickest Solar CRM when the bottleneck is proposal speed and follow-up, because it keeps INR proposals, subsidy-ready PDFs, lead ownership and WhatsApp follow-up in one mobile tool, with a free plan and Pro at ₹6,999 per user per year. QuickEstimate makes Quickest, so this ranking is not independent; OpenSolar is the stronger free choice for design-led selling. We compare Quickest with six alternatives using official product material and current Indian evidence on PM Surya Ghar, DISCOM handoffs, ALMM equipment records, GST, privacy, WhatsApp, accounting, field work and customer handover.</p> <div class="hero-actions"> <a class="btn btn-accent btn-lg" href="#comparison">Compare all 7 <span aria-hidden="true">↓</span></a> <a class="btn btn-secondary btn-lg" href="#methodology">See our methodology</a> </div> <div class="review-meta"> <span>Reviewed 6 September 2026</span> <span>Reviewed by <a href="/authors/parth-maru">Parth Maru</a></span> <span>38-minute read</span> <span>15 checked sources</span> </div> </div> <aside class="winner-panel reveal" aria-label="Top three solar CRM picks in India"> <div class="panel-top"><span class="panel-kicker">The quick shortlist</span><span class="us-chip">IN</span></div> <div class="podium-item winner"> <span class="rank">01</span> <div class="vendor-mark quickest">Q</div> <div><strong>Quickest Solar CRM</strong><span>Best proposal-first value</span></div> <a href="#quickest-solar-crm" aria-label="Read the Quickest Solar CRM review">→</a> </div><div class="podium-item"> <span class="rank">02</span> <div class="vendor-mark opensolar">OS</div> <div><strong>OpenSolar</strong><span>Best free core design platform</span></div> <a href="#opensolar" aria-label="Read the OpenSolar review">→</a> </div><div class="podium-item"> <span class="rank">03</span> <div class="vendor-mark pylon">P</div> <div><strong>Pylon</strong><span>Best usage-priced solar design</span></div> <a href="#pylon" aria-label="Read the Pylon review">→</a> </div> <div class="panel-note"><span>Our rule</span> Quickest ranks first. Every local capability that still needs confirmation is stated in the review and disclosure.</div> </aside> </div> </section> <nav class="jump-nav" aria-label="On this page"> <div class="jump-inner"> <a href="#top-picks">Top picks</a><a href="#methodology">Methodology</a><a href="#comparison">Comparison</a><a href="#pricing-india">Pricing</a><a href="#pipeline">Pipeline</a><a href="#epc-companies">EPC</a><a href="#whatsapp">WhatsApp</a><a href="#pm-surya-ghar-crm">PM Surya Ghar</a><a href="#lead-management">Leads</a><a href="#local-market">Local market</a><a href="#reviews">Full reviews</a><a href="#how-to-choose">How to choose</a><a href="#quickestimate">Why Quickest</a><a href="#faq">FAQ</a> </div> </nav> <div class="comparison-main"> <section class="intro-grid section-block" id="top-picks"> <div><p class="section-label">Direct answer</p><h2>Which solar CRM is best in India?</h2><p class="answer-capsule"><strong>Which solar CRM software should an Indian installer use? Quickest Solar CRM, if proposal speed, mobile adoption, lead ownership and WhatsApp follow-up matter most, because it carries those four jobs in one tool at ₹6,999 per user per year after a free plan. QuickEstimate publishes this comparison, sells Quickest, and states that the ranking is not independent. Quickest has direct Indian pricing and workflow evidence, but buyers must still test current PM Surya Ghar and state DISCOM stages, subsidy and tariff versions, ALMM and DCR equipment, GST documents, WhatsApp consent, privacy, accounting, field installation, commissioning, support, and export. OpenSolar provides the strongest free core design option.</strong></p></div> <aside class="disclosure-card"><span class="disclosure-icon">i</span><div><strong>Editorial disclosure</strong><p>QuickEstimate publishes this comparison and sells Quickest Solar CRM, so this ranking is not independent. We rank Quickest first under a declared proposal-first value and adoption lens. We reviewed public documentation and did not conduct hands-on tests. Direct product evidence supports Indian pricing and several India-focused workflows, but it does not prove every state, DISCOM, subsidy, tax, equipment, privacy, or field requirement. Other products can be stronger for advanced design, operations, automation, accounting, or marketing.</p></div></aside> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Take this comparison into a live demo</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Book 30 minutes and we will run your real lead-to-proposal workflow — your prices, your documents, your follow-up.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> <a class="crm-ad-btn ghost" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start free</a> </div> </aside>  <section class="section-block"> <div class="section-heading"><p class="section-label">7 jobs, 7 picks</p><h2>The best solar CRM by use case</h2><p>A useful shortlist starts with the sales or delivery bottleneck. Each winner below reflects a different buying priority, while the overall ranking rewards a CRM that a solar sales team can adopt quickly.</p></div> <div class="pick-grid reveal-stagger"> <a class="pick-card featured" href="#quickest-solar-crm"> <span class="pick-rank">01</span><span class="pick-tag">Best proposal-first value</span><strong>Quickest Solar CRM</strong><p>Indian solar sales teams testing proposal and WhatsApp adoption</p><span class="pick-price">Indian public pricing. Pro has a three-user minimum. Confirm Indian commercial and tax terms.</span> </a><a class="pick-card" href="#opensolar"> <span class="pick-rank">02</span><span class="pick-tag">Best free core design platform</span><strong>OpenSolar</strong><p>Residential installers that want solar design, proposals, CRM, and project management without a core subscription</p><span class="pick-price">External API access and supported app connectors are paid from 16 April 2026. Regional services and partner costs vary.</span> </a><a class="pick-card" href="#pylon"> <span class="pick-rank">03</span><span class="pick-tag">Best usage-priced solar design</span><strong>Pylon</strong><p>Teams with variable design volume that want proposals, battery modelling, install packs, and an optional CRM</p><span class="pick-price">The page does not label the dollar currency as INR. Solar CRM starts at $49 per user per month. Confirm currency, tax, and Indian availability.</span> </a><a class="pick-card" href="#solarplus"> <span class="pick-rank">04</span><span class="pick-tag">Best design-to-handover depth</span><strong>SolarPlus</strong><p>Battery, off-grid, and commercial designers that need detailed energy and financial modelling</p><span class="pick-price">Starter is USD 135, Pro USD 260, and Complete USD 450 monthly on annual prepayment. Monthly billing and onboarding cost more.</span> </a><a class="pick-card" href="#zoho-crm"> <span class="pick-rank">05</span><span class="pick-tag">Best configurable general CRM</span><strong>Zoho CRM</strong><p>Marketing-led solar businesses with an administrator who can build and govern a local process</p><span class="pick-price">The captured page shows regional selectors and says local taxes may apply, but it did not prove a INR price. Confirm at checkout or by quote.</span> </a><a class="pick-card" href="#odoo"> <span class="pick-rank">06</span><span class="pick-tag">Best configurable operations suite</span><strong>Odoo</strong><p>EPCs seeking one configurable suite for CRM, sales, procurement, inventory, projects, field work, accounting, and service</p><span class="pick-price">The captured page showed promotional and standard US-dollar rates. Implementation, custom development, Odoo.sh, SMS, and other credits can cost extra.</span> </a><a class="pick-card" href="#hubspot-crm"> <span class="pick-rank">07</span><span class="pick-tag">Best marketing-led CRM</span><strong>HubSpot CRM</strong><p>Solar businesses that prioritise inbound forms, marketing, sales automation, content, and customer communication</p><span class="pick-price">The official pricing capture did not expose dependable plan amounts. Seats, hubs, contacts, onboarding, calling, messages, and add-ons can change the total.</span> </a> </div> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Free plan</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Test Quickest with real leads before you decide</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>The free plan gives one user 10 proposals a month. Build a real proposal with it, then shortlist what else you actually need.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start on the free plan</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>  <section class="method-section section-block" id="methodology"> <div class="section-heading compact"><p class="section-label">How we evaluated</p><h2>The India Solar CRM Fit Test</h2><p>We captured ten live search attempts across CRM, proposals, pricing, PM Surya Ghar, DISCOM workflows, and Hindi phrasing. Seven English DuckDuckGo Lite queries returned usable results; the DISCOM query and two Hindi searches returned HTTP 202 without results, so no Hindi ranking claims are made. We audited prominent ranking pages and existing QuickEstimate articles, then checked current MNRE, National Portal, CBIC, MeitY, and official vendor sources. Quickest leads because adoption of one lead-to-proposal-to-follow-up flow carries extra weight. We publish no numeric scores because public pages cannot prove daily usability, support, implementation quality, or state-level accuracy precisely enough.</p></div> <div class="method-grid"> <article><span>01</span><h3>Solar workflow depth</h3><p>Can the product carry system details, proposal status, project milestones, and the delivery handoff without rebuilding the process in custom fields?</p></article> <article><span>02</span><h3>Sales control</h3><p>Can managers route leads, track activity, automate follow-up, forecast revenue, and see why an opportunity stalled?</p></article> <article><span>03</span><h3>Proposal and design</h3><p>Can a rep move from site information to a credible customer proposal, and how much specialist solar design happens inside the platform?</p></article> <article><span>04</span><h3>Local transaction fit</h3><p>Does the workflow support the language, currency, tax, communications, documents, and handoffs common in India?</p></article> <article><span>05</span><h3>Cost to adoption</h3><p>What setup, migration, training, administration, and extra software does the apparent subscription require?</p></article> </div> <div class="method-note"><strong>Evidence standard.</strong> This edition uses public product, pricing, regulatory, and market sources checked on 6 September 2026. A listed capability may depend on plan or configuration. We did not conduct hands-on tests, so we do not publish numerical product scores.</div> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>One mobile flow: proposal, pipeline, follow-up</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Branded PDF proposals, clean revisions, WhatsApp-first follow-up and a pipeline your manager can see — web, iOS and Android.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/crm" data-astro-cid-blfpvuap>See how it works</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>  <section class="section-block" id="comparison"> <div class="section-heading"><p class="section-label">At-a-glance matrix</p><h2>Compare the 7 best solar CRM platforms in India</h2><p>The table separates CRM depth from proposal, design, and operations coverage. Confirm plan limits and country availability in writing before signing.</p></div> <div class="mobile-comparison"> <article class="mobile-compare-card mobile-winner"> <header><span class="mobile-compare-rank">01</span><div><strong>Quickest Solar CRM</strong><small>Best proposal-first value</small></div></header> <dl> <div><dt>Best for</dt><dd>Indian solar sales teams testing proposal and WhatsApp adoption</dd></div> <div><dt>Public price</dt><dd>Free; Pro ₹6,999/user/year</dd></div> <div><dt>Proposal</dt><dd>Core strength; Indian output needs validation</dd></div> <div><dt>Design</dt><dd>Proposal inputs, not verified as complete Indian PV design</dd></div> <div><dt>Operations</dt><dd>Focused lead and pipeline workflow</dd></div> <div><dt>CRM depth</dt><dd>Solar sales CRM</dd></div> </dl> <a href="#quickest-solar-crm">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">02</span><div><strong>OpenSolar</strong><small>Best free core design platform</small></div></header> <dl> <div><dt>Best for</dt><dd>Residential installers that want solar design, proposals, CRM, and project management without a core subscription</dd></div> <div><dt>Public price</dt><dd>Free core platform</dd></div> <div><dt>Proposal</dt><dd>Custom digital and PDF proposals</dd></div> <div><dt>Design</dt><dd>Solar and battery design with imagery and modelling</dd></div> <div><dt>Operations</dt><dd>CRM, projects, teams, hardware, payments, and add-ons</dd></div> <div><dt>CRM depth</dt><dd>Built-in solar CRM</dd></div> </dl> <a href="#opensolar">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">03</span><div><strong>Pylon</strong><small>Best usage-priced solar design</small></div></header> <dl> <div><dt>Best for</dt><dd>Teams with variable design volume that want proposals, battery modelling, install packs, and an optional CRM</dd></div> <div><dt>Public price</dt><dd>$4 Standard or $10 Pro per project</dd></div> <div><dt>Proposal</dt><dd>Web and PDF proposals with e-signature</dd></div> <div><dt>Design</dt><dd>Solar, battery, shading, interval data, SLD, and financial tools</dd></div> <div><dt>Operations</dt><dd>Job sheets, owner manual, payments, integrations, optional CRM</dd></div> <div><dt>CRM depth</dt><dd>Optional solar CRM</dd></div> </dl> <a href="#pylon">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">04</span><div><strong>SolarPlus</strong><small>Best design-to-handover depth</small></div></header> <dl> <div><dt>Best for</dt><dd>Battery, off-grid, and commercial designers that need detailed energy and financial modelling</dd></div> <div><dt>Public price</dt><dd>From USD 135/month on annual prepay</dd></div> <div><dt>Proposal</dt><dd>Highly customisable proposals and option comparison</dd></div> <div><dt>Design</dt><dd>Deep solar, storage, load, tariff, and financial modelling</dd></div> <div><dt>Operations</dt><dd>CRM, job packs, compliance flow, invoicing, and handover</dd></div> <div><dt>CRM depth</dt><dd>Built-in solar CRM</dd></div> </dl> <a href="#solarplus">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">05</span><div><strong>Zoho CRM</strong><small>Best configurable general CRM</small></div></header> <dl> <div><dt>Best for</dt><dd>Marketing-led solar businesses with an administrator who can build and govern a local process</dd></div> <div><dt>Public price</dt><dd>Free for 3 users; paid Indian price unverified</dd></div> <div><dt>Proposal</dt><dd>Generic CPQ, inventory, and document options by plan</dd></div> <div><dt>Design</dt><dd>Requires specialist solar design software</dd></div> <div><dt>Operations</dt><dd>Custom modules, approvals, portals, automation, APIs, and integrations</dd></div> <div><dt>CRM depth</dt><dd>Deep general CRM</dd></div> </dl> <a href="#zoho-crm">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">06</span><div><strong>Odoo</strong><small>Best configurable operations suite</small></div></header> <dl> <div><dt>Best for</dt><dd>EPCs seeking one configurable suite for CRM, sales, procurement, inventory, projects, field work, accounting, and service</dd></div> <div><dt>Public price</dt><dd>One App Free; paid plans shown in USD</dd></div> <div><dt>Proposal</dt><dd>Sales quotations, signatures, and invoicing</dd></div> <div><dt>Design</dt><dd>Requires specialist solar design software</dd></div> <div><dt>Operations</dt><dd>Broad suite across office, warehouse, project, field, and finance</dd></div> <div><dt>CRM depth</dt><dd>General CRM within an ERP suite</dd></div> </dl> <a href="#odoo">Read full review <span aria-hidden="true">↓</span></a> </article><article class="mobile-compare-card"> <header><span class="mobile-compare-rank">07</span><div><strong>HubSpot CRM</strong><small>Best marketing-led CRM</small></div></header> <dl> <div><dt>Best for</dt><dd>Solar businesses that prioritise inbound forms, marketing, sales automation, content, and customer communication</dd></div> <div><dt>Public price</dt><dd>Free tools; paid Indian total requires quote</dd></div> <div><dt>Proposal</dt><dd>Generic quotes and commerce tools by product and tier</dd></div> <div><dt>Design</dt><dd>Requires specialist solar design software</dd></div> <div><dt>Operations</dt><dd>Sales, marketing, service, content, commerce, and integrations</dd></div> <div><dt>CRM depth</dt><dd>Deep general customer platform</dd></div> </dl> <a href="#hubspot-crm">Read full review <span aria-hidden="true">↓</span></a> </article> <p class="mobile-billing-note"><strong>Local billing check:</strong> confirm INR pricing, tax treatment, contract currency, and payment fees in writing.</p> </div> <div class="table-shell" role="region" aria-label="Solar CRM comparison table for India" tabindex="0"> <table><thead><tr><th>Platform</th><th>Best for</th><th>Public price</th><th>Solar proposals</th><th>Design</th><th>Project operations</th><th>CRM depth</th><th>Free access</th></tr></thead> <tbody><tr class="winner-row"><th><span class="table-rank">1</span>Quickest Solar CRM</th><td>Indian solar sales teams testing proposal and WhatsApp adoption</td><td>Free; Pro ₹6,999/user/year</td><td>Core strength; Indian output needs validation</td><td>Proposal inputs, not verified as complete Indian PV design</td><td>Focused lead and pipeline workflow</td><td>Solar sales CRM</td><td>10 proposals monthly for one user</td></tr><tr><th><span class="table-rank">2</span>OpenSolar</th><td>Residential installers that want solar design, proposals, CRM, and project management without a core subscription</td><td>Free core platform</td><td>Custom digital and PDF proposals</td><td>Solar and battery design with imagery and modelling</td><td>CRM, projects, teams, hardware, payments, and add-ons</td><td>Built-in solar CRM</td><td>Core platform is free</td></tr><tr><th><span class="table-rank">3</span>Pylon</th><td>Teams with variable design volume that want proposals, battery modelling, install packs, and an optional CRM</td><td>$4 Standard or $10 Pro per project</td><td>Web and PDF proposals with e-signature</td><td>Solar, battery, shading, interval data, SLD, and financial tools</td><td>Job sheets, owner manual, payments, integrations, optional CRM</td><td>Optional solar CRM</td><td>Five Standard project credits for new users</td></tr><tr><th><span class="table-rank">4</span>SolarPlus</th><td>Battery, off-grid, and commercial designers that need detailed energy and financial modelling</td><td>From USD 135/month on annual prepay</td><td>Highly customisable proposals and option comparison</td><td>Deep solar, storage, load, tariff, and financial modelling</td><td>CRM, job packs, compliance flow, invoicing, and handover</td><td>Built-in solar CRM</td><td>Webinar or demo; no permanent free plan shown</td></tr><tr><th><span class="table-rank">5</span>Zoho CRM</th><td>Marketing-led solar businesses with an administrator who can build and govern a local process</td><td>Free for 3 users; paid Indian price unverified</td><td>Generic CPQ, inventory, and document options by plan</td><td>Requires specialist solar design software</td><td>Custom modules, approvals, portals, automation, APIs, and integrations</td><td>Deep general CRM</td><td>Free edition for three users</td></tr><tr><th><span class="table-rank">6</span>Odoo</th><td>EPCs seeking one configurable suite for CRM, sales, procurement, inventory, projects, field work, accounting, and service</td><td>One App Free; paid plans shown in USD</td><td>Sales quotations, signatures, and invoicing</td><td>Requires specialist solar design software</td><td>Broad suite across office, warehouse, project, field, and finance</td><td>General CRM within an ERP suite</td><td>One app with unlimited users</td></tr><tr><th><span class="table-rank">7</span>HubSpot CRM</th><td>Solar businesses that prioritise inbound forms, marketing, sales automation, content, and customer communication</td><td>Free tools; paid Indian total requires quote</td><td>Generic quotes and commerce tools by product and tier</td><td>Requires specialist solar design software</td><td>Sales, marketing, service, content, commerce, and integrations</td><td>Deep general customer platform</td><td>Free CRM tools</td></tr></tbody> </table> </div> <p class="source-line">Pricing and capability labels were checked against official sources on 6 September 2026. Currency conversion is intentionally omitted where a vendor does not publish a local price.</p> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Still comparing?</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Score us against the criteria on this page</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Bring your hardest deal. We will show where Quickest fits and say plainly when another product should win your shortlist.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> <a class="crm-ad-btn ghost" href="/pricing" data-astro-cid-blfpvuap>See pricing</a> </div> </aside>  <section class="section-block india-pricing" id="pricing-india" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>Dated prices, no guesses</p> <h2 data-astro-cid-xo6v4ayp>Solar CRM software pricing in India</h2> <p data-astro-cid-xo6v4ayp>What each platform charges, as read from its official pricing page in October 2026. Where a vendor does not publish a rupee price we write "on request" rather than convert a dollar figure. Vendors change plans without notice, so treat the table as a starting point for a written quote.</p> </div> <div class="price-wrap" role="region" aria-label="Solar CRM software pricing in India, as of October 2026" tabindex="0" data-astro-cid-xo6v4ayp> <table data-astro-cid-xo6v4ayp> <caption class="vh" data-astro-cid-xo6v4ayp>Solar CRM software pricing in India, as of October 2026</caption> <thead data-astro-cid-xo6v4ayp><tr data-astro-cid-xo6v4ayp><th scope="col" data-astro-cid-xo6v4ayp>Platform</th><th scope="col" data-astro-cid-xo6v4ayp>Published entry price (as of October 2026)</th><th scope="col" data-astro-cid-xo6v4ayp>What the figure covers</th><th scope="col" data-astro-cid-xo6v4ayp>Where we checked</th></tr></thead> <tbody data-astro-cid-xo6v4ayp> <tr class="winner-row" data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>Quickest Solar CRM</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>Free plan; Pro ₹6,999 per user per year</strong></td> <td data-astro-cid-xo6v4ayp>Free: 1 user, 10 proposals a month. Pro has a 3-user minimum (₹20,997 a year for 3 users). Yearly billing.</td> <td data-astro-cid-xo6v4ayp>Quickest&#39;s own pricing page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>OpenSolar</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>Free core platform</strong></td> <td data-astro-cid-xo6v4ayp>Core design, proposal and CRM platform is free. Check API, connector, partner and service costs separately.</td> <td data-astro-cid-xo6v4ayp>Official site, free-platform page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>Pylon</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>$4 (Standard) or $10 (Pro) per project; Solar CRM from $49 per user per month</strong></td> <td data-astro-cid-xo6v4ayp>Page shows &quot;$&quot; without a currency code. Not an Indian-rupee price.</td> <td data-astro-cid-xo6v4ayp>Official pricing page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>SolarPlus</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>USD 135, 260 or 450 per month (Starter, Pro, Complete)</strong></td> <td data-astro-cid-xo6v4ayp>Annual prepay. Monthly plan costs more. Priced in US dollars.</td> <td data-astro-cid-xo6v4ayp>Official pricing page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>Zoho CRM</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>Free edition for 3 users; paid plans on request</strong></td> <td data-astro-cid-xo6v4ayp>Paid per-user rupee rates were not shown on the public page, so we do not quote one.</td> <td data-astro-cid-xo6v4ayp>Official pricing page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>Odoo</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>One app free; paid plans on request</strong></td> <td data-astro-cid-xo6v4ayp>The free plan is one app with unlimited users. Paid plans are shown in US dollars.</td> <td data-astro-cid-xo6v4ayp>Official pricing page</td> </tr><tr data-astro-cid-xo6v4ayp> <th scope="row" data-astro-cid-xo6v4ayp>HubSpot CRM</th> <td data-astro-cid-xo6v4ayp><strong data-astro-cid-xo6v4ayp>Free CRM tools; paid totals on request</strong></td> <td data-astro-cid-xo6v4ayp>Paid totals depend on seats, hubs and contacts and were not confirmable from the public page.</td> <td data-astro-cid-xo6v4ayp>Official pricing page</td> </tr> </tbody> </table> </div> <p class="source-line" data-astro-cid-xo6v4ayp>Checked 14 October 2026. Budget separately for GST, onboarding, migration, WhatsApp conversation charges and training; the subscription is rarely the biggest cost. We publish Quickest, so read its row as a vendor price, not an independent one.</p> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Free plan</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Test Quickest with real leads before you decide</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>The free plan gives one user 10 proposals a month. Build a real proposal with it, then shortlist what else you actually need.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start on the free plan</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>  <section class="section-block india-pipeline" id="pipeline" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>How a solar deal moves</p> <h2 data-astro-cid-xo6v4ayp>The 7-stage solar sales pipeline a CRM should hold</h2> <p data-astro-cid-xo6v4ayp>Every Indian rooftop deal passes the same seven handoffs. If your software cannot show which stage a deal is in and who owns it, follow-up depends on memory.</p> </div> <figure class="pipeline-figure" data-astro-cid-xo6v4ayp> <ol class="pipeline" aria-label="Seven solar sales pipeline stages from new lead to commissioned" data-astro-cid-xo6v4ayp> <li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>1</span> <strong data-astro-cid-xo6v4ayp>New Lead</strong> <small data-astro-cid-xo6v4ayp>Source, owner, WhatsApp consent</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>2</span> <strong data-astro-cid-xo6v4ayp>Site Survey</strong> <small data-astro-cid-xo6v4ayp>Roof, bill, photos, load</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>3</span> <strong data-astro-cid-xo6v4ayp>Proposal Sent</strong> <small data-astro-cid-xo6v4ayp>INR quote, subsidy lines, revisions</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>4</span> <strong data-astro-cid-xo6v4ayp>Negotiation</strong> <small data-astro-cid-xo6v4ayp>Size or price change, follow-ups</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>5</span> <strong data-astro-cid-xo6v4ayp>Subsidy Filed</strong> <small data-astro-cid-xo6v4ayp>Scheme and DISCOM application</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>6</span> <strong data-astro-cid-xo6v4ayp>Installation</strong> <small data-astro-cid-xo6v4ayp>Equipment record, site photos</small> </li><li data-astro-cid-xo6v4ayp> <span class="stage-n" aria-hidden="true" data-astro-cid-xo6v4ayp>7</span> <strong data-astro-cid-xo6v4ayp>Commissioned</strong> <small data-astro-cid-xo6v4ayp>Inspection, meter, handover</small> </li> </ol> <figcaption data-astro-cid-xo6v4ayp>Figure 1. The seven default stages in Quickest Solar CRM's pipeline, from New Lead to Commissioned. Stages can be renamed, added or reordered to match your DISCOM sequence. This is a diagram of the stage flow, not a product screenshot.</figcaption> </figure> <p class="india-note" data-astro-cid-xo6v4ayp>See how the stages work in <a href="/features/pipeline-management" data-astro-cid-xo6v4ayp>pipeline management</a>, or read <a href="/glossary/pipeline" data-astro-cid-xo6v4ayp>what a sales pipeline is</a>.</p> </section> <section class="section-block india-topics" id="epc-companies" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>Who it is for</p> <h2 data-astro-cid-xo6v4ayp>Solar CRM software for EPC companies</h2> <p data-astro-cid-xo6v4ayp>An EPC sells, designs, procures, installs and commissions. The record has to survive each handoff, from the salesperson to the survey team to the crew on the roof.</p> </div> <div class="topic-grid" data-astro-cid-xo6v4ayp> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>What an EPC should demand</h3> <ul data-astro-cid-xo6v4ayp> <li data-astro-cid-xo6v4ayp>One owner per lead, and history that stays when a rep leaves.</li> <li data-astro-cid-xo6v4ayp>Proposal versions kept together, so the document the customer agreed to is always findable.</li> <li data-astro-cid-xo6v4ayp>Survey photos, the equipment list and approvals passed to the install team before the van is booked.</li> <li data-astro-cid-xo6v4ayp>Residential and commercial deals tracked separately, since commercial work adds tenders and variations.</li> </ul> </article> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>Where a focused CRM stops</h3> <p data-astro-cid-xo6v4ayp>Quickest covers lead to proposal to follow-up and the pipeline. It is not an inventory, purchasing or accounting system. An EPC that wants solar project management software with stock and accounts in the same place should test Odoo and plan the configuration time. See <a href="/features/proposal-generator" data-astro-cid-xo6v4ayp>the proposal generator</a> and <a href="/features/quotation-system" data-astro-cid-xo6v4ayp>the quotation system</a> for the sales side.</p> </article> </div> <figure class="quote-card" data-astro-cid-xo6v4ayp> <blockquote data-astro-cid-xo6v4ayp>Quickest Solar CRM is highly useful. It saves my team's time and effort, and it's super easy to use. Highly recommend it for any solar EPC.</blockquote> <figcaption data-astro-cid-xo6v4ayp>Ravi Harsoda, CEO, Sunnovative</figcaption> </figure> </section> <section class="section-block india-topics" id="whatsapp" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>Where customers reply</p> <h2 data-astro-cid-xo6v4ayp>WhatsApp follow-up for solar installers</h2> <p data-astro-cid-xo6v4ayp>Many Indian solar buyers reply on WhatsApp sooner than on email. The question is whether the conversation belongs to the deal or to one salesperson's phone.</p> </div> <div class="topic-grid" data-astro-cid-xo6v4ayp> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>Test these in a demo</h3> <ul data-astro-cid-xo6v4ayp> <li data-astro-cid-xo6v4ayp>Is the thread attached to the deal, so a colleague can pick it up?</li> <li data-astro-cid-xo6v4ayp>Is opt-in recorded for each contact, in line with the <a href="/glossary/dpdp-act" data-astro-cid-xo6v4ayp>DPDP Act</a>?</li> <li data-astro-cid-xo6v4ayp>Who pays for business-initiated conversations, and are message templates approved on the <a href="/glossary/whatsapp-business-api" data-astro-cid-xo6v4ayp>WhatsApp Business API</a>?</li> <li data-astro-cid-xo6v4ayp>Can a rep send the proposal PDF and log the reply in the same screen?</li> </ul> </article> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>What Quickest does here</h3> <p data-astro-cid-xo6v4ayp>Follow-up runs on WhatsApp with templated messages and scheduled reminders attached to the deal. Ask whether WhatsApp conversation charges are extra to the ₹6,999 seat price, and confirm consent handling, in your order form. Details on <a href="/features/whatsapp-follow-up" data-astro-cid-xo6v4ayp>WhatsApp follow-up</a>.</p> </article> </div> </section> <section class="section-block india-topics" id="pm-surya-ghar-crm" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>Scheme-driven selling</p> <h2 data-astro-cid-xo6v4ayp>A solar CRM for PM Surya Ghar installers</h2> <p data-astro-cid-xo6v4ayp>Much Indian residential rooftop work is sold through <a href="/glossary/pm-surya-ghar" data-astro-cid-xo6v4ayp>PM Surya Ghar</a>. A CRM cannot file the application for you, but it should hold the record the scheme needs.</p> </div> <div class="topic-grid" data-astro-cid-xo6v4ayp> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>What the record should hold</h3> <ul data-astro-cid-xo6v4ayp> <li data-astro-cid-xo6v4ayp>Consumer account, state and <a href="/glossary/discom" data-astro-cid-xo6v4ayp>DISCOM</a>, and feasibility status.</li> <li data-astro-cid-xo6v4ayp>The subsidy basis and date the quote used, because scheme rules change.</li> <li data-astro-cid-xo6v4ayp>Module and inverter models, so ALMM and DCR checks have evidence behind them.</li> <li data-astro-cid-xo6v4ayp>Installation photos, inspection and meter stages through commissioning.</li> </ul> </article> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>One rule for proposals</h3> <p data-astro-cid-xo6v4ayp>Show the subsidy as an estimate against a stated scheme version, never as guaranteed money. Quickest produces subsidy-ready PDF proposals, but you still verify the current scheme and your DISCOM's process. Background reading: <a href="/blog/pm-surya-ghar-application-process" data-astro-cid-xo6v4ayp>the PM Surya Ghar application process</a> and <a href="/blog/pm-surya-ghar-empanelled-vendor" data-astro-cid-xo6v4ayp>becoming an empanelled vendor</a>.</p> </article> </div> </section> <section class="section-block india-topics" id="lead-management" data-astro-cid-xo6v4ayp> <div class="section-heading" data-astro-cid-xo6v4ayp> <p class="section-label" data-astro-cid-xo6v4ayp>Before the proposal</p> <h2 data-astro-cid-xo6v4ayp>Solar lead management software</h2> <p data-astro-cid-xo6v4ayp>Enquiries go cold when they sit in a shared inbox or a salesperson's notebook, so lead handling comes before proposals.</p> </div> <div class="topic-grid" data-astro-cid-xo6v4ayp> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>What good lead management does</h3> <ul data-astro-cid-xo6v4ayp> <li data-astro-cid-xo6v4ayp>Pulls enquiries from website forms, Facebook lead ads and listing sites into one list.</li> <li data-astro-cid-xo6v4ayp>Assigns each lead to a named rep (<a href="/glossary/lead-routing" data-astro-cid-xo6v4ayp>lead routing</a>) and flags deals that stall.</li> <li data-astro-cid-xo6v4ayp>Records the source, so you can see which channel produces signed deals, not just enquiries.</li> <li data-astro-cid-xo6v4ayp>Keeps duplicates and returning customers from being treated as new.</li> </ul> </article> <article data-astro-cid-xo6v4ayp> <h3 data-astro-cid-xo6v4ayp>How to check it</h3> <p data-astro-cid-xo6v4ayp>Import ten real leads from last month and ask who owns each, what happened next and which source it came from. If the answer takes more than a minute per lead, the tool is not doing the job. Quickest covers this in <a href="/features/lead-capture" data-astro-cid-xo6v4ayp>lead capture</a> and reports it in <a href="/features/sales-reports" data-astro-cid-xo6v4ayp>sales reports</a>.</p> </article> </div> <figure class="quote-card" data-astro-cid-xo6v4ayp> <blockquote data-astro-cid-xo6v4ayp>After Quickest Solar CRM, our sales team has become more organized. Every lead is tracked. Every proposal is consistent. A real game-changer.</blockquote> <figcaption data-astro-cid-xo6v4ayp>Bharat Shiroya, CEO, Adarsh Anukampa</figcaption> </figure> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>One mobile flow: proposal, pipeline, follow-up</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Branded PDF proposals, clean revisions, WhatsApp-first follow-up and a pipeline your manager can see — web, iOS and Android.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/crm" data-astro-cid-blfpvuap>See how it works</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>   <section class="section-block local-market-section" id="local-market"> <div class="section-heading"><p class="section-label">Country research</p><h2>An Indian solar CRM must preserve the scheme, DISCOM, equipment, tax, and handover record</h2><p>An Indian rooftop record should connect the consumer account, state and DISCOM, bills, feasibility status, site survey, design, module and inverter models, proposal revision, vendor agreement, installation evidence, geo-tagged photos, inspection, metering agreement, commissioning, subsidy status, GST documents, consent, warranty, and handover. Commercial work needs separate tender, engineering, procurement, milestone, variation, and acceptance stages.</p></div> <div class="evidence-grid"> <article><span>01</span><p>MNRE describes the Grid Connected Rooftop Solar Programme and links consumers to PM Surya Ghar and DISCOM portals. National policy does not erase state-level execution. Store the state, serving DISCOM, connection number, applicable portal, process version, and responsible owner for each property.</p><a href="https://mnre.gov.in/en/grid-connected-solar-rooftop-programme/" target="_blank" rel="noopener">Ministry of New and Renewable Energy: Grid Connected Rooftop Solar Programme ↗</a></article><article><span>02</span><p>The official PM Surya Ghar CFA guidelines place consumer registration, vendor choice, agreed system and commercial terms, technical compliance, feasibility where applicable, installation, portal updates, DISCOM inspection, meter installation and agreement, and CFA processing into a connected journey. A CRM should preserve submissions and accepted versions rather than merely showing a subsidy stage.</p><a href="https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf" target="_blank" rel="noopener">Ministry of New and Renewable Energy: PM Surya Ghar CFA operational guidelines ↗</a></article><article><span>03</span><p>The guidelines say the consumer chooses a vendor registered on the National Portal and mutually agrees the system, quality, warranty, and financial terms. They also state that actual vendor agreements can vary. Keep the exact signed proposal, agreement, equipment schedule, payment terms, warranty promise, and later variation together.</p><a href="https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf" target="_blank" rel="noopener">Ministry of New and Renewable Energy: PM Surya Ghar CFA operational guidelines ↗</a></article><article><span>04</span><p>After installation, the guidelines call for system details and geo-tagged photographs on the portal. The application then moves to DISCOM inspection and the appropriate agreement. CFA processing follows physical verification. Store the photo source, coordinates, capture time, uploader, inspection checklist, defects, correction evidence, approval, meter record, and subsidy status.</p><a href="https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf" target="_blank" rel="noopener">Ministry of New and Renewable Energy: PM Surya Ghar CFA operational guidelines ↗</a></article><article><span>05</span><p>The guidelines state that central CFA is based on the rated DC capacity of installed modules and set conditions for eligible residential systems. They also allow state or union-territory support to supplement central CFA. A proposal must label the source, capacity basis, customer eligibility, application date, state top-up, and approval status rather than presenting subsidy as guaranteed cash.</p><a href="https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf" target="_blank" rel="noopener">Ministry of New and Renewable Energy: PM Surya Ghar CFA operational guidelines ↗</a></article><article><span>06</span><p>MNRE says ALMM List I identifies eligible module models and manufacturers for government-assisted, government-scheme, open-access, and net-metering projects, and the list is updated regularly. The page also tracks List II for cells and changing clarifications. Save the exact model, manufacturer, list, revision date, DCR evidence, serials, and reviewer used for each job.</p><a href="https://mnre.gov.in/en/approved-list-of-models-and-manufacturers-almm/" target="_blank" rel="noopener">Ministry of New and Renewable Energy: Approved List of Models and Manufacturers ↗</a></article><article><span>07</span><p>CBIC publishes GST rates by goods and services classification. A rooftop contract can contain equipment, installation, civil or electrical work, services, discounts, advances, and later changes, so one universal solar GST switch is unsafe. Have a tax professional approve classifications, place of supply, invoice fields, e-invoicing or e-way-bill requirements, credit notes, and record retention.</p><a href="https://cbic-gst.gov.in/gst-goods-services-rates.html" target="_blank" rel="noopener">Central Board of Indirect Taxes and Customs: GST goods and services rates ↗</a></article><article><span>08</span><p>The Digital Personal Data Protection Act defines Data Fiduciary and Data Principal roles, requires notice around consent requests, describes consent as free, specific, informed, unconditional, and unambiguous, and provides a withdrawal route. Solar CRMs holding bills, Aadhaar-related documents, property images, bank details, calls, and messages need purpose, access, processor, retention, breach, correction, erasure, and export controls.</p><a href="https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04e6fb4f8fef35e82c42aa5.pdf" target="_blank" rel="noopener">Ministry of Electronics and Information Technology: Digital Personal Data Protection Act 2023 ↗</a></article> </div> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Take this comparison into a live demo</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Book 30 minutes and we will run your real lead-to-proposal workflow — your prices, your documents, your follow-up.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> <a class="crm-ad-btn ghost" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start free</a> </div> </aside>  <section class="reviews-wrap" id="reviews"> <div class="section-heading review-intro"><p class="section-label">Full reviews</p><h2>Why each solar CRM earns its place</h2><p>Each review explains the useful workflow, the buyer who should shortlist it, and the country-specific question that a sales demo must answer.</p></div>  <article class="review-card featured-review" id="quickest-solar-crm"> <header class="review-header"><div class="review-identity"><span class="big-rank">01</span><div class="vendor-mark quickest large">Q</div><div><span class="best-label">Best proposal-first value</span><h2>Quickest Solar CRM</h2></div></div><a class="vendor-link" href="/pricing">Quickest pricing ↗</a></header> <p class="review-verdict"><strong>Quickest is our first proposal-first trial for India, subject to current DISCOM, subsidy, tax, privacy, and field acceptance tests.</strong></p> <div class="fact-strip"><span><small>Best for</small>Proposal-first adoption</span><span><small>Free use</small>10 proposals monthly</span><span><small>Local evidence</small>India-first product</span></div> <div class="review-copy"><p>Quickest focuses on lead capture and ownership, India-oriented solar proposals, follow-up, WhatsApp-led communication, and pipeline visibility. It publishes INR pricing and a free starting point. Older company articles include unsupported timing and ROI claims; this ranking does not rely on them.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Focused lead, proposal, follow-up, and pipeline path</li><li>Free entry point for a controlled test</li><li>Mobile-oriented workflow for small sales teams</li></ul></div><div><strong>Check before buying</strong><ul><li>Require written confirmation for every Indian localisation item</li><li>Run a real weak-signal field and full data-export test</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> proposal speed, simple ownership, daily follow-up, and sales adoption are the immediate bottlenecks, and the vendor passes the full Indian acceptance plan. <strong>Choose another platform if:</strong> the team needs verified Indian compliance, deep PV engineering, complex field operations, inventory, or broad marketing automation before it needs a focused proposal CRM.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM — rank 01</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Ready to test the number-one pick?</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Start free with 10 proposals a month, or book 30 minutes and run your own workflow instead of a demo script.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="https://app.quickestimate.co/register" data-astro-cid-mmwtvsfm>Start free</a> <a class="listing-cta-btn ghost" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> </div> </div>   <article class="review-card" id="opensolar"> <header class="review-header"><div class="review-identity"><span class="big-rank">02</span><div class="vendor-mark opensolar large">OS</div><div><span class="best-label">Best free core design platform</span><h2>OpenSolar</h2></div></div></header> <p class="review-verdict"><strong>OpenSolar is the strongest free core alternative for design-led residential selling, provided its Indian imagery, tariff, equipment, payment, and utility workflow passes the test.</strong></p> <div class="fact-strip"><span><small>Core price</small>Free</span><span><small>Paid change</small>External connectivity from April 2026</span><span><small>Scope</small>Design, sell, manage</span></div> <div class="review-copy"><p>OpenSolar combines lead capture, AI-assisted and manual design, solar and battery proposals, financial presentation, e-signature, payments, a built-in CRM, project management, teams, hardware ordering, imagery, permitting services, and integrations. Its free core makes it a credible reference product against every paid proposal platform.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Broad free core for design, proposals, CRM, and projects</li><li>Solar and battery presentation with e-signature</li><li>Useful benchmark before paying for another platform</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> design and customer presentation are central, the team wants a free core, and local validation shows that companion services are available at a sensible total cost. <strong>Choose another platform if:</strong> offline installation work, deep accounting and inventory, or a tightly focused sales-adoption workflow matters more than an integrated design platform.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist OpenSolar alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If OpenSolar still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   <article class="review-card" id="pylon"> <header class="review-header"><div class="review-identity"><span class="big-rank">03</span><div class="vendor-mark pylon large">P</div><div><span class="best-label">Best usage-priced solar design</span><h2>Pylon</h2></div></div></header> <p class="review-verdict"><strong>Pylon offers the clearest low-commitment design pricing in this shortlist, but several technical and integration cues are Australian and require Indian validation.</strong></p> <div class="fact-strip"><span><small>Standard</small>$4 per project</span><span><small>Pro</small>$10 per project</span><span><small>CRM</small>From $49 per user monthly</span></div> <div class="review-copy"><p>Pylon publishes high-resolution imagery, panel placement, solar and battery design, shading, interval-data analysis, financial projections, web and PDF proposals, signatures, card payments, SLDs, voltage-rise reports, job sheets, owner manuals, integrations, and an optional sales CRM. Usage pricing can fit a team that does not want a fixed design subscription.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Transparent per-project design model</li><li>Strong proposal, battery, interval-data, and install-document scope</li><li>Optional CRM avoids forcing every buyer into a sales subscription</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> design volume varies and the team wants capable solar proposals and project documents without a large fixed design commitment. <strong>Choose another platform if:</strong> the company wants a free core, a broad operations suite, or a CRM with deeper marketing automation.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist Pylon alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If Pylon still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   <article class="review-card" id="solarplus"> <header class="review-header"><div class="review-identity"><span class="big-rank">04</span><div class="vendor-mark solarplus large">S+</div><div><span class="best-label">Best design-to-handover depth</span><h2>SolarPlus</h2></div></div></header> <p class="review-verdict"><strong>SolarPlus has the broadest specialist design-to-handover documentation here, but Indian teams must replace Australian compliance, maps, tariffs, tax, and integrations with verified local inputs.</strong></p> <div class="fact-strip"><span><small>Starter annual</small>USD 135 monthly</span><span><small>Pro annual</small>USD 260 monthly</span><span><small>Complete annual</small>USD 450 monthly</span></div> <div class="review-copy"><p>SolarPlus documents solar and battery sizing, interval-data and appliance load analysis, off-grid work, demand tariffs, peak shaving, EV and hot-water modelling, system upgrades, lifetime cash flow, PPA and financial analysis, string configuration, equipment, proposals, option comparison, pricing, CRM, tasks, contracts, invoicing, installation job packs, safety documents, and handover manuals.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Deep solar, storage, load, tariff, and finance modelling</li><li>Workflow reaches installation packs and handover</li><li>Residential, commercial, and off-grid use cases</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> technical design, batteries, commercial modelling, and consistent project documents justify a specialist platform and a careful localisation project. <strong>Choose another platform if:</strong> the business needs a lighter sales workflow, a free core, or general accounting and inventory more than advanced energy modelling.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist SolarPlus alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If SolarPlus still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   <article class="review-card" id="zoho-crm"> <header class="review-header"><div class="review-identity"><span class="big-rank">05</span><div class="vendor-mark hubspot large">Z</div><div><span class="best-label">Best configurable general CRM</span><h2>Zoho CRM</h2></div></div></header> <p class="review-verdict"><strong>Zoho CRM offers broad configurable sales control at a low starting point, but a Indian solar company must own the data model, solar design connection, field process, and ongoing administration.</strong></p> <div class="fact-strip"><span><small>Free edition</small>Three users</span><span><small>Mobile</small>Official mobile apps</span><span><small>Paid local price</small>Confirm directly</span></div> <div class="review-copy"><p>Zoho CRM publishes leads, contacts, activities, forms, pipelines, email, calling, mobile apps, imports and exports, reports, APIs, workflow automation, custom modules, approvals, inventory, CPQ, portals, journeys, forecasting, sandboxes, and security controls across its editions. This breadth suits a business with multiple lead sources and formal sales governance.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Broad forms, pipelines, automation, approvals, portals, reports, and APIs</li><li>Free edition for three users</li><li>Flexible custom modules for a controlled implementation</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> the company wants general CRM depth, has several marketing and sales motions, and can fund an owner for configuration and governance. <strong>Choose another platform if:</strong> the team wants solar design, proposals, utility stages, and handover with less custom work.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist Zoho CRM alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If Zoho CRM still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   <article class="review-card" id="odoo"> <header class="review-header"><div class="review-identity"><span class="big-rank">06</span><div class="vendor-mark generic large">O</div><div><span class="best-label">Best configurable operations suite</span><h2>Odoo</h2></div></div></header> <p class="review-verdict"><strong>Odoo is the most operationally ambitious option here, but it becomes a project rather than a simple CRM purchase and needs a strong Indian implementer plus specialist solar design.</strong></p> <div class="fact-strip"><span><small>Free</small>One app, unlimited users</span><span><small>Hosting</small>Odoo Online included by plan</span><span><small>Implementation</small>Separate scope</span></div> <div class="review-copy"><p>Odoo brings CRM, sales, quotations, signatures, accounting, invoicing, purchasing, inventory, documents, projects, planning, timesheets, field service, help desk, website, marketing, and reporting into one app family. That can reduce duplicate customer, supplier, stock, job, invoice, and service records for an installer willing to implement an ERP-shaped process.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Broad CRM-to-accounting and field-service scope</li><li>Inventory, purchasing, projects, invoices, and documents can share records</li><li>One App Free can support a narrow test</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> operational fragmentation across sales, procurement, stock, jobs, billing, and service is the central problem and management will sponsor implementation. <strong>Choose another platform if:</strong> the immediate need is a quick solar proposal rollout or advanced PV and battery design without an ERP project.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist Odoo alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If Odoo still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   <article class="review-card" id="hubspot-crm"> <header class="review-header"><div class="review-identity"><span class="big-rank">07</span><div class="vendor-mark hubspot large">H</div><div><span class="best-label">Best marketing-led CRM</span><h2>HubSpot CRM</h2></div></div></header> <p class="review-verdict"><strong>HubSpot is a credible marketing and customer-platform option, but it ranks last because the Indian solar, field, and public-pricing gaps create the heaviest fit and cost test for this use case.</strong></p> <div class="fact-strip"><span><small>Entry</small>Free CRM tools</span><span><small>Solar design</small>Separate platform required</span><span><small>Local total</small>Obtain a quote</span></div> <div class="review-copy"><p>HubSpot is built around customer records, forms, email, marketing, pipeline management, tasks, automation, reporting, content, service, commerce, and a large integration catalogue. It can suit a solar company whose main challenge is generating, routing, nurturing, and measuring leads across multiple channels rather than technical design or installation control.</p></div> <div class="pros-cons"><div><strong>Why shortlist it</strong><ul><li>Strong general marketing, sales, content, service, and integration catalogue</li><li>Free tools support an initial contact and pipeline test</li><li>Suitable for structured inbound and multi-channel lead management</li></ul></div><div><strong>Check before buying</strong><ul><li>Verify Indian GST, tariffs, subsidy, ALMM, DISCOM, privacy, and support terms</li><li>Test WhatsApp, accounting, weak-connectivity field work, handover, and full export</li></ul></div></div> <p class="choose-line"><strong>Choose it if:</strong> inbound marketing, lead nurturing, pipeline automation, and customer communication drive the buying case and the business can integrate specialist tools. <strong>Choose another platform if:</strong> the team mainly needs solar design, proposal speed, installation documents, inventory, or a low-cost all-in-one workflow.</p> </article> <div class="listing-cta" data-astro-cid-mmwtvsfm> <div class="listing-cta-copy" data-astro-cid-mmwtvsfm> <span class="listing-cta-kicker" data-astro-cid-mmwtvsfm>Quickest Solar CRM</span> <strong class="listing-cta-title" data-astro-cid-mmwtvsfm>Before you shortlist HubSpot CRM alone</strong> <p class="listing-cta-body" data-astro-cid-mmwtvsfm>Run the same deal through Quickest. If HubSpot CRM still fits your workflow better, the demo will show you that too.</p> </div> <div class="listing-cta-actions" data-astro-cid-mmwtvsfm> <a class="listing-cta-btn" href="/demo" data-astro-cid-mmwtvsfm>Book a demo</a> <a class="listing-cta-btn ghost" href="/pricing" data-astro-cid-mmwtvsfm>See Quickest pricing</a> </div> </div>   </section> <section class="section-block guide-section" id="how-to-choose"> <div class="section-heading"><p class="section-label">Buyer guide</p><h2>How should a Indian solar company choose a CRM?</h2><p>Choose by the most expensive broken handoff, then test that handoff using real opportunities, real users, and the documents your customers actually receive.</p></div> <div class="decision-grid"><div><span>Small PM Surya Ghar sales team</span><strong>Start with Quickest</strong><p>Quickest gets the first test when lead ownership, INR proposals, WhatsApp follow-up, and mobile adoption are the immediate problems. Make the team prove the current state and DISCOM process before importing live leads.</p></div><div><span>Design-led residential installer</span><strong>Compare OpenSolar with Pylon</strong><p>OpenSolar offers a broad free core, and Pylon offers usage-priced design. Validate ALMM records, Indian tariffs, subsidy versions, DISCOM documents, and field handover in either system.</p></div><div><span>Battery or commercial design team</span><strong>Compare SolarPlus and Pylon</strong><p>Both document detailed design and proposal functions. SolarPlus reaches further into batteries, loads, commercial finance, and handover. Pylon has lower-commitment project pricing. Remove Australian assumptions before use.</p></div><div><span>Operations-led EPC</span><strong>Compare Odoo with a solar design tool</strong><p>Odoo can connect CRM, sales, purchasing, stock, projects, field service, accounting, and support. It needs an Indian implementation owner and a verified design and DISCOM layer.</p></div><div><span>Marketing-led multi-team company</span><strong>Compare Zoho CRM and HubSpot</strong><p>These general platforms suit forms, campaigns, routing, automation, reporting, and service. Budget solar design, WhatsApp, GST, subsidy, field, and utility configuration separately.</p></div></div> <h3>The Three-Deal Proof</h3> <p>Run the same three opportunities in every shortlisted CRM: one ordinary lead, one revision-heavy project, and one deal that already failed. This removes demo theatre and exposes repeated entry, stale documents, weak mobile adoption, and missing local support.</p> <ol class="proof-steps"><li><span>1</span><div><strong>Run the clean deal</strong><p>Capture a real lead, assign it, create the proposal, schedule follow-up, record acceptance, and hand it to delivery.</p></div></li><li><span>2</span><div><strong>Change the assumptions</strong><p>Change the system, equipment, price, payment route, and installation date. Identify every stale record.</p></div></li><li><span>3</span><div><strong>Recreate a failure</strong><p>Use a duplicate, missed follow-up, rejected proposal, or delayed job and ask the CRM to show what happens next.</p></div></li></ol> <h3>10 requirements to verify in India</h3> <div class="requirements-list"><article><span>01</span><div><h4>INR prices, GST, and accounting acceptance</h4><p>Build residential, housing-society, and commercial quotes in INR. Test equipment, labour, civil work, discounts, advances, milestones, retention, credit notes, and cancellation. Have the accountant approve GST classifications, invoice output, e-invoice or e-way-bill treatment, and books integration.</p></div></article><article><span>02</span><div><h4>PM Surya Ghar version and eligibility</h4><p>Record scheme route, consumer category, connection identity, property, sanctioned load, module DC capacity, state support, source, effective date, and reviewer. Revise a subsidy rule without changing the accepted proposal or earlier application.</p></div></article><article><span>03</span><div><h4>DISCOM-specific process</h4><p>Use the serving DISCOM portal and current state regulation. Test feasibility, document requests, corrections, installation update, inspection, agreement, meter procurement and installation, commissioning, approval, and subsidy status with timestamps and owners.</p></div></article><article><span>04</span><div><h4>ALMM, DCR, and equipment traceability</h4><p>Validate manufacturer and exact module model against the applicable ALMM revision and DCR condition. Preserve inverter and protection data, datasheets, serial numbers, purchase record, substitution approval, installation photos, warranty, and handover.</p></div></article><article><span>05</span><div><h4>Residential and commercial separation</h4><p>Keep subsidy-led residential work distinct from housing-society, commercial, industrial, tender, and open-access journeys. Give commercial work decision makers, engineering reviews, procurement, milestone billing, tax deductions, variations, acceptance, and service stages.</p></div></article><article><span>06</span><div><h4>Design, tariff, export, and savings assumptions</h4><p>Create a traceable design from bills or interval data. Show consumption, self-use, exports, losses, degradation, dated retail and export values, outage and battery assumptions, finance inputs, and uncertainty. Keep every accepted version.</p></div></article><article><span>07</span><div><h4>WhatsApp consent and ownership</h4><p>Test lead consent, approved templates, service and marketing messages, opt-out, sender identity, conversation assignment, attachments, delivery state, cost, and write-back. Confirm the official WhatsApp Business route and a fallback for customers using another channel.</p></div></article><article><span>08</span><div><h4>Mobile and weak-connectivity field work</h4><p>At a low-signal site, open the current scope, survey, roof and electrical checklist, capture geo-tagged photos, serials, defects, notes, and signatures, then sync without duplicates. Test role removal and lost-device response.</p></div></article><article><span>09</span><div><h4>DPDP and processor terms</h4><p>Map data purpose and source. Review notices, consent withdrawal, permissions, audit logs, processors, subprocessors, hosting, transfers, safeguards, breaches, retention, correction, erasure, bulk export, and closure before importing live records.</p></div></article><article><span>10</span><div><h4>Commissioning, warranty, and handover</h4><p>Use the approved design and store inspection, agreement, meter details, safety tests, commissioning, punch-list closure, subsidy evidence, warranties, customer training, manuals, signed acceptance, service tickets, and a complete export.</p></div></article></div> <div class="warning-callout"><strong>Contract rule:</strong> A country name on a vendor website does not prove that local billing, documents, integrations, support hours, or regulatory workflows are included in your plan. Put each required capability in the order form.</div> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Free plan</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Test Quickest with real leads before you decide</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>The free plan gives one user 10 proposals a month. Build a real proposal with it, then shortlist what else you actually need.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start on the free plan</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>  <section class="section-block cost-section"> <div class="section-heading"><p class="section-label">The real budget</p><h2>What does solar CRM software cost in India?</h2><p>Compare a three-year INR cost covering users, design volume, storage, WhatsApp templates and conversations, email and SMS, premium imagery, e-signatures, payment fees, APIs, connectors, accounting, onboarding, migration, configuration, training, support, security review, and exit. Keep vendor currencies unchanged when no Indian price exists. A converted web price is not a local quote, and GST inclusion must be explicit.</p></div> <div class="cost-grid"><article><strong>Free; Pro ₹6,999/user/year</strong><span>Quickest Solar CRM</span><p>Indian public pricing. Pro has a three-user minimum. Confirm Indian commercial and tax terms.</p></article><article><strong>Free core platform</strong><span>OpenSolar</span><p>External API access and supported app connectors are paid from 16 April 2026. Regional services and partner costs vary.</p></article><article><strong>$4 Standard or $10 Pro per project</strong><span>Pylon</span><p>The page does not label the dollar currency as INR. Solar CRM starts at $49 per user per month. Confirm currency, tax, and Indian availability.</p></article><article><strong>From USD 135/month on annual prepay</strong><span>SolarPlus</span><p>Starter is USD 135, Pro USD 260, and Complete USD 450 monthly on annual prepayment. Monthly billing and onboarding cost more.</p></article></div> <p>Quickest publishes a free plan for one user and 10 proposals monthly. Pro is ₹6,999 per user yearly with a minimum of three users. Confirm GST, onboarding, WhatsApp conversation charges, integrations, storage, support, and renewal in the order form.</p><p>OpenSolar says its core platform remains free, while external API access and supported connectors became paid on 16 April 2026. Price imagery, payments, finance, messages, permitting, hardware, and every external connection needed in India.</p><p>Pylon lists $4 Standard and $10 Pro per project, with Solar CRM from $49 per user monthly. SolarPlus lists annual-prepay plans in USD. Neither captured page establishes those dollar figures as INR, so request Indian terms and tax treatment.</p><p>Zoho CRM offers a free edition for three users and exposes INR on its captured pricing page. Odoo shows USD on the captured page, while HubSpot did not expose dependable plan totals. Confirm regional checkout, GST, onboarding, contacts, credits, support, and renewal.</p> </section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>One mobile flow: proposal, pipeline, follow-up</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Branded PDF proposals, clean revisions, WhatsApp-first follow-up and a pipeline your manager can see — web, iOS and Android.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/crm" data-astro-cid-blfpvuap>See how it works</a> <a class="crm-ad-btn ghost" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> </div> </aside>  <section class="qe-fit section-block" id="quickestimate"> <div class="qe-fit-copy"><p class="section-label light">Our number-one pick</p><h2>Why Quickest Solar CRM ranks first in India</h2><p>Quickest ranks first because this comparison gives the greatest weight to proposal-first value and adoption for an Indian field sales team. It keeps lead ownership, solar proposal work, follow-up, WhatsApp-oriented communication, and pipeline visibility close together. The free plan supports a controlled test before a larger deployment.</p><p>The commercial relationship is explicit. QuickEstimate publishes this list and sells Quickest, so the ranking is not independent. We found direct Indian pricing and India-focused product evidence, but we rejected unsupported claims in older company articles about fixed 60-second output, conversion lifts, revenue gains, or universal ROI. Those claims do not form part of this ranking.</p><p>A complete test starts with a redacted consumer record and ends with an exportable handover. Build and revise an INR quote, have GST output approved, record the current scheme and subsidy basis, use an actual DISCOM route, validate the module against the applicable ALMM and DCR requirements, collect geo-tagged installation evidence, preserve inspection and meter stages, and export files plus activity history.</p><p>Alternatives win under other priorities. OpenSolar is the strongest free core design platform. SolarPlus documents broad battery and commercial modelling. Pylon offers usage-priced design. Zoho CRM and HubSpot go deeper in general marketing and sales. Odoo reaches further into accounting, purchasing, inventory, projects, and field service.</p><ul><li><a href="/features/proposal-generator">Proposal generator</a> for fast branded PDFs</li><li><a href="/features/pipeline-management">Pipeline management</a> for lead stages and ownership</li><li><a href="/features/sales-reports">Sales reports</a> for team and conversion visibility</li></ul><div class="qe-actions"><a class="btn btn-accent" href="/demo">Test your local workflow</a><a class="btn btn-light" href="https://app.quickestimate.co/register">Start with the free plan</a></div></div> <div class="qe-proof-card"><span class="proof-kicker">Why it wins</span><div><span>Ranking lens</span><strong>Proposal-first value and adoption</strong></div><div><span>Independence</span><strong>Publisher sells Quickest</strong></div><div><span>Public free access</span><strong>One user and 10 proposals monthly</strong></div><div><span>Public Pro price</span><strong>₹6,999 per user yearly, minimum three</strong></div></div> </section> <section class="section-block final-checklist"><div class="section-heading compact"><p class="section-label">Your next move</p><h2>Build a two-product shortlist this week</h2><p>Start with Quickest and the specialist closest to your largest local requirement. Use the same evidence and test deals for both.</p></div><div class="action-row"><div><span>01</span><p><strong>Name the bottleneck.</strong> Pick lead response, proposal speed, design, payment, install handoff, or management visibility.</p></div><div><span>02</span><p><strong>Choose two tools.</strong> Compare Quickest with the strongest specialist for that bottleneck.</p></div><div><span>03</span><p><strong>Run the Three-Deal Proof.</strong> Score adoption, repeated entry, revision handling, support, and full annual cost.</p></div></div></section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Still comparing?</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Score us against the criteria on this page</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Bring your hardest deal. We will show where Quickest fits and say plainly when another product should win your shortlist.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> <a class="crm-ad-btn ghost" href="/pricing" data-astro-cid-blfpvuap>See pricing</a> </div> </aside>  <section class="section-block source-section"><div class="section-heading compact"><p class="section-label">Research record</p><h2>Sources checked for this comparison</h2><p>These sources support the market, regulatory, product, and pricing statements on this page. Product terms can change after the checked date.</p></div><ol class="source-cards"><li><a href="https://mnre.gov.in/en/grid-connected-solar-rooftop-programme/" target="_blank" rel="noopener">Grid Connected Rooftop Solar Programme</a><span>Ministry of New and Renewable Energy · checked 6 Sep 2026</span></li><li><a href="https://cdnbbsr.s3waas.gov.in/s3716e1b8c6cd17b771da77391355749f3/uploads/2024/07/202407021768035484.pdf" target="_blank" rel="noopener">PM Surya Ghar CFA operational guidelines</a><span>Ministry of New and Renewable Energy · checked 6 Sep 2026</span></li><li><a href="https://mnre.gov.in/en/approved-list-of-models-and-manufacturers-almm/" target="_blank" rel="noopener">Approved List of Models and Manufacturers</a><span>Ministry of New and Renewable Energy · checked 6 Sep 2026</span></li><li><a href="https://cbic-gst.gov.in/gst-goods-services-rates.html" target="_blank" rel="noopener">GST goods and services rates</a><span>Central Board of Indirect Taxes and Customs · checked 6 Sep 2026</span></li><li><a href="https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04e6fb4f8fef35e82c42aa5.pdf" target="_blank" rel="noopener">Digital Personal Data Protection Act 2023</a><span>Ministry of Electronics and Information Technology · checked 6 Sep 2026</span></li><li><a href="/pricing" target="_blank" rel="noopener">Quickest pricing</a><span>QuickEstimate · checked 6 Sep 2026</span></li><li><span class="source-plain">OpenSolar Pro</span><span>OpenSolar · checked 6 Sep 2026</span></li><li><span class="source-plain">OpenSolar external connectivity pricing</span><span>OpenSolar · checked 6 Sep 2026</span></li><li><span class="source-plain">Pylon product</span><span>Pylon · checked 6 Sep 2026</span></li><li><span class="source-plain">Pylon pricing</span><span>Pylon · checked 6 Sep 2026</span></li><li><span class="source-plain">SolarPlus product</span><span>SolarPlus · checked 6 Sep 2026</span></li><li><span class="source-plain">SolarPlus pricing</span><span>SolarPlus · checked 6 Sep 2026</span></li><li><span class="source-plain">Zoho CRM pricing</span><span>Zoho · checked 6 Sep 2026</span></li><li><span class="source-plain">Odoo pricing</span><span>Odoo · checked 6 Sep 2026</span></li><li><span class="source-plain">HubSpot CRM pricing</span><span>HubSpot · checked 6 Sep 2026</span></li></ol></section> <aside class="crm-ad" aria-label="Quickest Solar CRM promotion" data-astro-cid-blfpvuap> <div class="crm-ad-copy" data-astro-cid-blfpvuap> <span class="crm-ad-kicker" data-astro-cid-blfpvuap>Quickest Solar CRM</span> <strong class="crm-ad-title" data-astro-cid-blfpvuap>Take this comparison into a live demo</strong> <p class="crm-ad-body" data-astro-cid-blfpvuap>Book 30 minutes and we will run your real lead-to-proposal workflow — your prices, your documents, your follow-up.</p> </div> <div class="crm-ad-actions" data-astro-cid-blfpvuap> <a class="crm-ad-btn" href="/demo" data-astro-cid-blfpvuap>Book a demo</a> <a class="crm-ad-btn ghost" href="https://app.quickestimate.co/register" data-astro-cid-blfpvuap>Start free</a> </div> </aside>  <section class="section-block faq-section" id="faq"><div class="section-heading"><p class="section-label">Common questions</p><h2>Frequently asked questions about solar CRM in India</h2></div><div class="faq-list"><details class="faq-item" open><summary>What is the best solar CRM in India?<span aria-hidden="true">+</span></summary><p>Quickest is our first proposal-focused trial for a small or growing Indian solar team because it connects lead ownership, mobile proposals, follow-up, WhatsApp-oriented work, and pipeline visibility. QuickEstimate publishes this ranking and sells Quickest, so it is not independent. Choose it only after your state, DISCOM, subsidy, ALMM, GST, privacy, accounting, field, and export tests pass.</p></details><details class="faq-item"><summary>Can a solar CRM connect directly to PM Surya Ghar?<span aria-hidden="true">+</span></summary><p>Do not assume that a portal logo or subsidy field means direct integration. Ask the vendor to demonstrate the current authorised route, credentials, data fields, consent, submission, status retrieval, corrections, audit log, and manual fallback. The official process involves the consumer, registered vendor, National Portal, and serving DISCOM, with state-specific requirements still relevant.</p></details><details class="faq-item"><summary>Which DISCOM stages should the CRM track?<span aria-hidden="true">+</span></summary><p>At minimum, preserve consumer and connection identity, registration, feasibility where applicable, document versions, vendor agreement, installation, system and geo-photo upload, inspection, corrections, metering agreement, meter procurement and installation, commissioning, portal approval, and CFA status. Names and order vary by state and DISCOM, so use a dated configurable workflow.</p></details><details class="faq-item"><summary>Should a proposal show PM Surya Ghar subsidy as guaranteed?<span aria-hidden="true">+</span></summary><p>No. Show the scheme source and date, customer and property assumptions, module DC capacity basis, central CFA calculation, any state support, eligibility conditions, application status, and who verifies the result. Keep customer price, payable amount, financing, and expected subsidy distinct. Update the assumption without overwriting the accepted proposal.</p></details><details class="faq-item"><summary>How should a CRM store ALMM and DCR evidence?<span aria-hidden="true">+</span></summary><p>Store the exact manufacturer, model, relevant ALMM list, revision and check date, DCR evidence when required, datasheet, supplier, purchase record, serial numbers, substitution approval, installation photos, and warranty. A brand name alone is insufficient because eligibility attaches to applicable models, rules, project routes, and dates.</p></details><details class="faq-item"><summary>What GST rate should solar CRM software apply?<span aria-hidden="true">+</span></summary><p>Do not use one universal switch without tax review. A contract can combine goods, installation, civil or electrical work, services, discounts, advances, and changes. Have the installer&#39;s tax adviser approve classification, rate, place of supply, time of supply, invoice fields, e-invoicing or e-way-bill obligations, credit notes, and records for the actual contract.</p></details><details class="faq-item"><summary>Does the DPDP Act apply to solar leads and documents?<span aria-hidden="true">+</span></summary><p>Solar records can include contact details, electricity bills, identity documents, property images, bank information, calls, signatures, and messages. Map the lawful purpose, notice, consent or other basis, access, processors, security, retention, withdrawal, correction, erasure, breach response, and export. Confirm current commencement and rule obligations with counsel before rollout.</p></details><details class="faq-item"><summary>What should an installer test in WhatsApp integration?<span aria-hidden="true">+</span></summary><p>Confirm the official business account and provider, consent, templates, service and marketing categories, opt-out, assignment, delivery state, attachments, conversation charges, retention, and CRM write-back. Test a customer reply, reassignment, failed delivery, number change, deletion request, and an alternate channel. Do not treat access to a share button as full integration.</p></details><details class="faq-item"><summary>What is the solar CRM software price in India?<span aria-hidden="true">+</span></summary><p>Quickest Solar CRM has a free plan (one user, 10 proposals a month) and Pro at ₹6,999 per user per year with a three-user minimum, which is ₹20,997 a year for a three-person team. As of October 2026, OpenSolar publishes a free core platform, Zoho CRM publishes a free edition for three users, Odoo makes one app free, and Pylon lists $4 or $10 per project with a Solar CRM add-on from $49 per user per month. SolarPlus lists USD 135, 260 and 450 a month on annual prepay. Zoho&#39;s paid Indian rates and HubSpot&#39;s paid totals could not be confirmed from their public pages, so ask each for a written quote that includes GST, onboarding and renewal.</p></details><details class="faq-item"><summary>Which solar CRM software suits an Indian EPC company with a sales team and site crews?<span aria-hidden="true">+</span></summary><p>Pick by the handoff that loses you the most money. If enquiries go unanswered and proposals take hours, a focused solar CRM such as Quickest fits. If your EPC runs purchasing, inventory and accounting in one system, Odoo is the broader answer but needs configuration. If designs and shading drive the sale, test OpenSolar or Pylon beside your CRM. Whichever you choose, run one clean deal, one revision-heavy deal and one failed handoff through it before signing.</p></details></div></section> </div> <section class="final-cta"><div class="final-cta-inner"><div><span>Still deciding?</span><h2>Take the comparison into your next vendor demo.</h2><p>Use the Three-Deal Proof and require every vendor to show the same lead, revision, document, and failed handoff.</p></div><div class="final-buttons"><a class="btn btn-accent btn-lg" href="/blog/how-to-choose-the-right-solar-crm">Get the demo scorecard</a><a class="btn btn-outline-light btn-lg" href="/demo">Talk with QuickEstimate</a></div></div></section> </main> <footer class="footer" data-astro-cid-sz7xmlte> <div class="footer-inner" data-astro-cid-sz7xmlte> <div class="footer-grid" data-astro-cid-sz7xmlte> <div class="footer-brand" data-astro-cid-sz7xmlte> <a class="brand" href="/" aria-label="Quickest Solar CRM home" data-astro-cid-sz7xmlte> <img class="logo-img" src="/images/logo-768x250.png" alt="Quickest Solar CRM" width="140" height="36" data-astro-cid-sz7xmlte> </a> <p data-astro-cid-sz7xmlte>India's mobile-first solar CRM. Built in Surat, used by 1,000+ solar businesses across India. A product of Heaven Softech Pvt. Ltd.</p> <p style="font-size:13px; color: var(--ink-300); margin-top:14px;" data-astro-cid-sz7xmlte>
+Plot 28, Vandanam Bungalow, Sudama Chowk,<br data-astro-cid-sz7xmlte>
+Surat, Gujarat 394105<br data-astro-cid-sz7xmlte> <a href="https://wa.me/919274486197" style="color:#fff; text-decoration: underline;" data-astro-cid-sz7xmlte>WhatsApp +91 92744 86197</a><br data-astro-cid-sz7xmlte> <a href="tel:+919274486197" style="color:#fff; text-decoration: underline;" data-astro-cid-sz7xmlte>Call +91 92744 86197</a> </p> <div class="socials" style="margin-top:18px;" data-astro-cid-sz7xmlte> <a href="https://www.linkedin.com/company/quickestimate" target="_blank" rel="noopener" aria-label="LinkedIn" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-linkedin" data-astro-cid-sz7xmlte></use></svg></a> <a href="https://www.instagram.com/quickest.official/" target="_blank" rel="noopener" aria-label="Instagram" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-instagram" data-astro-cid-sz7xmlte></use></svg></a> <a href="https://wa.me/919274486197" aria-label="WhatsApp on +91 92744 86197" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-chat" data-astro-cid-sz7xmlte></use></svg></a> </div> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Product</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/" data-astro-cid-sz7xmlte>Solar CRM Software</a></li> <li data-astro-cid-sz7xmlte><a href="/crm" data-astro-cid-sz7xmlte>Solar CRM</a></li> <li data-astro-cid-sz7xmlte><a href="/features/proposal-generator" data-astro-cid-sz7xmlte>Proposal Generator</a></li> <li data-astro-cid-sz7xmlte><a href="/features/lead-capture" data-astro-cid-sz7xmlte>Lead Capture</a></li> <li data-astro-cid-sz7xmlte><a href="/features/whatsapp-follow-up" data-astro-cid-sz7xmlte>WhatsApp Follow-Up</a></li> <li data-astro-cid-sz7xmlte><a href="/features/pipeline-management" data-astro-cid-sz7xmlte>Pipeline Management</a></li> <li data-astro-cid-sz7xmlte><a href="/features/quotation-system" data-astro-cid-sz7xmlte>Quotation System</a></li> <li data-astro-cid-sz7xmlte><a href="/solar-pricing-calculator" data-astro-cid-sz7xmlte>Pricing Calculator</a></li> <li data-astro-cid-sz7xmlte><a href="/features/sales-reports" data-astro-cid-sz7xmlte>Sales Reports</a></li> <li data-astro-cid-sz7xmlte><a href="/surgepv" data-astro-cid-sz7xmlte>SurgePV — Solar Design Software</a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Solar Services</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/services/solar-3d-pre-design" data-astro-cid-sz7xmlte>Solar 3D Pre-Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/solar-post-design" data-astro-cid-sz7xmlte>Solar Post-Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/rooftop-detailed-engineering" data-astro-cid-sz7xmlte>Rooftop Detailed Engineering</a></li><li data-astro-cid-sz7xmlte><a href="/services/ground-mount-design" data-astro-cid-sz7xmlte>Ground Mount Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/solar-permit-design" data-astro-cid-sz7xmlte>Solar Permit Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/civil-structural-engineering" data-astro-cid-sz7xmlte>Civil &amp; Structural Engineering</a></li><li data-astro-cid-sz7xmlte><a href="/services/site-survey-feasibility" data-astro-cid-sz7xmlte>Site Survey &amp; Feasibility</a></li><li data-astro-cid-sz7xmlte><a href="/services/mw-scale-project-management" data-astro-cid-sz7xmlte>MW Scale Project Management</a></li><li data-astro-cid-sz7xmlte><a href="/services/electrical-ceig-drawings" data-astro-cid-sz7xmlte>Electrical CEIG Drawings</a></li> <li data-astro-cid-sz7xmlte><a href="/services" data-astro-cid-sz7xmlte><strong data-astro-cid-sz7xmlte>View all services →</strong></a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Company</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/about" data-astro-cid-sz7xmlte>About</a></li> <li data-astro-cid-sz7xmlte><a href="/pricing" data-astro-cid-sz7xmlte>Pricing</a></li> <li data-astro-cid-sz7xmlte><a href="/security" data-astro-cid-sz7xmlte>Security</a></li> <li data-astro-cid-sz7xmlte><a href="/blog" data-astro-cid-sz7xmlte>Blog</a></li> <li data-astro-cid-sz7xmlte><a href="/masterclass" data-astro-cid-sz7xmlte>Solar masterclass</a></li> <li data-astro-cid-sz7xmlte><a href="/join-whatsapp" data-astro-cid-sz7xmlte>WhatsApp community</a></li> <li data-astro-cid-sz7xmlte><a href="/demo" data-astro-cid-sz7xmlte>Book a demo</a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Resources</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/glossary" data-astro-cid-sz7xmlte>Glossary</a></li> <li data-astro-cid-sz7xmlte><a href="/best-solar-crm" data-astro-cid-sz7xmlte>Best solar CRM software</a></li> <li data-astro-cid-sz7xmlte><a href="/compare" data-astro-cid-sz7xmlte>Compare Quickest</a></li> <li data-astro-cid-sz7xmlte><a href="/faq" data-astro-cid-sz7xmlte>FAQ</a></li> <li data-astro-cid-sz7xmlte><a href="/download" data-astro-cid-sz7xmlte>Download app</a></li> <li data-astro-cid-sz7xmlte><a href="/privacy" data-astro-cid-sz7xmlte>Privacy</a></li> <li data-astro-cid-sz7xmlte><a href="/terms" data-astro-cid-sz7xmlte>Terms</a></li> <li data-astro-cid-sz7xmlte><a href="/refund" data-astro-cid-sz7xmlte>Refund</a></li> </ul> </div> </div> <div class="footer-app" id="footer-app" data-astro-cid-sz7xmlte> <div class="footer-app-copy" data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Download the app</h5> <p data-astro-cid-sz7xmlte>Capture leads and send solar proposals from your phone.</p> </div> <div class="footer-app-badges" data-astro-cid-sz7xmlte> <a class="footer-store" href="https://apps.apple.com/us/app/solar-crm-by-quickest/id1635101087" target="_blank" rel="noopener" aria-label="Download QuickEstimate on the App Store" data-astro-cid-sz7xmlte> <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true" focusable="false" data-astro-cid-sz7xmlte><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" data-astro-cid-sz7xmlte></path></svg> <span class="footer-store-text" data-astro-cid-sz7xmlte><small data-astro-cid-sz7xmlte>Download on the</small><strong data-astro-cid-sz7xmlte>App Store</strong></span> </a> <a class="footer-store" href="https://play.google.com/store/apps/details?id=co.quickestimate.app" target="_blank" rel="noopener" aria-label="Get QuickEstimate on Google Play" data-astro-cid-sz7xmlte> <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true" focusable="false" data-astro-cid-sz7xmlte><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.303 2.303-8.633-8.635z" data-astro-cid-sz7xmlte></path></svg> <span class="footer-store-text" data-astro-cid-sz7xmlte><small data-astro-cid-sz7xmlte>Get it on</small><strong data-astro-cid-sz7xmlte>Google Play</strong></span> </a> </div> </div> <div class="footer-base" data-astro-cid-sz7xmlte> <span data-astro-cid-sz7xmlte>© 2026 Heaven Softech Pvt. Ltd. · Quickest Solar CRM · Made in India 🇮🇳</span> <span data-astro-cid-sz7xmlte><a href="/privacy" data-astro-cid-sz7xmlte>Privacy</a> · <a href="/terms" data-astro-cid-sz7xmlte>Terms</a> · <a href="/refund" data-astro-cid-sz7xmlte>Refund</a></span> </div> </div> </footer>  <script async src="https://news.google.com/swg/js/v1/publisher.js"></script> <aside class="preferred-source" aria-labelledby="preferred-source-title" data-google-preferred-source hidden data-astro-cid-dkcs6hmk> <button class="preferred-source__close" type="button" aria-label="Dismiss Preferred Source prompt" data-preferred-source-dismiss data-astro-cid-dkcs6hmk> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" data-astro-cid-dkcs6hmk> <path d="M6 6l12 12M18 6 6 18" data-astro-cid-dkcs6hmk></path> </svg> </button> <div class="preferred-source__copy" data-astro-cid-dkcs6hmk> <p class="preferred-source__eyebrow" data-astro-cid-dkcs6hmk> <span aria-hidden="true" data-astro-cid-dkcs6hmk></span>
+Google Preferred Source
+</p> <h2 id="preferred-source-title" data-astro-cid-dkcs6hmk>Keep Quickest Solar CRM in your Google results</h2> <p data-astro-cid-dkcs6hmk>See more of our solar CRM guides, glossary explanations, and practical resources when they are relevant.</p> </div> <div class="preferred-source__action" data-astro-cid-dkcs6hmk> <div google-add-preferred-source-btn data-theme="light" data-astro-cid-dkcs6hmk></div>  <a class="preferred-source__fallback" href="https://www.google.com/preferences/source?q=quickestimate.co" target="_blank" rel="noopener noreferrer" data-preferred-source-fallback hidden data-astro-cid-dkcs6hmk>
+Add Quickest Solar CRM as a Preferred Source on Google
+<span aria-hidden="true" data-astro-cid-dkcs6hmk>&#8599;</span> </a> <noscript> <a class="preferred-source__fallback is-static" href="https://www.google.com/preferences/source?q=quickestimate.co" target="_blank" rel="noopener noreferrer" data-astro-cid-dkcs6hmk>
+Add Quickest Solar CRM as a Preferred Source on Google
+</a> </noscript> </div> </aside> <script>
+  /* Runs before paint so a visitor who has already dismissed or used the prompt
+     never sees it flash in. Storage can throw in private mode, in which case we
+     fail open and show the prompt. */
+  (function () {
+    var el = document.querySelector('[data-google-preferred-source]');
+    if (!el) return;
+    var seen = null;
+    try { seen = window.localStorage.getItem('qe:preferred-source:v1'); } catch (err) { seen = null; }
+    if (seen) { el.remove(); return; }
+    el.hidden = false;
+  })();
+</script> <script type="module">const r=document.querySelector("[data-google-preferred-source]");if(r){const s=r.querySelector("[data-preferred-source-dismiss]"),e=r.querySelector("[google-add-preferred-source-btn]"),o=r.querySelector("[data-preferred-source-fallback]");let n=!1;const c=t=>{if(!n){n=!0;try{window.localStorage.setItem("qe:preferred-source:v1",`${t}:${Date.now()}`)}catch{}}},d=t=>{c(t),r.dataset.isLeaving="true",window.setTimeout(()=>{r.hidden=!0},220)};s?.addEventListener("click",()=>d("dismissed")),window.addEventListener("blur",()=>{const t=document.activeElement;!n&&e&&t&&e.contains(t)&&d("engaged")}),e?.addEventListener("click",()=>d("engaged")),o?.addEventListener("click",()=>d("engaged")),window.setTimeout(()=>{if(!e||!o)return;!!e.shadowRoot?.querySelector("publisher-md-outlined-button")||e.childElementCount>0||(e.hidden=!0,o.hidden=!1)},2500)}</script>  <script>
+    // -----------------------------------------------------------------------
+    // Form delivery, shared by every form on the site.
+    //
+    // Submissions go straight from the visitor's browser to FormSubmit rather
+    // than through /api/submit. FormSubmit rate-limits by source IP, and a
+    // Cloudflare Worker's egress IP is shared across Cloudflare's whole fleet,
+    // so relaying server-side gets a permanent 429. Posting from the visitor
+    // spends the visitor's own IP budget instead.
+    //
+    // The inbox is assembled at runtime so the address is not sitting in the
+    // page source as a plain string for scrapers. Swap FS_TARGET for
+    // FormSubmit's random-string alias to remove it from the page entirely.
+    // -----------------------------------------------------------------------
+    (function () {
+      var FS_TARGET = ['ritik', '@', 'thestacc', '.com'].join('');
+      // Additional recipients, delivered by FormSubmit's _cc field. Every form
+      // on the site copies all of them; scope one to a subset by moving it into
+      // a formType check inside payload() instead.
+      var FS_CC = [
+        ['parth.quickest', '@', 'gmail', '.com'].join(''),
+        ['keyur', '@', 'heavendesigns', '.in'].join('')
+      ];
+
+      var LABELS = {
+        demo: 'Demo request',
+        masterclass: 'Masterclass registration',
+        signup: 'Landing page signup',
+        newsletter: 'Newsletter subscriber',
+        'surgepv-demo': 'SurgePV demo request',
+        'solar-service-quote': 'Solar design service enquiry'
+      };
+
+      // Forms whose audience is not India-only, so the Indian-mobile format
+      // check does not apply to them.
+      var INTERNATIONAL = { 'surgepv-demo': 1, 'solar-service-quote': 1 };
+
+      function label(t) { return LABELS[t] || ('Form submission (' + t + ')'); }
+
+      function clean(v, max) {
+        return String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, max || 500);
+      }
+
+      function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && v.length <= 254; }
+
+      // FormSubmit renders table rows in key order, so build it read-order.
+      function payload(d) {
+        var who = d.name || d.email || 'someone';
+        var org = d.company ? ' (' + d.company + ')' : '';
+        var out = {
+          _subject: label(d.formType) + ' - ' + who + org + ' | quickestimate.co',
+          _template: 'table',
+          _captcha: 'false'
+        };
+        if (FS_CC.length) out._cc = FS_CC.join(',');
+        if (d.email && isEmail(d.email)) out._replyto = d.email;
+
+        // Rows render in this order in the notification email. Any row whose
+        // value is empty is dropped, so the extra service-enquiry rows below
+        // cost the other four forms nothing.
+        var rows = [
+          ['Form', label(d.formType)],
+          ['Name', d.name],
+          ['Company', d.company],
+          ['Email', d.email],
+          ['Mobile', d.mobile],
+          ['Role', d.role],
+          ['Team size', d.size],
+          ['State', d.state],
+          // Solar design service enquiries (/services/*)
+          ['Service', d.service],
+          ['Project type', d.projectType],
+          ['Project size', d.projectSize],
+          ['Project location', d.location],
+          ['Country', d.country],
+          ['Project files', d.files],
+          ['Message', d.msg, 2000],
+          ['Lead source', d.leadSource],
+          ['Page', d.source || location.href],
+          ['Referrer', document.referrer || 'direct'],
+          ['Campaign', d.campaign]
+        ];
+
+        // Lead intelligence. Only the demo form attaches d.tracking, and every
+        // empty value is dropped below, so the other forms are unaffected.
+        if (d.tracking) {
+          var t = d.tracking;
+          var s = t.summary || {};
+          rows = rows.concat([
+            ['Channel', s.channel],
+            ['Campaign params', s.campaign, 1000],
+            ['First touch', s.firstTouch],
+            ['Landing page', s.landingPage],
+            ['Pages visited', s.journey, 3000],
+            ['Visitor history', s.visitor],
+            ['Location', s.location],
+            ['IP address', s.ip],
+            ['Device', s.device],
+            ['Browser', s.browser],
+            ['Connection', s.network],
+            ['Engagement', s.engagement, 1000],
+            ['GA4 client ID', s.gaClientId],
+            ['User agent', s.userAgent, 400],
+            ['Raw tracking JSON', t.raw, 12000]
+          ]);
+        }
+        for (var i = 0; i < rows.length; i++) {
+          var v = clean(rows[i][1], rows[i][2] || 500);
+          if (v) out[rows[i][0]] = v;
+        }
+        return out;
+      }
+
+      function fail(msg) { return { ok: false, error: msg }; }
+
+      // Resolves { ok: true } or { ok: false, error: '...' }. Never throws.
+      window.qeSubmitForm = function (d) {
+        // Spam gates, previously enforced in /api/submit.
+        if (d._hp) return Promise.resolve({ ok: true });               // honeypot
+        if (d._ts && Date.now() - d._ts < 1500) return Promise.resolve({ ok: true });
+
+        if (d.formType === 'newsletter') {
+          if (!d.email || !isEmail(d.email)) return Promise.resolve(fail('A valid email is required'));
+        } else {
+          if (!d.name || d.name.trim().length < 2) return Promise.resolve(fail('Name is required'));
+          if (d.email && !isEmail(d.email)) return Promise.resolve(fail('Please enter a valid email'));
+          if (d.mobile) {
+            var digits = d.mobile.replace(/\D/g, '');
+            var ok = INTERNATIONAL[d.formType]
+              ? (digits.length >= 7 && digits.length <= 15)   // international
+              : /^(91)?[6-9]\d{9}$/.test(digits);            // Indian mobile
+            if (!ok) {
+              return Promise.resolve(fail(
+                INTERNATIONAL[d.formType]
+                  ? 'Please enter a valid phone number'
+                  : 'Please enter a valid Indian mobile number'
+              ));
+            }
+          }
+        }
+
+        // Sheet copy: fire-and-forget POST to /api/lead, which appends the lead
+        // to the shared leads Google Sheet. Never awaited and never allowed to
+        // throw, so FormSubmit delivery below is unchanged. Every form gets the
+        // tracker summary here (not the raw JSON, to stay under keepalive's
+        // 64 KB cap), even ones that don't attach it to the email.
+        try {
+          var sheet = {};
+          for (var sk in d) {
+            if (Object.prototype.hasOwnProperty.call(d, sk) && sk !== 'tracking') sheet[sk] = d[sk];
+          }
+          sheet.source = d.source || location.href;
+          sheet.referrer = document.referrer || '';
+          var ts = (d.tracking && d.tracking.summary) ||
+            (window.qeTracking && window.qeTracking.summary ? window.qeTracking.summary() : null);
+          if (ts) sheet.tracking = ts;
+          fetch('/api/lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sheet),
+            keepalive: true,
+            credentials: 'same-origin'
+          }).catch(function () {});
+        } catch (e) { /* the sheet copy must never cost a lead */ }
+
+        var contact = "We couldn't deliver your message right now. Please WhatsApp +91 92744 86197, we'll reply within an hour.";
+
+        function post(body) {
+          return fetch('https://formsubmit.co/ajax/' + encodeURIComponent(FS_TARGET), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(body)
+          }).then(function (res) {
+            return res.text().then(function (t) { return { status: res.status, text: t }; });
+          });
+        }
+
+        function interpret(r) {
+          var j = null;
+          try { j = JSON.parse(r.text); } catch (e) { /* non-JSON body */ }
+          return { ok: String(j && j.success) === 'true', status: r.status, message: (j && j.message) || r.text.slice(0, 200) };
+        }
+
+        return post(payload(d))
+          .then(function (r) {
+            var res = interpret(r);
+            if (res.ok) { if (window.qeTrackLead) window.qeTrackLead(d); return { ok: true }; }
+
+            // The tracking block is the only part of a submission large enough
+            // to trip a size or content limit. A lead matters more than its
+            // metadata, so drop it and send the bare form once before giving up.
+            if (d.tracking) {
+              var bare = {};
+              for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) bare[k] = d[k]; }
+              delete bare.tracking;
+              console.warn('FormSubmit rejected the enriched payload (' + res.status + '); retrying without tracking.');
+              return post(payload(bare)).then(function (r2) {
+                var res2 = interpret(r2);
+                if (res2.ok) { if (window.qeTrackLead) window.qeTrackLead(d); return { ok: true }; }
+                console.error('FormSubmit error:', res2.status, res2.message);
+                return fail(contact);
+              });
+            }
+
+            if (/activat/i.test(res.message)) {
+              console.error('FormSubmit is not activated for this address. Click the "Activate Form" link in the email it sent.');
+            } else {
+              console.error('FormSubmit error:', res.status, res.message);
+            }
+            return fail(contact);
+          })
+          .catch(function () { return fail('Network error. Please check your connection and try again.'); });
+      };
+    })();
+  </script> <script>
+    // Scroll progress bar
+    (function(){
+      const bar = document.getElementById('progress');
+      if (bar) {
+        window.addEventListener('scroll', () => {
+          const h = document.documentElement;
+          const p = h.scrollTop / (h.scrollHeight - h.clientHeight);
+          bar.style.width = (p * 100) + '%';
+        }, { passive: true });
+      }
+      // Nav scroll effect
+      const nav = document.getElementById('nav');
+      if (nav) {
+        window.addEventListener('scroll', () => {
+          nav.classList.toggle('qe-scrolled', window.scrollY > 16);
+        }, { passive: true });
+      }
+      // Reveal on scroll
+      const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add('in');
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.10, rootMargin: '0px 0px -40px 0px' });
+        revealEls.forEach(el => io.observe(el));
+      } else {
+        revealEls.forEach(el => el.classList.add('in'));
+      }
+      // Smooth scroll for hash links
+      document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          const id = a.getAttribute('href');
+          if (!id || id.length < 2) return;
+          const el = document.querySelector(id);
+          if (!el) return;
+          e.preventDefault();
+          // Pages with extra sticky chrome (e.g. the /best-solar-crm jump-nav)
+          // override the offset via --qe-scroll-offset; 70 covers the navbar alone.
+          const off = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--qe-scroll-offset')) || 70;
+          const y = el.getBoundingClientRect().top + window.scrollY - off;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        });
+      });
+    })();
+  </script> </body> </html>

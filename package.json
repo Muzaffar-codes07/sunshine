@@ -1,0 +1,29 @@
+{
+  "name": "sunshine",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=22.12.0", "npm": ">=10" },
+  "scripts": {
+    "dev": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/api && concurrently -k -n api,web \"npm run dev -w @sunshine/api\" \"npm run dev -w @sunshine/web\"",
+    "build": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/web && npm run build -w @sunshine/api",
+    "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @sunshine/contracts && npm run test --workspaces --if-present",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose stop db",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "start": "npm run start -w @sunshine/api",
+    "check:docs": "node scripts/check-docs.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check": "npm run check:docs && npm run db:validate && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.2.3",
+    "prisma": "7.10.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,1036 @@
+<!DOCTYPE html><html lang="en-IN" data-astro-cid-37fxchfa> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>What Is a Solar CRM? Features Indian Installers Need</title><meta name="description" content="What a solar CRM is, how it differs from a general CRM, and the app features an Indian installer needs: solar pipeline stages, PM Surya Ghar maths, GST-ready quotes, WhatsApp."><!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-KM55T0QPK5"></script><script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    // linker: decorate links to the app host so a visitor who clicks "Start free"
+    // keeps one GA4 client ID across quickestimate.co -> app.quickestimate.co.
+    // (It only joins the sessions if the app's own GA4 tag uses the same
+    // measurement ID and lists quickestimate.co in its cross-domain config.)
+    gtag('config', 'G-KM55T0QPK5', { linker: { domains: ['app.quickestimate.co'] } });
+  </script><script>
+    // -----------------------------------------------------------------------
+    // GA4 event tracking, site-wide (this layout renders every page, the
+    // homepage included).
+    //
+    // The site loads plain gtag.js with no GTM container, and gtag.js IGNORES
+    // object-style dataLayer.push({event: ...}), so those pushes never reach
+    // GA4 (audit Q02). Everything below calls gtag('event', ...) instead.
+    //
+    // Events sent:
+    //   generate_lead       a lead form was accepted (demo, masterclass, landing
+    //                       signup, SurgePV demo, solar service quote)
+    //   newsletter_signup   a newsletter form was accepted (kept apart from
+    //                       generate_lead so low-intent signups do not inflate it)
+    //   sign_up_click       click on a link to app.quickestimate.co/register
+    //   app_click           click on any other link to app.quickestimate.co
+    //   whatsapp_click      click on a wa.me / api.whatsapp.com link
+    //   phone_click         click on a tel: link
+    //   email_click         click on a mailto: link
+    //   store_click         click on a Google Play / App Store link
+    // Never throws, never blocks a click or a submit.
+    // -----------------------------------------------------------------------
+    (function () {
+      function clip(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 100); }
+
+      function send(name, params) {
+        try {
+          if (typeof window.gtag !== 'function') return;
+          var p = { page_path: location.pathname, transport_type: 'beacon' };
+          for (var k in params) {
+            if (Object.prototype.hasOwnProperty.call(params, k) && params[k] !== '' && params[k] != null) p[k] = clip(params[k]);
+          }
+          window.gtag('event', name, p);
+        } catch (e) { /* analytics must never break the page */ }
+      }
+      window.qeTrack = send;
+
+      function rememberPlan(plan) {
+        try { if (plan) sessionStorage.setItem('qe_plan', plan); } catch (e) {}
+      }
+      function recallPlan() {
+        try { return sessionStorage.getItem('qe_plan') || ''; } catch (e) { return ''; }
+      }
+      function planOf(a, url) {
+        var p = (a && a.getAttribute && a.getAttribute('data-plan')) || '';
+        if (!p && url) { try { p = url.searchParams.get('plan') || ''; } catch (e) {} }
+        return p;
+      }
+
+      // Called by qeSubmitForm after a form is accepted by FormSubmit.
+      window.qeTrackLead = function (d) {
+        try {
+          var summary = (d.tracking && d.tracking.summary) ||
+            (window.qeTracking && window.qeTracking.summary ? window.qeTracking.summary() : {}) || {};
+          var type = d.formType || 'unknown';
+          send(type === 'newsletter' ? 'newsletter_signup' : 'generate_lead', {
+            form_id: type,
+            form_type: type,
+            plan: d.plan || planOf(null, new URL(location.href)) || recallPlan(),
+            team_size: d.size,
+            service: d.service,
+            project_type: d.projectType,
+            lead_channel: summary.channel,
+            lead_landing_page: summary.landingPage,
+            partner: type === 'surgepv-demo' ? 'SurgePV' : ''
+          });
+        } catch (e) { /* ignore */ }
+      };
+
+      document.addEventListener('click', function (ev) {
+        try {
+          var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+          if (!a) return;
+          var href = a.getAttribute('href') || '';
+          var text = a.getAttribute('aria-label') || a.textContent;
+          var area = a.closest('nav, header, footer, aside, main');
+          var base = { link_text: text, link_area: area ? area.tagName.toLowerCase() : '' };
+          var url = null;
+          try { url = new URL(href, location.href); } catch (e) {}
+
+          if (/^tel:/i.test(href)) {
+            base.link_url = href.replace(/^tel:/i, '');
+            send('phone_click', base);
+          } else if (/^mailto:/i.test(href)) {
+            base.link_url = href.replace(/^mailto:/i, '').split('?')[0];
+            send('email_click', base);
+          } else if (url && /^(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)$/.test(url.hostname)) {
+            base.link_url = url.origin + url.pathname;
+            send('whatsapp_click', base);
+          } else if (url && url.hostname === 'app.quickestimate.co') {
+            var plan = planOf(a, url);
+            rememberPlan(plan);
+            base.link_url = url.origin + url.pathname;
+            base.plan = plan;
+            send(/\/register/.test(url.pathname) ? 'sign_up_click' : 'app_click', base);
+          } else if (url && (url.hostname === 'play.google.com' || url.hostname === 'apps.apple.com')) {
+            base.link_url = url.origin + url.pathname;
+            base.store = url.hostname === 'play.google.com' ? 'google_play' : 'app_store';
+            send('store_click', base);
+          }
+        } catch (e) { /* ignore */ }
+      }, true);
+    })();
+  </script><!-- Accumulates campaign / journey / device context on every page. The demo
+       form reads it at submit time via window.qeTracking. --><script>
+(function () {
+  'use strict';
+
+  var NS = 'qeTracking';
+  if (window[NS]) return;
+
+  var K_VISITOR = 'qe_visitor';
+  var K_FIRST = 'qe_first_touch';
+  var K_LAST = 'qe_last_touch';
+  var K_SESSION = 'qe_session';
+  var K_GEO = 'qe_geo';
+
+  var SESSION_GAP_MS = 30 * 60 * 1000;  // GA4's rule: 30 idle minutes ends a session
+  var MAX_PAGES = 30;
+
+  var UTM_KEYS = [
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+    'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic'
+  ];
+  var CLICK_IDS = [
+    'gclid', 'gbraid', 'wbraid', 'dclid',   // Google Ads
+    'fbclid',                                // Meta
+    'msclkid',                               // Microsoft Ads
+    'ttclid',                                // TikTok
+    'li_fat_id',                             // LinkedIn
+    'twclid',                                // X
+    'rdt_cid',                               // Reddit
+    'epik',                                  // Pinterest
+    'irclickid',                             // Impact affiliates
+    'ref', 'referral_code'                   // hand-rolled partner links
+  ];
+
+  var SEARCH_HOSTS = /(^|\.)(google\.[a-z.]+|bing\.com|duckduckgo\.com|yahoo\.[a-z.]+|yandex\.[a-z.]+|baidu\.com|ecosia\.org|search\.brave\.com|startpage\.com|qwant\.com)$/;
+  var SOCIAL_HOSTS = /(^|\.)(facebook\.com|fb\.com|instagram\.com|linkedin\.com|lnkd\.in|twitter\.com|x\.com|t\.co|youtube\.com|youtu\.be|whatsapp\.com|wa\.me|reddit\.com|pinterest\.[a-z.]+|quora\.com|threads\.net|telegram\.org|t\.me|tiktok\.com|snapchat\.com)$/;
+  // Answer engines now send real buying traffic and none of it looks like search
+  // in a referrer report, so it gets its own channel rather than "Referral".
+  var AI_HOSTS = /(^|\.)(chatgpt\.com|chat\.openai\.com|openai\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|bard\.google\.com|copilot\.microsoft\.com|you\.com|phind\.com|poe\.com|grok\.com|mistral\.ai)$/;
+
+  // ---------------------------------------------------------------- storage
+
+  function memoryShim() {
+    var bag = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(bag, k) ? bag[k] : null; },
+      setItem: function (k, v) { bag[k] = String(v); },
+      removeItem: function (k) { delete bag[k]; }
+    };
+  }
+
+  // Touching window.localStorage itself throws when site data is blocked, so the
+  // probe has to be inside the try, not just the read.
+  function pick(kind) {
+    try {
+      var s = kind === 'session' ? window.sessionStorage : window.localStorage;
+      var probe = '__qe_probe__';
+      s.setItem(probe, '1');
+      s.removeItem(probe);
+      return { store: s, ok: true };
+    } catch (e) {
+      return { store: memoryShim(), ok: false };
+    }
+  }
+
+  var localPick = pick('local');
+  var sessionPick = pick('session');
+  var local = localPick.store;
+  var session = sessionPick.store;
+  var storageOK = localPick.ok && sessionPick.ok;
+
+  function readJSON(store, key) {
+    try {
+      var raw = store.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function writeJSON(store, key, value) {
+    try { store.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; }
+  }
+
+  // ----------------------------------------------------------------- utils
+
+  function uid() {
+    try {
+      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    } catch (e) { /* fall through */ }
+    return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  }
+
+  function hostOf(url) {
+    if (!url) return '';
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+  }
+
+  function currentPath() {
+    return location.pathname.replace(/\.html$/, '') + location.search;
+  }
+
+  function cookie(name) {
+    try {
+      var m = document.cookie.match('(?:^|; )' + name.replace(/([.*+?^${}()|[\]\\])/g, '\\$1') + '=([^;]*)');
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch (e) { return ''; }
+  }
+
+  function duration(ms) {
+    // 0 is a real answer ("0s"), not a missing one. Only null/negative is empty.
+    if (ms == null || ms < 0) return '';
+    var s = Math.round(ms / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    if (m < 60) return m + 'm ' + r + 's';
+    return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+  }
+
+  function isoDay(ts) {
+    try { return new Date(ts).toISOString().slice(0, 10); } catch (e) { return ''; }
+  }
+
+  // ------------------------------------------------------- campaign parsing
+
+  function grabParams() {
+    var out = {};
+    try {
+      var q = new URLSearchParams(location.search);
+      UTM_KEYS.concat(CLICK_IDS).forEach(function (k) {
+        var v = q.get(k);
+        if (v) out[k] = String(v).slice(0, 200);
+      });
+    } catch (e) { /* no URLSearchParams, skip */ }
+    return out;
+  }
+
+  function hasCampaign(params) {
+    for (var k in params) { if (Object.prototype.hasOwnProperty.call(params, k)) return true; }
+    return false;
+  }
+
+  function classify(params, referrer) {
+    params = params || {};
+    var src = (params.utm_source || '').toLowerCase();
+    var med = (params.utm_medium || '').toLowerCase();
+    var pair = [src, med].filter(Boolean).join(' / ');
+
+    if (params.gclid || params.gbraid || params.wbraid || params.dclid) return 'Paid search (Google Ads)';
+    if (params.msclkid) return 'Paid search (Microsoft Ads)';
+    if (params.fbclid) return 'Paid social (Meta)';
+    if (params.ttclid) return 'Paid social (TikTok)';
+    if (params.li_fat_id) return 'Paid social (LinkedIn)';
+    if (params.twclid) return 'Paid social (X)';
+    if (params.rdt_cid) return 'Paid social (Reddit)';
+    if (params.irclickid) return 'Affiliate (Impact)';
+
+    if (/cpc|ppc|paid|display|banner|cpm|retarget|remarket/.test(med)) return 'Paid' + (pair ? ' (' + pair + ')' : '');
+    if (/email|newsletter|e-?mail/.test(med)) return 'Email' + (pair ? ' (' + pair + ')' : '');
+    if (/affiliate|partner/.test(med)) return 'Affiliate' + (pair ? ' (' + pair + ')' : '');
+    if (/social/.test(med)) return 'Social' + (pair ? ' (' + pair + ')' : '');
+    if (/whatsapp|wa/.test(src) && med) return 'WhatsApp (' + pair + ')';
+    if (pair) return 'Campaign (' + pair + ')';
+
+    var host = hostOf(referrer);
+    if (!host) return 'Direct';
+    if (host === location.hostname.replace(/^www\./, '')) return 'Internal';
+    if (AI_HOSTS.test(host)) return 'AI assistant (' + host + ')';
+    if (SEARCH_HOSTS.test(host)) return 'Organic search (' + host + ')';
+    if (SOCIAL_HOSTS.test(host)) return 'Organic social (' + host + ')';
+    return 'Referral (' + host + ')';
+  }
+
+  // ------------------------------------------------------------ device / UA
+
+  var UA = navigator.userAgent || '';
+
+  function parseBrowser() {
+    var m;
+    // In-app webviews first: they match Chrome/Safari too, and knowing a lead
+    // arrived inside the Facebook or Instagram browser explains a lot of
+    // half-filled forms.
+    if (/FBAN|FBAV|FB_IAB/.test(UA)) return { name: 'Facebook in-app browser', version: (UA.match(/FBAV\/([\d.]+)/) || [])[1] || '' };
+    if (/Instagram/.test(UA)) return { name: 'Instagram in-app browser', version: (UA.match(/Instagram ([\d.]+)/) || [])[1] || '' };
+    if (/\bWhatsApp\b/i.test(UA)) return { name: 'WhatsApp in-app browser', version: '' };
+    if (/LinkedInApp/i.test(UA)) return { name: 'LinkedIn in-app browser', version: '' };
+    if (/MicroMessenger/i.test(UA)) return { name: 'WeChat in-app browser', version: '' };
+
+    if ((m = UA.match(/Edg(?:e|A|iOS)?\/([\d.]+)/))) return { name: 'Edge', version: m[1] };
+    if ((m = UA.match(/OPR\/([\d.]+)/)) || (m = UA.match(/Opera\/([\d.]+)/))) return { name: 'Opera', version: m[1] };
+    if ((m = UA.match(/SamsungBrowser\/([\d.]+)/))) return { name: 'Samsung Internet', version: m[1] };
+    if ((m = UA.match(/UCBrowser\/([\d.]+)/))) return { name: 'UC Browser', version: m[1] };
+    if (/\bBrave\b/.test(UA) || (navigator.brave && navigator.brave.isBrave)) return { name: 'Brave', version: (UA.match(/Chrome\/([\d.]+)/) || [])[1] || '' };
+    if ((m = UA.match(/(?:Firefox|FxiOS)\/([\d.]+)/))) return { name: 'Firefox', version: m[1] };
+    if ((m = UA.match(/CriOS\/([\d.]+)/))) return { name: 'Chrome (iOS)', version: m[1] };
+    if ((m = UA.match(/Chrome\/([\d.]+)/))) return { name: 'Chrome', version: m[1] };
+    if (/Safari/.test(UA) && (m = UA.match(/Version\/([\d.]+)/))) return { name: 'Safari', version: m[1] };
+    if (/\bwv\b|; wv\)/.test(UA)) return { name: 'Android WebView', version: '' };
+    return { name: 'Unknown', version: '' };
+  }
+
+  function parseOS() {
+    var m;
+    if ((m = UA.match(/Windows NT ([\d.]+)/))) {
+      // Windows 11 is indistinguishable from 10 in the UA string; UA-CH
+      // platformVersion (merged in below) is the only way to tell them apart.
+      var map = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
+      return { name: 'Windows', version: map[m[1]] || m[1] };
+    }
+    if ((m = UA.match(/Android ([\d.]+)/))) return { name: 'Android', version: m[1] };
+    if ((m = UA.match(/(?:iPhone OS|CPU OS) ([\d_]+)/))) return { name: 'iOS', version: m[1].replace(/_/g, '.') };
+    if (/iPad|iPhone|iPod/.test(UA)) return { name: 'iOS', version: '' };
+    if ((m = UA.match(/Mac OS X ([\d_.]+)/))) return { name: 'macOS', version: m[1].replace(/_/g, '.') };
+    if (/CrOS/.test(UA)) return { name: 'ChromeOS', version: (UA.match(/CrOS \S+ ([\d.]+)/) || [])[1] || '' };
+    if (/Linux/.test(UA)) return { name: 'Linux', version: '' };
+    return { name: 'Unknown', version: '' };
+  }
+
+  function deviceType() {
+    var touch = (navigator.maxTouchPoints || 0) > 1;
+    // iPadOS 13+ reports itself as Macintosh; touch points are the tell.
+    if (/iPad/.test(UA) || (/Macintosh/.test(UA) && touch)) return 'Tablet';
+    if (/Android/.test(UA) && !/Mobile/.test(UA)) return 'Tablet';
+    if (/Mobi|iPhone|iPod|Windows Phone|IEMobile/.test(UA)) return 'Mobile';
+    return 'Desktop';
+  }
+
+  // High-entropy client hints are async and Chromium-only. Fire once at load and
+  // fold whatever arrives into the snapshot; nothing waits on it.
+  var hints = null;
+  try {
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      navigator.userAgentData.getHighEntropyValues([
+        'platform', 'platformVersion', 'architecture', 'bitness', 'model', 'uaFullVersion', 'fullVersionList'
+      ]).then(function (h) { hints = h; }).catch(function () { /* ignore */ });
+    }
+  } catch (e) { /* ignore */ }
+
+  // ------------------------------------------------------ engagement timers
+
+  var pageStart = Date.now();
+  var visibleSince = document.hidden ? 0 : Date.now();
+  var engagedMs = 0;
+  var maxScrollPct = 0;
+  var firstFieldTs = 0;
+  var fieldsTouched = [];
+  var clickCount = 0;
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (visibleSince) engagedMs += Date.now() - visibleSince;
+      visibleSince = 0;
+    } else {
+      visibleSince = Date.now();
+    }
+  });
+
+  function engaged() {
+    return engagedMs + (visibleSince ? Date.now() - visibleSince : 0);
+  }
+
+  window.addEventListener('scroll', function () {
+    var el = document.documentElement;
+    var total = el.scrollHeight - el.clientHeight;
+    if (total <= 0) return;
+    var pct = Math.round(((el.scrollTop) / total) * 100);
+    if (pct > maxScrollPct) maxScrollPct = Math.min(100, pct);
+  }, { passive: true });
+
+  document.addEventListener('click', function () { clickCount++; }, { passive: true, capture: true });
+
+  // Which fields they touched, in order, tells you where a half-filled form
+  // stalled. Names only, never values.
+  document.addEventListener('focusin', function (e) {
+    var t = e.target;
+    if (!t || !t.closest || !t.closest('form')) return;
+    if (!/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    var name = t.getAttribute('name') || t.id || '';
+    if (!name || name.charAt(0) === '_') return;   // skip the honeypot
+    if (!firstFieldTs) firstFieldTs = Date.now();
+    if (fieldsTouched.indexOf(name) === -1) fieldsTouched.push(name);
+  }, true);
+
+  // ------------------------------------------------------- record this view
+
+  var now = Date.now();
+  var params = grabParams();
+  var referrer = document.referrer || '';
+  var path = currentPath();
+
+  // Visitor (cross-session)
+  var visitor = readJSON(local, K_VISITOR) || { id: uid(), first: now, visits: 0, last: 0 };
+
+  // Session (this visit)
+  var sess = readJSON(session, K_SESSION);
+  var freshSession = !sess || (now - (sess.last || 0)) > SESSION_GAP_MS;
+  if (freshSession) {
+    sess = {
+      id: uid(),
+      start: now,
+      landing: path,
+      landingRef: referrer,
+      landingParams: params,
+      channel: classify(params, referrer),
+      pages: []
+    };
+    visitor.visits = (visitor.visits || 0) + 1;
+  }
+
+  // Close out the dwell on the page they just left, then append this one.
+  // A reload of the same URL reopens the existing entry instead of appending a
+  // duplicate, so the timer keeps running rather than freezing.
+  var pages = sess.pages || [];
+  var samePage = pages.length > 0 && pages[pages.length - 1].u === path;
+  if (samePage) {
+    pages[pages.length - 1].t = now;
+    pages[pages.length - 1].d = 0;
+  } else {
+    if (pages.length) {
+      var prev = pages[pages.length - 1];
+      prev.d = Math.max(0, Math.round((now - prev.t) / 1000));
+    }
+    pages.push({ u: path, t: now, ti: (document.title || '').slice(0, 90), d: 0 });
+  }
+  if (pages.length > MAX_PAGES) pages = pages.slice(-MAX_PAGES);
+  sess.pages = pages;
+  sess.last = now;
+  writeJSON(session, K_SESSION, sess);
+
+  visitor.last = now;
+  writeJSON(local, K_VISITOR, visitor);
+
+  // First touch is written once and never overwritten: it is the campaign that
+  // deserves the credit even if the lead converts three visits later.
+  var firstTouch = readJSON(local, K_FIRST);
+  if (!firstTouch) {
+    firstTouch = { t: now, url: path, ref: referrer, params: params, channel: classify(params, referrer) };
+    writeJSON(local, K_FIRST, firstTouch);
+  }
+
+  // Last touch only moves when something actually re-acquired them: a campaign
+  // link or an external referrer. Internal navigation must not overwrite it.
+  var extRef = referrer && hostOf(referrer) !== location.hostname.replace(/^www\./, '');
+  if (hasCampaign(params) || extRef) {
+    writeJSON(local, K_LAST, { t: now, url: path, ref: referrer, params: params, channel: classify(params, referrer) });
+  }
+  var lastTouch = readJSON(local, K_LAST) || firstTouch;
+
+  // ------------------------------------------------------------------- geo
+
+  var geo = readJSON(session, K_GEO);
+  if (!geo) {
+    try {
+      fetch('/api/geo', { credentials: 'omit', cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (g) { if (g) { geo = g; writeJSON(session, K_GEO, g); } })
+        .catch(function () { /* offline or endpoint down: snapshot just omits geo */ });
+    } catch (e) { /* ignore */ }
+  }
+
+  // -------------------------------------------------------------- snapshot
+
+  function gaIds() {
+    // _ga is "GA1.1.<clientId>"; the per-property _ga_<ID> cookie carries the
+    // session id. Both let a lead in the inbox be matched to its GA4 session.
+    var out = { clientId: '', sessionId: '' };
+    var ga = cookie('_ga');
+    if (ga) {
+      var parts = ga.split('.');
+      if (parts.length >= 4) out.clientId = parts[2] + '.' + parts[3];
+    }
+    try {
+      var m = document.cookie.match(/_ga_[A-Z0-9]+=GS\d\.\d\.([^;.]+)/);
+      if (m) out.sessionId = m[1];
+    } catch (e) { /* ignore */ }
+    return out;
+  }
+
+  function snapshot() {
+    var s = readJSON(session, K_SESSION) || sess;
+    var v = readJSON(local, K_VISITOR) || visitor;
+    var g = readJSON(session, K_GEO) || geo || {};
+    var br = parseBrowser();
+    var os = parseOS();
+    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
+    var journey = (s.pages || []).slice(-MAX_PAGES);
+
+    // The current page's dwell is still open, so fill it in for the read.
+    if (journey.length) {
+      var head = journey[journey.length - 1];
+      if (!head.d) head = { u: head.u, t: head.t, ti: head.ti, d: Math.round((Date.now() - head.t) / 1000) };
+      journey = journey.slice(0, -1).concat([head]);
+    }
+
+    return {
+      v: 1,
+      capturedAt: new Date().toISOString(),
+      storage: storageOK ? 'ok' : 'blocked',
+
+      visitor: {
+        id: v.id,
+        firstSeen: isoDay(v.first),
+        daysKnown: Math.max(0, Math.round((Date.now() - v.first) / 86400000)),
+        visitNumber: v.visits || 1,
+        returning: (v.visits || 1) > 1
+      },
+
+      attribution: {
+        channel: s.channel || classify(params, referrer),
+        firstTouch: firstTouch ? {
+          channel: firstTouch.channel, at: isoDay(firstTouch.t),
+          landingPage: firstTouch.url, referrer: firstTouch.ref, params: firstTouch.params
+        } : null,
+        lastTouch: lastTouch ? {
+          channel: lastTouch.channel, at: isoDay(lastTouch.t),
+          landingPage: lastTouch.url, referrer: lastTouch.ref, params: lastTouch.params
+        } : null,
+        session: {
+          landingPage: s.landing,
+          referrer: s.landingRef || 'direct',
+          referrerHost: hostOf(s.landingRef),
+          params: s.landingParams || {}
+        }
+      },
+
+      journey: {
+        sessionId: s.id,
+        startedAt: new Date(s.start).toISOString(),
+        pageCount: journey.length,
+        sessionSeconds: Math.round((Date.now() - s.start) / 1000),
+        pages: journey.map(function (p) { return { url: p.u, title: p.ti, seconds: p.d }; })
+      },
+
+      page: {
+        url: location.href,
+        path: path,
+        title: document.title,
+        referrer: referrer || 'direct',
+        secondsOnPage: Math.round((Date.now() - pageStart) / 1000),
+        engagedSeconds: Math.round(engaged() / 1000),
+        maxScrollPercent: maxScrollPct,
+        clicks: clickCount
+      },
+
+      form: {
+        fieldsTouched: fieldsTouched.slice(0, 25),
+        secondsToFirstField: firstFieldTs ? Math.round((firstFieldTs - pageStart) / 1000) : null,
+        secondsFilling: firstFieldTs ? Math.round((Date.now() - firstFieldTs) / 1000) : null
+      },
+
+      device: {
+        type: deviceType(),
+        os: os.name + (os.version ? ' ' + os.version : ''),
+        model: (hints && hints.model) || '',
+        architecture: hints ? [hints.architecture, hints.bitness].filter(Boolean).join('-') : '',
+        platformVersion: (hints && hints.platformVersion) || '',
+        screen: (screen.width || 0) + 'x' + (screen.height || 0),
+        viewport: (window.innerWidth || 0) + 'x' + (window.innerHeight || 0),
+        pixelRatio: window.devicePixelRatio || 1,
+        touchPoints: navigator.maxTouchPoints || 0,
+        orientation: (screen.orientation && screen.orientation.type) || '',
+        cpuCores: navigator.hardwareConcurrency || null,
+        memoryGB: navigator.deviceMemory || null
+      },
+
+      browser: {
+        name: br.name,
+        version: br.version,
+        fullVersion: (hints && hints.uaFullVersion) || '',
+        userAgent: UA,
+        language: navigator.language || '',
+        languages: (navigator.languages || []).slice(0, 5).join(', '),
+        timezone: (function () {
+          try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+        })(),
+        utcOffsetMinutes: -new Date().getTimezoneOffset(),
+        cookiesEnabled: navigator.cookieEnabled === true,
+        doNotTrack: navigator.doNotTrack === '1' || window.doNotTrack === '1',
+        colorScheme: (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light',
+        reducedMotion: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)
+      },
+
+      network: {
+        effectiveType: conn.effectiveType || '',
+        downlinkMbps: conn.downlink || null,
+        rttMs: conn.rtt || null,
+        saveData: conn.saveData === true
+      },
+
+      // Edge-resolved; empty when /api/geo has not answered yet.
+      geo: {
+        ip: g.ip || '', country: g.country || '', region: g.countryRegion || '',
+        city: g.city || '', postalCode: g.postalCode || '',
+        latitude: g.latitude || '', longitude: g.longitude || '',
+        timezone: g.timezone || '', isp: g.isp || '', asn: g.asn || '',
+        edgeColo: g.colo || '', httpProtocol: g.httpProtocol || '',
+        tlsVersion: g.tlsVersion || '', botScore: g.botScore || ''
+      },
+
+      analytics: gaIds()
+    };
+  }
+
+  // Flat one-line strings for the notification email. A salesperson reads these;
+  // the JSON blob underneath is there so nothing is lost.
+  function summary() {
+    var t = snapshot();
+    var g = t.geo, d = t.device, b = t.browser;
+
+    var place = [g.city, g.region, g.country].filter(Boolean).join(', ');
+    var journey = t.journey.pages.map(function (p) {
+      return p.url + (p.seconds ? ' (' + duration(p.seconds * 1000) + ')' : '');
+    }).join('  →  ');
+
+    var ft = t.attribution.firstTouch;
+    var camp = t.attribution.session.params;
+    var campBits = UTM_KEYS.concat(CLICK_IDS)
+      .filter(function (k) { return camp[k]; })
+      .map(function (k) { return k + '=' + camp[k]; })
+      .join(' | ');
+
+    return {
+      channel: t.attribution.channel,
+      campaign: campBits,
+      firstTouch: ft ? ft.channel + ' · ' + ft.at + ' · landed on ' + ft.landingPage : '',
+      landingPage: t.attribution.session.landingPage + '  (ref: ' + t.attribution.session.referrer + ')',
+      journey: t.journey.pageCount + ' pages in ' + duration(t.journey.sessionSeconds * 1000) + ':  ' + journey,
+      visitor: (t.visitor.returning
+        ? 'Visit #' + t.visitor.visitNumber + ' · first seen ' + t.visitor.firstSeen + ' (' + t.visitor.daysKnown + ' days ago)'
+        : 'First-time visitor'),
+      location: place ? place + (g.postalCode ? ' ' + g.postalCode : '') + ' · ' + (g.isp || 'unknown ISP') + (g.asn ? ' (AS' + g.asn + ')' : '') : '',
+      ip: g.ip,
+      device: [d.type, d.os, d.model].filter(Boolean).join(' · ') +
+        ' · screen ' + d.screen + ' · viewport ' + d.viewport + ' @' + d.pixelRatio + 'x',
+      browser: [b.name, b.version].filter(Boolean).join(' ') +
+        ' · ' + (b.language || '?') + ' · ' + (b.timezone || '?') +
+        (b.doNotTrack ? ' · DNT on' : ''),
+      network: t.network.effectiveType
+        ? t.network.effectiveType + (t.network.downlinkMbps ? ' · ' + t.network.downlinkMbps + ' Mbps' : '') + (t.network.rttMs ? ' · ' + t.network.rttMs + 'ms RTT' : '')
+        : '',
+      engagement: 'on page ' + duration(t.page.secondsOnPage * 1000) +
+        ' · engaged ' + duration(t.page.engagedSeconds * 1000) +
+        ' · scrolled ' + t.page.maxScrollPercent + '%' +
+        (t.form.secondsFilling != null ? ' · form filled in ' + duration(t.form.secondsFilling * 1000) : '') +
+        (t.form.fieldsTouched.length ? ' · fields: ' + t.form.fieldsTouched.join(' → ') : ''),
+      gaClientId: t.analytics.clientId + (t.analytics.sessionId ? ' / session ' + t.analytics.sessionId : ''),
+      userAgent: b.userAgent
+    };
+  }
+
+  window[NS] = { snapshot: snapshot, summary: summary, duration: duration };
+})();
+</script><meta name="theme-color" content="#2D2878"><link rel="canonical" href="https://quickestimate.co/crm"><!-- Open Graph. ogTitle/ogDescription default to the page title/description;
+       a page can override them when its social copy differs from its <title>. --><meta property="og:title" content="What Is a Solar CRM? Features Indian Installers Need"><meta property="og:description" content="What a solar CRM is, how it differs from a general CRM, and the app features an Indian installer needs: solar pipeline stages, PM Surya Ghar maths, GST-ready quotes, WhatsApp."><meta property="og:type" content="website"><meta property="og:url" content="https://quickestimate.co/crm"><meta property="og:image" content="/images/og-default.png"><!-- Twitter --><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="What Is a Solar CRM? Features Indian Installers Need"><meta name="twitter:description" content="What a solar CRM is, how it differs from a general CRM, and the app features an Indian installer needs: solar pipeline stages, PM Surya Ghar maths, GST-ready quotes, WhatsApp."><meta name="twitter:image" content="/images/og-default.png"><!-- Favicons --><link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png"><link rel="icon" type="image/png" sizes="192x192" href="/favicons/favicon-192x192.png"><link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png"><!-- Preconnect to runtime-critical origins --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://app.quickestimate.co"><link rel="dns-prefetch" href="https://app.quickestimate.co"><!-- Fonts: one consolidated stack across the site (Plus Jakarta Sans for all
+       text, JetBrains Mono 400/500/600 for numbers, labels and code). --><link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><!-- Page scroll progress bar + a11y --><noscript><style>.reveal,.reveal-stagger>*{opacity:1!important;transform:none!important;}</style></noscript><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quickestimate.co/"},{"@type":"ListItem","position":2,"name":"Solar CRM"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","@id":"https://quickestimate.co/#software","name":"Quickest Solar CRM","alternateName":"QuickEstimate","applicationCategory":"BusinessApplication","applicationSubCategory":"Solar CRM","operatingSystem":"Web, iOS, Android","url":"https://quickestimate.co/crm","image":"https://quickestimate.co/images/og-default.png","publisher":{"@id":"https://quickestimate.co/#organization"},"author":{"@id":"https://quickestimate.co/#organization"},"sameAs":["https://play.google.com/store/apps/details?id=co.quickestimate.app","https://apps.apple.com/in/app/solar-crm-by-quickest/id1635101087"],"offers":[{"@type":"Offer","name":"Free","price":"0","priceCurrency":"INR","availability":"https://schema.org/InStock","url":"https://app.quickestimate.co/register","description":"10 proposals per month, 1 user, no card."},{"@type":"Offer","name":"Pro","priceCurrency":"INR","availability":"https://schema.org/InStock","url":"https://app.quickestimate.co/register?plan=pro","description":"Per user per year, billed annually, minimum 3 users. Unlimited proposals.","priceSpecification":{"@type":"UnitPriceSpecification","price":"6999","priceCurrency":"INR","referenceQuantity":{"@type":"QuantitativeValue","value":1,"unitCode":"ANN","unitText":"user per year"},"eligibleQuantity":{"@type":"QuantitativeValue","minValue":3,"unitText":"users"}},"price":"6999"}],"description":"What a solar CRM is, how it differs from a general CRM, and the app features an Indian installer needs: solar pipeline stages, PM Surya Ghar maths, GST-ready quotes, WhatsApp."}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is a solar CRM?","acceptedAnswer":{"@type":"Answer","text":"A solar CRM is customer relationship management software built around how solar is actually sold and installed, rather than a general sales tool with solar labels on it. It tracks a lead through the stages a solar deal really has, which are enquiry, site survey, quotation, subsidy application, net metering, installation and then operations and maintenance. It also handles the calculations a solar quote needs, including system sizing, GST, and in India the PM Surya Ghar subsidy."}},{"@type":"Question","name":"How is a solar CRM different from a general CRM like Zoho or HubSpot?","acceptedAnswer":{"@type":"Answer","text":"A general CRM stores contacts and deal stages. It has no idea what a kilowatt is, cannot size a system, cannot compute a subsidy, and does not know that a net metering application sits between a signed order and a commissioned plant. Teams using general CRMs end up doing the solar-specific work in spreadsheets alongside the CRM, which is where the errors and the lost follow-ups come from."}},{"@type":"Question","name":"Does a solar CRM calculate the PM Surya Ghar subsidy?","acceptedAnswer":{"@type":"Answer","text":"Quickest Solar CRM does. It applies the current PM Surya Ghar Muft Bijli Yojana slabs to the system size on the quote, so the customer sees the subsidy and the net payable without anyone working it out by hand. Subsidy rules change, so always confirm the current slabs against the national portal before submitting an application."}},{"@type":"Question","name":"Can a solar CRM send proposals on WhatsApp?","acceptedAnswer":{"@type":"Answer","text":"Yes, and in India it should. Most solar buyers reply on WhatsApp rather than email. Quickest Solar CRM generates the proposal PDF and sends it on WhatsApp from the same screen, and follow-up reminders run on WhatsApp too."}},{"@type":"Question","name":"Is there a free solar CRM?","acceptedAnswer":{"@type":"Answer","text":"Quickest Solar CRM has a free plan at zero rupees forever: 10 proposals a month, one user, no card required. Proposals on the free plan carry a watermark. The Pro plan is 6,999 rupees per user per year with a three-user minimum."}},{"@type":"Question","name":"Does a solar CRM work on mobile?","acceptedAnswer":{"@type":"Answer","text":"It has to. Solar sales happen on rooftops and in customer living rooms, not at a desk. Quickest Solar CRM runs on iOS, Android and the web, and a proposal can be built and sent from a phone during the site visit."}},{"@type":"Question","name":"How long does it take to move from Excel to a solar CRM?","acceptedAnswer":{"@type":"Answer","text":"Most teams send their first proposal within about 30 minutes of signing up. Moving historical leads across takes longer and depends on how your spreadsheet is organised. Start by running new leads through the CRM and migrate the back catalogue afterwards."}},{"@type":"Question","name":"Does a solar CRM handle GST on quotations?","acceptedAnswer":{"@type":"Answer","text":"A solar CRM built for India should. Quickest Solar CRM applies GST to the bill of materials and shows it on the quotation, so the figure the customer sees is the figure they pay."}}]}</script><link rel="stylesheet" href="/_astro/quickest-vs-excel.UvTB-rts.css">
+<style>.hero-note[data-astro-cid-tfe5nrye]{margin-top:14px;font-size:14px;color:var(--qe-ink-400)}.pipe-demo[data-astro-cid-tfe5nrye]{display:grid;gap:8px}.pipe-row[data-astro-cid-tfe5nrye]{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:8px;background:var(--qe-bg-soft);border:1px solid var(--qe-line);font-size:14px}.pipe-row[data-astro-cid-tfe5nrye].is-hot{background:var(--qe-accent-50);border-color:var(--qe-accent-100)}.pipe-stage[data-astro-cid-tfe5nrye]{color:var(--qe-ink-700)}.pipe-count[data-astro-cid-tfe5nrye]{font-family:var(--font-mono);font-weight:600;color:var(--qe-ink)}.pipe-caption[data-astro-cid-tfe5nrye]{margin:14px 0 0;font-size:12px;color:var(--qe-ink-400)}.prose-wide[data-astro-cid-tfe5nrye]{max-width:68ch}.india-grid[data-astro-cid-tfe5nrye]{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}.india-item[data-astro-cid-tfe5nrye]{padding:22px;border:1px solid var(--qe-line);border-radius:12px;background:var(--qe-bg)}.india-item[data-astro-cid-tfe5nrye] h3[data-astro-cid-tfe5nrye]{display:flex;align-items:center;gap:9px;font-size:17px;margin:0 0 10px}.india-item[data-astro-cid-tfe5nrye] p[data-astro-cid-tfe5nrye]{margin:0;color:var(--qe-ink-700);font-size:15px;line-height:1.62}.who-grid[data-astro-cid-tfe5nrye]{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}.who-item[data-astro-cid-tfe5nrye]{padding:20px;border-left:3px solid var(--qe-accent);background:var(--qe-bg);border-radius:0 10px 10px 0}.who-item[data-astro-cid-tfe5nrye] h3[data-astro-cid-tfe5nrye]{font-size:16px;margin:0 0 8px}.who-item[data-astro-cid-tfe5nrye] p[data-astro-cid-tfe5nrye]{margin:0;font-size:14.5px;color:var(--qe-ink-700);line-height:1.6}.table-wrap[data-astro-cid-tfe5nrye]{overflow-x:auto;border:1px solid var(--qe-line);border-radius:12px}table[data-astro-cid-tfe5nrye].cmp{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--qe-bg)}table[data-astro-cid-tfe5nrye].cmp th[data-astro-cid-tfe5nrye],table[data-astro-cid-tfe5nrye].cmp td[data-astro-cid-tfe5nrye]{padding:11px 14px;text-align:left;border-bottom:1px solid var(--qe-line)}table[data-astro-cid-tfe5nrye].cmp th[data-astro-cid-tfe5nrye]{background:var(--qe-bg-soft);font-size:13px;font-weight:600;white-space:nowrap}table[data-astro-cid-tfe5nrye].cmp td[data-astro-cid-tfe5nrye]:last-child,table[data-astro-cid-tfe5nrye].cmp th[data-astro-cid-tfe5nrye]:last-child{font-weight:600;color:var(--qe-accent-700)}table[data-astro-cid-tfe5nrye].cmp tr[data-astro-cid-tfe5nrye]:last-child td[data-astro-cid-tfe5nrye]{border-bottom:none}.price-grid[data-astro-cid-tfe5nrye]{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px}.price-card[data-astro-cid-tfe5nrye]{padding:24px;border:1px solid var(--qe-line);border-radius:14px;background:var(--qe-bg);display:flex;flex-direction:column;gap:14px}.price-card[data-astro-cid-tfe5nrye].is-featured{border-color:var(--qe-accent);border-width:2px}.price-card[data-astro-cid-tfe5nrye] h3[data-astro-cid-tfe5nrye]{margin:0;font-size:17px}.price-card[data-astro-cid-tfe5nrye] .price[data-astro-cid-tfe5nrye]{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em}.price-card[data-astro-cid-tfe5nrye] .price[data-astro-cid-tfe5nrye] span[data-astro-cid-tfe5nrye]{font-size:14px;font-weight:400;color:var(--qe-ink-400)}.price-card[data-astro-cid-tfe5nrye] ul[data-astro-cid-tfe5nrye]{margin:0;padding-left:18px;display:grid;gap:7px;font-size:14.5px;color:var(--qe-ink-700)}.price-card[data-astro-cid-tfe5nrye] .btn{margin-top:auto}.quote-grid[data-astro-cid-tfe5nrye]{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}.sec-foot[data-astro-cid-tfe5nrye]{margin:26px 0 0;font-size:14.5px;color:var(--qe-ink-700);line-height:1.65}@media(max-width:640px){.price-card[data-astro-cid-tfe5nrye] .price[data-astro-cid-tfe5nrye]{font-size:24px}}
+</style></head> <body class data-astro-cid-37fxchfa>  <a href="#main" class="qe-skip" data-astro-cid-37fxchfa>Skip to main content</a> <svg width="0" height="0" style="position:absolute" aria-hidden="true"> <defs> <symbol id="ic-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 L4 14 h7 l-1 8 9-12 h-7 z"></path></symbol> <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 H6 a2 2 0 0 0-2 2 v16 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2-2 V8 z"></path><path d="M14 2 v6 h6"></path><path d="M9 14 l2 2 4-4"></path></symbol> <symbol id="ic-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12 a9 9 0 1 1-3.5-7.1 L21 4 l-1 4.5 A9 9 0 0 1 21 12 z"></path><circle cx="9" cy="12" r="0.8" fill="currentColor"></circle><circle cx="13" cy="12" r="0.8" fill="currentColor"></circle><circle cx="17" cy="12" r="0.8" fill="currentColor"></circle></symbol> <symbol id="ic-pipeline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="4" height="16" rx="1"></rect><rect x="9.5" y="4" width="4" height="11" rx="1"></rect><rect x="16" y="4" width="4" height="7" rx="1"></rect></symbol> <symbol id="ic-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle></symbol> <symbol id="ic-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"></rect><line x1="11" y1="18" x2="13" y2="18"></line></symbol> <symbol id="ic-team" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20 c0-3.3 2.7-6 6-6 s6 2.7 6 6"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14 c3 0 5 2 5 5"></path></symbol> <symbol id="ic-rupee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5 h10"></path><path d="M7 9 h10"></path><path d="M9 5 c4 0 5 1.5 5 4 s-2 4-5 4 H7 l8 8"></path></symbol> <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7 v5 l3 2"></path></symbol> <symbol id="ic-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></symbol> <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12 10 17 19 7"></polyline></symbol> <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></symbol> <symbol id="ic-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 L14.5 8.5 L21.5 9.3 L16.3 14 L17.8 21 L12 17.4 L6.2 21 L7.7 14 L2.5 9.3 L9.5 8.5 z"></path></symbol> <symbol id="ic-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 v16 l13-8 z"></path></symbol> <symbol id="ic-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 h5 l1.5 3 h5 l1.5-3 h5"></path><path d="M5 13 L7 5 h10 l2 8 v6 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 z"></path></symbol> <symbol id="ic-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L13.5 8.5 L19 10 L13.5 11.5 L12 17 L10.5 11.5 L5 10 L10.5 8.5 z"></path><path d="M19 17 L19.7 19 L21.5 19.5 L19.7 20 L19 22 L18.3 20 L16.5 19.5 L18.3 19 z"></path></symbol> <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4.5"></line><line x1="12" y1="19.5" x2="12" y2="22"></line><line x1="4.5" y1="4.5" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.5" y2="19.5"></line><line x1="2" y1="12" x2="4.5" y2="12"></line><line x1="19.5" y1="12" x2="22" y2="12"></line><line x1="4.5" y1="19.5" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.5" y2="4.5"></line></symbol> <symbol id="ic-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></symbol> <symbol id="ic-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2 v6"></path><path d="M15 2 v6"></path><rect x="6" y="8" width="12" height="6" rx="1"></rect><path d="M12 14 v3 a3 3 0 0 1-3 3 H8"></path></symbol> <symbol id="ic-leak" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4 v6 a7 7 0 0 0 14 0 V4"></path><path d="M9 4 h6"></path><line x1="12" y1="13" x2="12" y2="22" stroke-dasharray="2 3"></line></symbol> <symbol id="ic-trend-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"></polyline><polyline points="15 7 21 7 21 13"></polyline></symbol> <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12 s4-7 10-7 10 7 10 7 -4 7-10 7 -10-7-10-7 z"></path><circle cx="12" cy="12" r="3"></circle></symbol> <symbol id="ic-spread" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="14" x2="21" y2="14"></line><line x1="9" y1="4" x2="9" y2="20"></line><line x1="15" y1="4" x2="15" y2="20"></line></symbol> <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L4 5 v6 c0 5 3.5 9 8 11 4.5-2 8-6 8-11 V5 z"></path><path d="M9 12 l2 2 4-4"></path></symbol> <symbol id="ic-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 a9 9 0 0 1 15-6.7 L21 7"></path><path d="M21 4 v3 h-3"></path><path d="M21 12 a9 9 0 0 1-15 6.7 L3 17"></path><path d="M3 20 v-3 h3"></path></symbol> <symbol id="ic-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.4 L1.8 18.5 a2 2 0 0 0 1.7 3 h17 a2 2 0 0 0 1.7-3 L13.7 3.4 a2 2 0 0 0-3.4 0 z"></path><line x1="12" y1="9" x2="12" y2="13"></line><circle cx="12" cy="17" r="0.8" fill="currentColor"></circle></symbol> <symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><polyline points="3 7 12 13 21 7"></polyline></symbol> <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10 c0 7-9 13-9 13 s-9-6-9-13 a9 9 0 0 1 18 0 z"></path><circle cx="12" cy="10" r="3"></circle></symbol> <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></symbol> <symbol id="ic-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></symbol> <symbol id="ic-twitter" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2H21l-6.5 7.43L22.5 22h-7.05l-4.95-6.5L4.5 22H1l7.18-8.21L1 2h7.2l4.5 5.95zm-2.4 18h1.95L7.27 4H5.27z"></path></symbol> <symbol id="ic-linkedin" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM8 18H5V9h3v9zM6.5 7.5A1.5 1.5 0 118 6a1.5 1.5 0 01-1.5 1.5zM18 18h-3v-4.5c0-1.1-.9-2-2-2s-2 .9-2 2V18h-3V9h3v1.2c.6-.7 1.5-1.2 2.5-1.2a3.5 3.5 0 014.5 3.5V18z"></path></symbol> <symbol id="ic-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13 a5 5 0 0 0 7.54.54 l3-3 a5 5 0 0 0-7.07-7.07 l-1.72 1.71"></path><path d="M14 11 a5 5 0 0 0-7.54-.54 l-3 3 a5 5 0 0 0 7.07 7.07 l1.71-1.71"></path></symbol> <symbol id="ic-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="0.9" fill="currentColor" stroke="none"></circle></symbol> </defs> </svg> <div class="progress" id="progress" aria-hidden="true" data-astro-cid-37fxchfa></div> <header class="nav" id="nav" data-nav> <div class="nav-inner"> <a class="brand" href="/" aria-label="Quickest Solar CRM home"> <img class="logo-img" src="/images/logo-768x250.png" alt="Quickest Solar CRM" width="120" height="32"> </a> <button class="nav-burger" id="nav-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-mobile"> <span></span><span></span><span></span> </button> <nav class="nav-links" aria-label="Primary"> <div class="nav-dropdown"> <a href="/features/proposal-generator" aria-haspopup="true">Product</a> <div class="nav-dropdown-menu" role="menu"> <a href="/features/proposal-generator" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M9 15l2 2 4-4"></path><path d="M12 12h.01"></path></svg></span>Proposal Generator</a> <a href="/features/lead-capture" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l1.5 3h5l1.5-3h5"></path><path d="M5 13L7 5h10l2 8v6a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"></path><circle cx="12" cy="9" r="2"></circle></svg></span>Lead Capture</a> <a href="/features/whatsapp-follow-up" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.5-7.1L21 4l-1 4.5A9 9 0 0 1 21 12z"></path><path d="M9 12l2 2 4-4"></path></svg></span>WhatsApp Follow-Up</a> <a href="/features/pipeline-management" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="5" height="16" rx="1"></rect><rect x="9" y="9" width="5" height="11" rx="1"></rect><rect x="16" y="14" width="5" height="6" rx="1"></rect></svg></span>Pipeline Management</a> <a href="/features/quotation-system" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5h10"></path><path d="M7 9h10"></path><path d="M9 5c4 0 5 1.5 5 4s-2 4-5 4H7l8 8"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg></span>Quotation System</a> <a href="/solar-pricing-calculator" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span>Pricing Calculator</a> <a href="/features/sales-reports" role="menuitem"><span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path><path d="M3 20h18"></path></svg></span>Sales Reports</a> </div> </div> <div class="nav-dropdown nav-dropdown-wide"> <a href="/services" aria-haspopup="true">Solar Services</a> <div class="nav-dropdown-menu nav-mega" role="menu"> <div class="nav-mega-head"> <strong>Solar Services</strong> <span>Professional design &amp; engineering support for solar businesses</span> </div> <div class="nav-mega-cols"> <div class="nav-mega-col"> <h4>Design</h4> <a href="/services/solar-3d-pre-design" role="menuitem">Solar 3D Pre-Design</a><a href="/services/solar-post-design" role="menuitem">Solar Post-Design</a> </div><div class="nav-mega-col"> <h4>Engineering</h4> <a href="/services/rooftop-detailed-engineering" role="menuitem">Rooftop Detailed Engineering</a><a href="/services/ground-mount-design" role="menuitem">Ground Mount Design</a><a href="/services/civil-structural-engineering" role="menuitem">Civil &amp; Structural Engineering</a><a href="/services/electrical-ceig-drawings" role="menuitem">Electrical CEIG Drawings</a> </div><div class="nav-mega-col"> <h4>Project Support</h4> <a href="/services/solar-permit-design" role="menuitem">Solar Permit Design</a><a href="/services/site-survey-feasibility" role="menuitem">Site Survey &amp; Feasibility</a><a href="/services/mw-scale-project-management" role="menuitem">MW Scale Project Management</a> </div> </div> <div class="nav-mega-foot"> <a href="/services" role="menuitem" class="nav-mega-all">
+View All Solar Services
+<span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> <a href="/services#quote" role="menuitem" class="nav-mega-quote">
+Get a Free Quote
+<span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> </div> </div> </div> <a href="/crm">Solar CRM</a> <a href="/#how">How it works</a> <a href="/pricing">Pricing</a> <a href="/surgepv">SurgePV</a> <div class="nav-dropdown"> <a href="/blog" aria-haspopup="true">Resources</a> <div class="nav-dropdown-menu nav-resources-menu" role="menu"> <a href="/#testimonials" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span> <span><strong>Customers</strong><small>Stories from solar businesses</small></span> </a> <a href="/blog" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span> <span><strong>Blog</strong><small>Solar sales and CRM guides</small></span> </a> <a href="/glossary" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M8 7h8M8 11h6"></path></svg></span> <span><strong>Glossary</strong><small>Solar and CRM definitions</small></span> </a> <a href="/best-solar-crm" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg></span> <span><strong>Solar CRM Lists</strong><small>Best solar CRM software compared</small></span> </a> <a href="/compare" role="menuitem"> <span class="dd-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M8 21H3v-5"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg></span> <span><strong>Compare Quickest</strong><small>vs Zoho CRM and Excel</small></span> </a> </div> </div> </nav> <div class="nav-cta"> <a class="nav-btn nav-btn-ghost" href="https://app.quickestimate.co/" target="_blank" rel="noopener noreferrer">Sign in</a> <a class="nav-btn nav-btn-primary" href="https://app.quickestimate.co/register" target="_blank" rel="noopener noreferrer"> <span>Start free</span> <span class="nav-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></span> </a> </div> </div> </header> <!-- Mobile drawer --> <div class="nav-mobile" id="nav-mobile" hidden> <nav aria-label="Mobile"> <a href="/features/proposal-generator">Product</a> <a href="/features/lead-capture">Lead capture</a> <a href="/features/whatsapp-follow-up">WhatsApp follow-up</a> <a href="/features/pipeline-management">Pipeline</a> <a href="/features/quotation-system">Quotation</a> <a href="/solar-pricing-calculator">Pricing calculator</a> <a href="/features/sales-reports">Sales reports</a> <hr> <a href="/services"><strong>Solar Services</strong></a>  <span class="nav-mobile-group">Design</span> <a href="/services/solar-3d-pre-design">Solar 3D Pre-Design</a><a href="/services/solar-post-design">Solar Post-Design</a> <span class="nav-mobile-group">Engineering</span> <a href="/services/rooftop-detailed-engineering">Rooftop Detailed Engineering</a><a href="/services/ground-mount-design">Ground Mount Design</a><a href="/services/civil-structural-engineering">Civil &amp; Structural Engineering</a><a href="/services/electrical-ceig-drawings">Electrical CEIG Drawings</a> <span class="nav-mobile-group">Project Support</span> <a href="/services/solar-permit-design">Solar Permit Design</a><a href="/services/site-survey-feasibility">Site Survey &amp; Feasibility</a><a href="/services/mw-scale-project-management">MW Scale Project Management</a> <hr> <a href="/#how">How it works</a> <a href="/pricing">Pricing</a> <a href="/surgepv">SurgePV</a> <a href="/about">About</a> <a href="/security">Security</a> <span class="nav-mobile-group">Resources</span> <a href="/#testimonials">Customers</a> <a href="/blog">Blog</a> <a href="/glossary">Glossary</a> <a href="/best-solar-crm">Solar CRM Lists</a> <a href="/compare">Compare Quickest</a> <a href="/faq">FAQ</a> <a href="tel:+919274486197">Call +91 92744 86197</a> <a href="https://wa.me/919274486197" target="_blank" rel="noopener noreferrer">WhatsApp us</a> <hr> <a class="nav-mobile-cta primary" href="https://app.quickestimate.co/register" target="_blank" rel="noopener noreferrer">Start free →</a> </nav> </div>  <script>
+  (function () {
+    const nav = document.getElementById('nav');
+    if (!nav) return;
+    const onScroll = () => {
+      const scrolled = window.scrollY > 16;
+      nav.classList.toggle('scrolled', scrolled);
+      nav.classList.toggle('qe-scrolled', scrolled);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    const burger = document.getElementById('nav-burger');
+    const drawer = document.getElementById('nav-mobile');
+    if (burger && drawer) {
+      // Keep the drawer's top edge pinned to the bottom of the header, whose
+      // height changes with the logo size across breakpoints.
+      const syncHeight = () =>
+        document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+      syncHeight();
+      window.addEventListener('resize', syncHeight, { passive: true });
+
+      const setOpen = (open) => {
+        if (open) syncHeight();
+        burger.setAttribute('aria-expanded', String(open));
+        burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        if (open) { drawer.removeAttribute('hidden'); document.body.classList.add('nav-mobile-open'); }
+        else { drawer.setAttribute('hidden', ''); document.body.classList.remove('nav-mobile-open'); }
+      };
+      burger.addEventListener('click', () => setOpen(burger.getAttribute('aria-expanded') !== 'true'));
+      drawer.addEventListener('click', (e) => {
+        if (e.target instanceof HTMLAnchorElement) setOpen(false);
+      });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+    }
+
+    // Touch has no hover, so the desktop dropdowns (visible 881-1240px) would
+    // be unreachable. First tap opens the menu, second tap follows the link;
+    // any tap outside or Escape closes. Pointer devices keep pure hover.
+    if (window.matchMedia('(hover: none)').matches) {
+      const closeAll = () =>
+        nav.querySelectorAll('.nav-dropdown.is-open').forEach((d) => d.classList.remove('is-open'));
+      nav.querySelectorAll('.nav-dropdown > a').forEach((a) => {
+        a.addEventListener('click', (e) => {
+          const dd = a.parentElement;
+          if (!dd || !dd.classList.contains('is-open')) {
+            e.preventDefault();
+            closeAll();
+            if (dd) dd.classList.add('is-open');
+          }
+        });
+      });
+      document.addEventListener('click', (e) => { if (!nav.contains(e.target)) closeAll(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
+    }
+  })();
+</script> <main id="main" data-astro-cid-37fxchfa>     <section class="feature-hero" data-astro-cid-tfe5nrye> <div class="feature-hero-inner" data-astro-cid-tfe5nrye> <div data-astro-cid-tfe5nrye> <div class="eyebrow" data-astro-cid-tfe5nrye><span class="dot" data-astro-cid-tfe5nrye></span>Solar CRM for India</div> <h1 data-astro-cid-tfe5nrye>What is a <span class="hl" data-astro-cid-tfe5nrye>solar CRM</span>, and which features does an Indian installer need?</h1> <p class="sub" data-astro-cid-tfe5nrye>
+A solar CRM is the app that runs a solar sale from first enquiry to commissioned plant. It
+          should know what a kilowatt costs, what PM Surya Ghar pays back, and that your customer
+          replies on WhatsApp. This page explains what one does and which features matter, using
+          Quickest Solar CRM as the worked example.
+</p> <p class="sub" data-astro-cid-tfe5nrye>
+Comparing products rather than learning the category? Our
+<a href="/best-solar-crm/india" data-astro-cid-tfe5nrye>comparison of solar CRM software in India</a> lists the options side by side.
+</p> <div class="btn-group" data-astro-cid-tfe5nrye> <a href="https://app.quickestimate.co/register" class="btn btn-accent" target="_blank" rel="noopener noreferrer"> Start free, 10 proposals <span class="icon icon-md"><svg><use href="#ic-arrow-right"></use></svg></span> </a> <a href="/demo" class="btn btn-secondary"> Book a 15-minute demo  </a> </div> <p class="hero-note" data-astro-cid-tfe5nrye>Free forever plan. No card. Used by 1,000+ Indian solar businesses across 22 states.</p> </div> <div class="hero-visual" data-astro-cid-tfe5nrye> <div class="hero-visual-top" data-astro-cid-tfe5nrye> <span class="hero-visual-dot" style="background:#FF6B6B;" data-astro-cid-tfe5nrye></span> <span class="hero-visual-dot" style="background:#FFC23A;" data-astro-cid-tfe5nrye></span> <span class="hero-visual-dot" style="background:#3DD68C;" data-astro-cid-tfe5nrye></span> <span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--qe-ink-400);" data-astro-cid-tfe5nrye>Solar pipeline</span> </div> <div class="hero-visual-body" data-astro-cid-tfe5nrye> <div class="pipe-demo" data-astro-cid-tfe5nrye> <div class="pipe-row" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Enquiry</span><span class="pipe-count" data-astro-cid-tfe5nrye>18</span></div> <div class="pipe-row" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Site survey</span><span class="pipe-count" data-astro-cid-tfe5nrye>11</span></div> <div class="pipe-row" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Quotation sent</span><span class="pipe-count" data-astro-cid-tfe5nrye>9</span></div> <div class="pipe-row is-hot" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Subsidy applied</span><span class="pipe-count" data-astro-cid-tfe5nrye>6</span></div> <div class="pipe-row" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Net metering</span><span class="pipe-count" data-astro-cid-tfe5nrye>4</span></div> <div class="pipe-row" data-astro-cid-tfe5nrye><span class="pipe-stage" data-astro-cid-tfe5nrye>Installation</span><span class="pipe-count" data-astro-cid-tfe5nrye>3</span></div> </div> <p class="pipe-caption" data-astro-cid-tfe5nrye>Illustrative pipeline. Stages match how solar is actually sold in India.</p> </div> </div> </div> </section>  <section class="section" id="what-is-a-solar-crm" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>What is a solar CRM?</h2> </div> <div class="prose prose-wide" data-astro-cid-tfe5nrye> <p data-astro-cid-tfe5nrye>
+A <strong data-astro-cid-tfe5nrye>solar CRM</strong> is customer relationship management software shaped around how
+          solar is actually sold and installed, instead of a general sales tool with solar-sounding
+          labels bolted on. The difference shows up in three places: the pipeline stages, the maths,
+          and the paperwork.
+</p> <p data-astro-cid-tfe5nrye>
+A generic CRM gives you stages like Lead, Qualified, Proposal, Won. A solar deal does not
+          work that way. It runs enquiry, site survey, quotation, subsidy application, net metering,
+          installation, then operations and maintenance. Two of those stages sit with a government
+          portal and a DISCOM rather than with your sales rep, and a CRM that cannot represent them
+          leaves your team guessing where a deal actually is.
+</p> <p data-astro-cid-tfe5nrye>
+A solar CRM also has to do arithmetic that a general CRM has never heard of. System sizing
+          against a customer's consumption. Bill of materials with GST. Payback period. And in India,
+          the PM Surya Ghar Muft Bijli Yojana subsidy, which changes what the customer pays and is
+          the single number most likely to be got wrong in a hurry on a rooftop.
+</p> </div> </div> </section>  <section class="section alt-bg" id="why-general-crms-fail" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Why a general CRM fails for solar businesses</h2> <p data-astro-cid-tfe5nrye>Most Indian EPCs arrive here after trying a general CRM, a spreadsheet, or both at once.</p> </div> <div class="cap-grid" data-astro-cid-tfe5nrye> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-x"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It cannot size a system</h3> <p data-astro-cid-tfe5nrye>A general CRM stores a deal value you typed in. It cannot take a monthly bill and tell you the plant size, so that work goes back to a spreadsheet and stops being visible to anyone else.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-rupee"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It does not know the subsidy</h3> <p data-astro-cid-tfe5nrye>PM Surya Ghar changes the customer's net cost. If the CRM cannot apply the current slabs, every quote is a manual calculation, and manual calculations under time pressure are where the margin goes.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-doc"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It has no DISCOM stage</h3> <p data-astro-cid-tfe5nrye>Net metering approval is a real stage that a real person has to chase. A pipeline without it makes signed orders look complete when they are actually waiting on a utility.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-chat"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It assumes email</h3> <p data-astro-cid-tfe5nrye>Indian solar customers reply on WhatsApp. A CRM built on email sequences produces follow-up that nobody reads and reporting that says you followed up when you did not.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-mobile"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It assumes a desk</h3> <p data-astro-cid-tfe5nrye>The moment to send a quote is on the roof, while the customer is standing next to you. If the CRM is a desktop tool, the quote goes out that evening, or the next day, or not at all.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-spread"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye>It leaves you in two systems</h3> <p data-astro-cid-tfe5nrye>The common end state is a CRM holding names and a spreadsheet holding the actual solar work. Two systems, one of which is out of date, and no owner able to see the real pipeline.</p> </div> </div> <p class="sec-foot" data-astro-cid-tfe5nrye>
+The honest comparison is not really CRM against CRM. For most Indian installers it is a solar
+        CRM against <a href="/blog/solar-crm-vs-spreadsheet" data-astro-cid-tfe5nrye>Excel plus WhatsApp</a>, which is the
+        incumbent worth beating.
+</p> </div> </section>  <section class="section" id="solar-sales-pipeline" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>The pipeline a solar CRM has to model</h2> <p data-astro-cid-tfe5nrye>Seven stages, two of which are outside your control. A CRM that hides those two will mislead you.</p> </div> <div class="steps" data-astro-cid-tfe5nrye> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>1</div><h3 data-astro-cid-tfe5nrye>Enquiry</h3><p data-astro-cid-tfe5nrye>Lead arrives from Meta, IndiaMART, a Google form, a referral or a walk-in. It lands in one inbox instead of four.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>2</div><h3 data-astro-cid-tfe5nrye>Site survey</h3><p data-astro-cid-tfe5nrye>Roof area, shading, sanctioned load, meter details. Captured on the phone, on site, with photos attached to the lead.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>3</div><h3 data-astro-cid-tfe5nrye>Quotation</h3><p data-astro-cid-tfe5nrye>System size, bill of materials, GST, labour. The subsidy applied automatically so the net figure is right the first time.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>4</div><h3 data-astro-cid-tfe5nrye>Subsidy application</h3><p data-astro-cid-tfe5nrye>PM Surya Ghar registration and documentation. Tracked as a stage, because it gates everything after it.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>5</div><h3 data-astro-cid-tfe5nrye>Net metering</h3><p data-astro-cid-tfe5nrye>DISCOM application, feasibility, meter installation. Owned by the utility, chased by you, visible to the owner.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>6</div><h3 data-astro-cid-tfe5nrye>Installation</h3><p data-astro-cid-tfe5nrye>Material dispatch, mounting, commissioning. The point at which the customer expects to hear from you daily.</p></div> <div class="step-card" data-astro-cid-tfe5nrye><div class="step-num" data-astro-cid-tfe5nrye>7</div><h3 data-astro-cid-tfe5nrye>Operations and maintenance</h3><p data-astro-cid-tfe5nrye>Service visits, warranty claims, and the referrals that come from a customer who was not abandoned after commissioning.</p></div> </div> </div> </section>  <section class="section alt-bg" id="solar-crm-for-india" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>What a solar CRM needs to handle in India specifically</h2> <p data-astro-cid-tfe5nrye>This is where an imported product struggles, however good it is at everything else.</p> </div> <div class="india-grid" data-astro-cid-tfe5nrye> <div class="india-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye><span class="icon"><svg><use href="#ic-sun"></use></svg></span> PM Surya Ghar</h3> <p data-astro-cid-tfe5nrye>The PM Surya Ghar Muft Bijli Yojana subsidy is the first question a residential customer asks and the number they will hold you to. Your CRM should apply the current slabs to the system on the quote and show the customer their net payable, not send your rep back to a calculator.</p> </div> <div class="india-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye><span class="icon"><svg><use href="#ic-plug"></use></svg></span> DISCOM and net metering</h3> <p data-astro-cid-tfe5nrye>Rules, load limits and timelines differ by state and by distribution company. A solar CRM built elsewhere treats net metering as an afterthought. In India it is a pipeline stage that decides whether a signed deal becomes a commissioned plant this quarter or next.</p> </div> <div class="india-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye><span class="icon"><svg><use href="#ic-rupee"></use></svg></span> GST on the quotation</h3> <p data-astro-cid-tfe5nrye>A solar quotation that does not carry GST correctly is a quotation you will have to reissue. The tax treatment belongs in the document the customer sees, not in a separate invoice conversation later.</p> </div> <div class="india-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye><span class="icon"><svg><use href="#ic-chat"></use></svg></span> WhatsApp as the channel</h3> <p data-astro-cid-tfe5nrye>Email open rates are not the metric that matters here. Proposals go out on WhatsApp, follow-ups happen on WhatsApp, and approvals arrive as a voice note. A solar CRM for India has to treat that as the primary channel rather than an integration.</p> </div> </div> <p class="sec-foot" data-astro-cid-tfe5nrye>
+Related reading: <a href="/blog/pm-surya-ghar-subsidy-slabs" data-astro-cid-tfe5nrye>PM Surya Ghar subsidy slabs</a>,
+<a href="/blog/net-metering-vs-gross-metering" data-astro-cid-tfe5nrye>net metering compared with gross metering</a>,
+        and <a href="/blog/how-to-migrate-from-excel-to-solar-crm" data-astro-cid-tfe5nrye>moving from Excel to a solar CRM</a>.
+</p> </div> </section>  <section class="section" id="solar-crm-features" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Solar CRM app features, as built into Quickest</h2> <p data-astro-cid-tfe5nrye>Six modules. Each one exists because an Indian EPC asked for it. Use them as a checklist when you assess any solar CRM.</p> </div> <div class="cap-grid" data-astro-cid-tfe5nrye> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-inbox"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/lead-capture" data-astro-cid-tfe5nrye>Lead capture</a></h3> <p data-astro-cid-tfe5nrye>Meta Lead Ads, IndiaMART, Google Forms and walk-ins land in one place, assigned to a rep, with the source recorded so you learn which channel actually pays.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-doc"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/proposal-generator" data-astro-cid-tfe5nrye>Proposal generator</a></h3> <p data-astro-cid-tfe5nrye>A branded, subsidy-ready proposal in about 60 seconds, built on the phone during the site visit rather than back at the office.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-bolt"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/quotation-system" data-astro-cid-tfe5nrye>Quotation system</a></h3> <p data-astro-cid-tfe5nrye>Bill of materials, GST, labour and subsidy in one document, so the price the customer sees is the price you meant to quote.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-pipeline"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/pipeline-management" data-astro-cid-tfe5nrye>Pipeline management</a></h3> <p data-astro-cid-tfe5nrye>The seven solar stages above, with every deal's real position visible to the owner without asking anyone for an update.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-chat"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/whatsapp-follow-up" data-astro-cid-tfe5nrye>WhatsApp follow-up</a></h3> <p data-astro-cid-tfe5nrye>Reminders and templates that go out on the channel customers actually answer, without turning into the kind of spam that gets a number blocked.</p> </div> <div class="cap-item" data-astro-cid-tfe5nrye> <div class="icon-tile" data-astro-cid-tfe5nrye><span class="icon icon-md"><svg><use href="#ic-trend-up"></use></svg></span></div> <h3 data-astro-cid-tfe5nrye><a href="/features/sales-reports" data-astro-cid-tfe5nrye>Sales reports</a></h3> <p data-astro-cid-tfe5nrye>Conversion by source, by rep and by stage. The answer to "why did this month look like that" without rebuilding a spreadsheet.</p> </div> </div> </div> </section>  <section class="section alt-bg" id="who-its-for" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Who a solar CRM is for</h2> </div> <div class="who-grid" data-astro-cid-tfe5nrye> <div class="who-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Growing EPC companies</h3> <p data-astro-cid-tfe5nrye>Three to twenty-five people, five to thirty deals a month. The owner has become the bottleneck because every quote and every follow-up still routes through them.</p> </div> <div class="who-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Solo installers</h3> <p data-astro-cid-tfe5nrye>One person doing sales, survey and installation. Losing deals to firms whose proposals simply look more professional. The free plan exists for this.</p> </div> <div class="who-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Multi-branch dealers</h3> <p data-astro-cid-tfe5nrye>Several locations, inconsistent pricing, and no single view of the pipeline across branches.</p> </div> <div class="who-item" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Operations leads</h3> <p data-astro-cid-tfe5nrye>Running a team that already has a marketing CRM which cannot quote solar, and doing the difference by hand every week.</p> </div> </div> </div> </section>  <section class="section" id="solar-crm-vs-alternatives" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Solar CRM compared with the alternatives</h2> <p data-astro-cid-tfe5nrye>An honest read of what each option is good at.</p> </div> <div class="table-wrap" data-astro-cid-tfe5nrye> <table class="cmp" data-astro-cid-tfe5nrye> <thead data-astro-cid-tfe5nrye> <tr data-astro-cid-tfe5nrye><th data-astro-cid-tfe5nrye>What you need</th><th data-astro-cid-tfe5nrye>Excel + WhatsApp</th><th data-astro-cid-tfe5nrye>General CRM</th><th data-astro-cid-tfe5nrye>Design software</th><th data-astro-cid-tfe5nrye>Solar CRM</th></tr> </thead> <tbody data-astro-cid-tfe5nrye> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>Track leads and follow-ups</td><td data-astro-cid-tfe5nrye>Manual</td><td data-astro-cid-tfe5nrye>Yes</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>Solar pipeline stages</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>System sizing on the quote</td><td data-astro-cid-tfe5nrye>Manual</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>PM Surya Ghar subsidy applied</td><td data-astro-cid-tfe5nrye>Manual</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Rarely</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>GST on the quotation</td><td data-astro-cid-tfe5nrye>Manual</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Rarely</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>Net metering as a stage</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>WhatsApp as primary channel</td><td data-astro-cid-tfe5nrye>Yes</td><td data-astro-cid-tfe5nrye>Add-on</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>Detailed engineering drawings</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>No</td><td data-astro-cid-tfe5nrye>Yes</td><td data-astro-cid-tfe5nrye>No</td></tr> <tr data-astro-cid-tfe5nrye><td data-astro-cid-tfe5nrye>Works on a phone on a roof</td><td data-astro-cid-tfe5nrye>Partly</td><td data-astro-cid-tfe5nrye>Sometimes</td><td data-astro-cid-tfe5nrye>Rarely</td><td data-astro-cid-tfe5nrye>Yes</td></tr> </tbody> </table> </div> <p class="sec-foot" data-astro-cid-tfe5nrye>
+Design software and a solar CRM are not competitors, they do different jobs. If you need
+        shading analysis and stamped drawings you want a design tool such as
+<a href="/surgepv" data-astro-cid-tfe5nrye>SurgePV</a> alongside a CRM, not instead of one. For a longer look at the
+        market, see the <a href="/best-solar-crm/india" data-astro-cid-tfe5nrye>best solar CRM software in India</a>
+and the <a href="/blog/solar-crm-buyers-guide" data-astro-cid-tfe5nrye>solar CRM buyer's guide</a>.
+</p> </div> </section>  <section class="section alt-bg" id="solar-crm-pricing" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Solar CRM pricing</h2> <p data-astro-cid-tfe5nrye>Published, because you should not have to book a call to find out what software costs.</p> </div> <div class="price-grid" data-astro-cid-tfe5nrye> <div class="price-card" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Free</h3> <p class="price" data-astro-cid-tfe5nrye>₹0 <span data-astro-cid-tfe5nrye>forever</span></p> <ul data-astro-cid-tfe5nrye> <li data-astro-cid-tfe5nrye>10 proposals per month</li> <li data-astro-cid-tfe5nrye>1 user</li> <li data-astro-cid-tfe5nrye>Watermarked PDFs</li> <li data-astro-cid-tfe5nrye>No card required</li> </ul> <a href="https://app.quickestimate.co/register" class="btn btn-secondary" target="_blank" rel="noopener noreferrer"> Start free  </a> </div> <div class="price-card is-featured" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Pro</h3> <p class="price" data-astro-cid-tfe5nrye>₹6,999 <span data-astro-cid-tfe5nrye>per user per year</span></p> <ul data-astro-cid-tfe5nrye> <li data-astro-cid-tfe5nrye>Three-user minimum</li> <li data-astro-cid-tfe5nrye>Unlimited proposals, no watermark</li> <li data-astro-cid-tfe5nrye>WhatsApp Business, Meta and IndiaMART integrations</li> </ul> <a href="/pricing" class="btn btn-accent"> See full pricing <span class="icon icon-md"><svg><use href="#ic-arrow-right"></use></svg></span> </a> </div> <div class="price-card" data-astro-cid-tfe5nrye> <h3 data-astro-cid-tfe5nrye>Enterprise</h3> <p class="price" data-astro-cid-tfe5nrye>Custom</p> <ul data-astro-cid-tfe5nrye> <li data-astro-cid-tfe5nrye>25+ users</li> <li data-astro-cid-tfe5nrye>SSO and audit logs</li> <li data-astro-cid-tfe5nrye>Custom DISCOM tariff library</li> <li data-astro-cid-tfe5nrye>Dedicated success manager</li> </ul> <a href="/demo" class="btn btn-secondary"> Talk to us  </a> </div> </div> <p class="sec-foot" data-astro-cid-tfe5nrye>
+Working out what you should be paying? The <a href="/blog/solar-crm-pricing-guide" data-astro-cid-tfe5nrye>solar CRM pricing guide</a>
+covers what the market charges, not just us. Weighing us against Zoho CRM or plain Excel?
+        See the <a href="/compare" data-astro-cid-tfe5nrye>Quickest comparisons</a>.
+</p> </div> </section>  <section class="section" id="proof" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Indian solar businesses already running on it</h2> </div> <div class="quote-grid" data-astro-cid-tfe5nrye> <figure class="quote-block" data-astro-cid-tfe5nrye> <blockquote class="quote-text" data-astro-cid-tfe5nrye>Quickest Solar CRM is highly useful. It saves my team's time and effort, and it's super easy to use. Highly recommend it for any solar EPC.</blockquote> <figcaption data-astro-cid-tfe5nrye> <span class="quote-author" data-astro-cid-tfe5nrye>Ravi Harsoda</span> <span class="quote-role" data-astro-cid-tfe5nrye>CEO, Sunnovative</span> </figcaption> </figure> <figure class="quote-block" data-astro-cid-tfe5nrye> <blockquote class="quote-text" data-astro-cid-tfe5nrye>After Quickest Solar CRM, our sales team has become more organized. Every lead is tracked. Every proposal is consistent. A real change for us.</blockquote> <figcaption data-astro-cid-tfe5nrye> <span class="quote-author" data-astro-cid-tfe5nrye>Bharat Shiroya</span> <span class="quote-role" data-astro-cid-tfe5nrye>CEO, Adarsh Anukampa</span> </figcaption> </figure> </div> <p class="sec-foot" data-astro-cid-tfe5nrye>Used by 1,000+ Indian solar businesses across 22 states, with more than 85,000 proposals sent through the platform.</p> </div> </section>  <section class="section alt-bg" id="solar-crm-faq" data-astro-cid-tfe5nrye> <div class="section-inner" data-astro-cid-tfe5nrye> <div class="sec-head" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Solar CRM questions</h2> </div> <div class="faq-list" data-astro-cid-tfe5nrye> <details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>What is a solar CRM?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>A solar CRM is customer relationship management software built around how solar is actually sold and installed, rather than a general sales tool with solar labels on it. It tracks a lead through the stages a solar deal really has, which are enquiry, site survey, quotation, subsidy application, net metering, installation and then operations and maintenance. It also handles the calculations a solar quote needs, including system sizing, GST, and in India the PM Surya Ghar subsidy.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>How is a solar CRM different from a general CRM like Zoho or HubSpot?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>A general CRM stores contacts and deal stages. It has no idea what a kilowatt is, cannot size a system, cannot compute a subsidy, and does not know that a net metering application sits between a signed order and a commissioned plant. Teams using general CRMs end up doing the solar-specific work in spreadsheets alongside the CRM, which is where the errors and the lost follow-ups come from.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>Does a solar CRM calculate the PM Surya Ghar subsidy?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>Quickest Solar CRM does. It applies the current PM Surya Ghar Muft Bijli Yojana slabs to the system size on the quote, so the customer sees the subsidy and the net payable without anyone working it out by hand. Subsidy rules change, so always confirm the current slabs against the national portal before submitting an application.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>Can a solar CRM send proposals on WhatsApp?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>Yes, and in India it should. Most solar buyers reply on WhatsApp rather than email. Quickest Solar CRM generates the proposal PDF and sends it on WhatsApp from the same screen, and follow-up reminders run on WhatsApp too.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>Is there a free solar CRM?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>Quickest Solar CRM has a free plan at zero rupees forever: 10 proposals a month, one user, no card required. Proposals on the free plan carry a watermark. The Pro plan is 6,999 rupees per user per year with a three-user minimum.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>Does a solar CRM work on mobile?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>It has to. Solar sales happen on rooftops and in customer living rooms, not at a desk. Quickest Solar CRM runs on iOS, Android and the web, and a proposal can be built and sent from a phone during the site visit.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>How long does it take to move from Excel to a solar CRM?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>Most teams send their first proposal within about 30 minutes of signing up. Moving historical leads across takes longer and depends on how your spreadsheet is organised. Start by running new leads through the CRM and migrate the back catalogue afterwards.</div> </details><details class="faq-item" data-astro-cid-tfe5nrye> <summary class="faq-q" data-astro-cid-tfe5nrye>Does a solar CRM handle GST on quotations?<span class="icon  faq-icon"><svg><use href="#ic-arrow-right"></use></svg></span></summary> <div class="faq-a" data-astro-cid-tfe5nrye>A solar CRM built for India should. Quickest Solar CRM applies GST to the bill of materials and shows it on the quotation, so the figure the customer sees is the figure they pay.</div> </details> </div> </div> </section>  <section class="cta-band" data-astro-cid-tfe5nrye> <div class="cta-band-inner" data-astro-cid-tfe5nrye> <h2 data-astro-cid-tfe5nrye>Try the solar CRM free</h2> <p data-astro-cid-tfe5nrye>Ten proposals a month, one user, no card. Most teams send their first proposal within 30 minutes.</p> <div class="btn-group" data-astro-cid-tfe5nrye> <a href="https://app.quickestimate.co/register" class="btn btn-accent" target="_blank" rel="noopener noreferrer"> Start free <span class="icon icon-md"><svg><use href="#ic-arrow-right"></use></svg></span> </a> <a href="/demo" class="btn btn-secondary"> Book a 15-minute demo  </a> </div> </div> </section> </main> <footer class="footer" data-astro-cid-sz7xmlte> <div class="footer-inner" data-astro-cid-sz7xmlte> <div class="footer-grid" data-astro-cid-sz7xmlte> <div class="footer-brand" data-astro-cid-sz7xmlte> <a class="brand" href="/" aria-label="Quickest Solar CRM home" data-astro-cid-sz7xmlte> <img class="logo-img" src="/images/logo-768x250.png" alt="Quickest Solar CRM" width="140" height="36" data-astro-cid-sz7xmlte> </a> <p data-astro-cid-sz7xmlte>India's mobile-first solar CRM. Built in Surat, used by 1,000+ solar businesses across India. A product of Heaven Softech Pvt. Ltd.</p> <p style="font-size:13px; color: var(--ink-300); margin-top:14px;" data-astro-cid-sz7xmlte>
+Plot 28, Vandanam Bungalow, Sudama Chowk,<br data-astro-cid-sz7xmlte>
+Surat, Gujarat 394105<br data-astro-cid-sz7xmlte> <a href="https://wa.me/919274486197" style="color:#fff; text-decoration: underline;" data-astro-cid-sz7xmlte>WhatsApp +91 92744 86197</a><br data-astro-cid-sz7xmlte> <a href="tel:+919274486197" style="color:#fff; text-decoration: underline;" data-astro-cid-sz7xmlte>Call +91 92744 86197</a> </p> <div class="socials" style="margin-top:18px;" data-astro-cid-sz7xmlte> <a href="https://www.linkedin.com/company/quickestimate" target="_blank" rel="noopener" aria-label="LinkedIn" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-linkedin" data-astro-cid-sz7xmlte></use></svg></a> <a href="https://www.instagram.com/quickest.official/" target="_blank" rel="noopener" aria-label="Instagram" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-instagram" data-astro-cid-sz7xmlte></use></svg></a> <a href="https://wa.me/919274486197" aria-label="WhatsApp on +91 92744 86197" data-astro-cid-sz7xmlte><svg width="20" height="20" data-astro-cid-sz7xmlte><use href="#ic-chat" data-astro-cid-sz7xmlte></use></svg></a> </div> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Product</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/" data-astro-cid-sz7xmlte>Solar CRM Software</a></li> <li data-astro-cid-sz7xmlte><a href="/crm" data-astro-cid-sz7xmlte>Solar CRM</a></li> <li data-astro-cid-sz7xmlte><a href="/features/proposal-generator" data-astro-cid-sz7xmlte>Proposal Generator</a></li> <li data-astro-cid-sz7xmlte><a href="/features/lead-capture" data-astro-cid-sz7xmlte>Lead Capture</a></li> <li data-astro-cid-sz7xmlte><a href="/features/whatsapp-follow-up" data-astro-cid-sz7xmlte>WhatsApp Follow-Up</a></li> <li data-astro-cid-sz7xmlte><a href="/features/pipeline-management" data-astro-cid-sz7xmlte>Pipeline Management</a></li> <li data-astro-cid-sz7xmlte><a href="/features/quotation-system" data-astro-cid-sz7xmlte>Quotation System</a></li> <li data-astro-cid-sz7xmlte><a href="/solar-pricing-calculator" data-astro-cid-sz7xmlte>Pricing Calculator</a></li> <li data-astro-cid-sz7xmlte><a href="/features/sales-reports" data-astro-cid-sz7xmlte>Sales Reports</a></li> <li data-astro-cid-sz7xmlte><a href="/surgepv" data-astro-cid-sz7xmlte>SurgePV — Solar Design Software</a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Solar Services</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/services/solar-3d-pre-design" data-astro-cid-sz7xmlte>Solar 3D Pre-Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/solar-post-design" data-astro-cid-sz7xmlte>Solar Post-Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/rooftop-detailed-engineering" data-astro-cid-sz7xmlte>Rooftop Detailed Engineering</a></li><li data-astro-cid-sz7xmlte><a href="/services/ground-mount-design" data-astro-cid-sz7xmlte>Ground Mount Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/solar-permit-design" data-astro-cid-sz7xmlte>Solar Permit Design</a></li><li data-astro-cid-sz7xmlte><a href="/services/civil-structural-engineering" data-astro-cid-sz7xmlte>Civil &amp; Structural Engineering</a></li><li data-astro-cid-sz7xmlte><a href="/services/site-survey-feasibility" data-astro-cid-sz7xmlte>Site Survey &amp; Feasibility</a></li><li data-astro-cid-sz7xmlte><a href="/services/mw-scale-project-management" data-astro-cid-sz7xmlte>MW Scale Project Management</a></li><li data-astro-cid-sz7xmlte><a href="/services/electrical-ceig-drawings" data-astro-cid-sz7xmlte>Electrical CEIG Drawings</a></li> <li data-astro-cid-sz7xmlte><a href="/services" data-astro-cid-sz7xmlte><strong data-astro-cid-sz7xmlte>View all services →</strong></a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Company</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/about" data-astro-cid-sz7xmlte>About</a></li> <li data-astro-cid-sz7xmlte><a href="/pricing" data-astro-cid-sz7xmlte>Pricing</a></li> <li data-astro-cid-sz7xmlte><a href="/security" data-astro-cid-sz7xmlte>Security</a></li> <li data-astro-cid-sz7xmlte><a href="/blog" data-astro-cid-sz7xmlte>Blog</a></li> <li data-astro-cid-sz7xmlte><a href="/masterclass" data-astro-cid-sz7xmlte>Solar masterclass</a></li> <li data-astro-cid-sz7xmlte><a href="/join-whatsapp" data-astro-cid-sz7xmlte>WhatsApp community</a></li> <li data-astro-cid-sz7xmlte><a href="/demo" data-astro-cid-sz7xmlte>Book a demo</a></li> </ul> </div> <div data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Resources</h5> <ul data-astro-cid-sz7xmlte> <li data-astro-cid-sz7xmlte><a href="/glossary" data-astro-cid-sz7xmlte>Glossary</a></li> <li data-astro-cid-sz7xmlte><a href="/best-solar-crm" data-astro-cid-sz7xmlte>Best solar CRM software</a></li> <li data-astro-cid-sz7xmlte><a href="/compare" data-astro-cid-sz7xmlte>Compare Quickest</a></li> <li data-astro-cid-sz7xmlte><a href="/faq" data-astro-cid-sz7xmlte>FAQ</a></li> <li data-astro-cid-sz7xmlte><a href="/download" data-astro-cid-sz7xmlte>Download app</a></li> <li data-astro-cid-sz7xmlte><a href="/privacy" data-astro-cid-sz7xmlte>Privacy</a></li> <li data-astro-cid-sz7xmlte><a href="/terms" data-astro-cid-sz7xmlte>Terms</a></li> <li data-astro-cid-sz7xmlte><a href="/refund" data-astro-cid-sz7xmlte>Refund</a></li> </ul> </div> </div> <div class="footer-app" id="footer-app" data-astro-cid-sz7xmlte> <div class="footer-app-copy" data-astro-cid-sz7xmlte> <h5 data-astro-cid-sz7xmlte>Download the app</h5> <p data-astro-cid-sz7xmlte>Capture leads and send solar proposals from your phone.</p> </div> <div class="footer-app-badges" data-astro-cid-sz7xmlte> <a class="footer-store" href="https://apps.apple.com/us/app/solar-crm-by-quickest/id1635101087" target="_blank" rel="noopener" aria-label="Download QuickEstimate on the App Store" data-astro-cid-sz7xmlte> <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true" focusable="false" data-astro-cid-sz7xmlte><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" data-astro-cid-sz7xmlte></path></svg> <span class="footer-store-text" data-astro-cid-sz7xmlte><small data-astro-cid-sz7xmlte>Download on the</small><strong data-astro-cid-sz7xmlte>App Store</strong></span> </a> <a class="footer-store" href="https://play.google.com/store/apps/details?id=co.quickestimate.app" target="_blank" rel="noopener" aria-label="Get QuickEstimate on Google Play" data-astro-cid-sz7xmlte> <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true" focusable="false" data-astro-cid-sz7xmlte><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.303 2.303-8.633-8.635z" data-astro-cid-sz7xmlte></path></svg> <span class="footer-store-text" data-astro-cid-sz7xmlte><small data-astro-cid-sz7xmlte>Get it on</small><strong data-astro-cid-sz7xmlte>Google Play</strong></span> </a> </div> </div> <div class="footer-base" data-astro-cid-sz7xmlte> <span data-astro-cid-sz7xmlte>© 2026 Heaven Softech Pvt. Ltd. · Quickest Solar CRM · Made in India 🇮🇳</span> <span data-astro-cid-sz7xmlte><a href="/privacy" data-astro-cid-sz7xmlte>Privacy</a> · <a href="/terms" data-astro-cid-sz7xmlte>Terms</a> · <a href="/refund" data-astro-cid-sz7xmlte>Refund</a></span> </div> </div> </footer>   <script>
+    // -----------------------------------------------------------------------
+    // Form delivery, shared by every form on the site.
+    //
+    // Submissions go straight from the visitor's browser to FormSubmit rather
+    // than through /api/submit. FormSubmit rate-limits by source IP, and a
+    // Cloudflare Worker's egress IP is shared across Cloudflare's whole fleet,
+    // so relaying server-side gets a permanent 429. Posting from the visitor
+    // spends the visitor's own IP budget instead.
+    //
+    // The inbox is assembled at runtime so the address is not sitting in the
+    // page source as a plain string for scrapers. Swap FS_TARGET for
+    // FormSubmit's random-string alias to remove it from the page entirely.
+    // -----------------------------------------------------------------------
+    (function () {
+      var FS_TARGET = ['ritik', '@', 'thestacc', '.com'].join('');
+      // Additional recipients, delivered by FormSubmit's _cc field. Every form
+      // on the site copies all of them; scope one to a subset by moving it into
+      // a formType check inside payload() instead.
+      var FS_CC = [
+        ['parth.quickest', '@', 'gmail', '.com'].join(''),
+        ['keyur', '@', 'heavendesigns', '.in'].join('')
+      ];
+
+      var LABELS = {
+        demo: 'Demo request',
+        masterclass: 'Masterclass registration',
+        signup: 'Landing page signup',
+        newsletter: 'Newsletter subscriber',
+        'surgepv-demo': 'SurgePV demo request',
+        'solar-service-quote': 'Solar design service enquiry'
+      };
+
+      // Forms whose audience is not India-only, so the Indian-mobile format
+      // check does not apply to them.
+      var INTERNATIONAL = { 'surgepv-demo': 1, 'solar-service-quote': 1 };
+
+      function label(t) { return LABELS[t] || ('Form submission (' + t + ')'); }
+
+      function clean(v, max) {
+        return String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, max || 500);
+      }
+
+      function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && v.length <= 254; }
+
+      // FormSubmit renders table rows in key order, so build it read-order.
+      function payload(d) {
+        var who = d.name || d.email || 'someone';
+        var org = d.company ? ' (' + d.company + ')' : '';
+        var out = {
+          _subject: label(d.formType) + ' - ' + who + org + ' | quickestimate.co',
+          _template: 'table',
+          _captcha: 'false'
+        };
+        if (FS_CC.length) out._cc = FS_CC.join(',');
+        if (d.email && isEmail(d.email)) out._replyto = d.email;
+
+        // Rows render in this order in the notification email. Any row whose
+        // value is empty is dropped, so the extra service-enquiry rows below
+        // cost the other four forms nothing.
+        var rows = [
+          ['Form', label(d.formType)],
+          ['Name', d.name],
+          ['Company', d.company],
+          ['Email', d.email],
+          ['Mobile', d.mobile],
+          ['Role', d.role],
+          ['Team size', d.size],
+          ['State', d.state],
+          // Solar design service enquiries (/services/*)
+          ['Service', d.service],
+          ['Project type', d.projectType],
+          ['Project size', d.projectSize],
+          ['Project location', d.location],
+          ['Country', d.country],
+          ['Project files', d.files],
+          ['Message', d.msg, 2000],
+          ['Lead source', d.leadSource],
+          ['Page', d.source || location.href],
+          ['Referrer', document.referrer || 'direct'],
+          ['Campaign', d.campaign]
+        ];
+
+        // Lead intelligence. Only the demo form attaches d.tracking, and every
+        // empty value is dropped below, so the other forms are unaffected.
+        if (d.tracking) {
+          var t = d.tracking;
+          var s = t.summary || {};
+          rows = rows.concat([
+            ['Channel', s.channel],
+            ['Campaign params', s.campaign, 1000],
+            ['First touch', s.firstTouch],
+            ['Landing page', s.landingPage],
+            ['Pages visited', s.journey, 3000],
+            ['Visitor history', s.visitor],
+            ['Location', s.location],
+            ['IP address', s.ip],
+            ['Device', s.device],
+            ['Browser', s.browser],
+            ['Connection', s.network],
+            ['Engagement', s.engagement, 1000],
+            ['GA4 client ID', s.gaClientId],
+            ['User agent', s.userAgent, 400],
+            ['Raw tracking JSON', t.raw, 12000]
+          ]);
+        }
+        for (var i = 0; i < rows.length; i++) {
+          var v = clean(rows[i][1], rows[i][2] || 500);
+          if (v) out[rows[i][0]] = v;
+        }
+        return out;
+      }
+
+      function fail(msg) { return { ok: false, error: msg }; }
+
+      // Resolves { ok: true } or { ok: false, error: '...' }. Never throws.
+      window.qeSubmitForm = function (d) {
+        // Spam gates, previously enforced in /api/submit.
+        if (d._hp) return Promise.resolve({ ok: true });               // honeypot
+        if (d._ts && Date.now() - d._ts < 1500) return Promise.resolve({ ok: true });
+
+        if (d.formType === 'newsletter') {
+          if (!d.email || !isEmail(d.email)) return Promise.resolve(fail('A valid email is required'));
+        } else {
+          if (!d.name || d.name.trim().length < 2) return Promise.resolve(fail('Name is required'));
+          if (d.email && !isEmail(d.email)) return Promise.resolve(fail('Please enter a valid email'));
+          if (d.mobile) {
+            var digits = d.mobile.replace(/\D/g, '');
+            var ok = INTERNATIONAL[d.formType]
+              ? (digits.length >= 7 && digits.length <= 15)   // international
+              : /^(91)?[6-9]\d{9}$/.test(digits);            // Indian mobile
+            if (!ok) {
+              return Promise.resolve(fail(
+                INTERNATIONAL[d.formType]
+                  ? 'Please enter a valid phone number'
+                  : 'Please enter a valid Indian mobile number'
+              ));
+            }
+          }
+        }
+
+        // Sheet copy: fire-and-forget POST to /api/lead, which appends the lead
+        // to the shared leads Google Sheet. Never awaited and never allowed to
+        // throw, so FormSubmit delivery below is unchanged. Every form gets the
+        // tracker summary here (not the raw JSON, to stay under keepalive's
+        // 64 KB cap), even ones that don't attach it to the email.
+        try {
+          var sheet = {};
+          for (var sk in d) {
+            if (Object.prototype.hasOwnProperty.call(d, sk) && sk !== 'tracking') sheet[sk] = d[sk];
+          }
+          sheet.source = d.source || location.href;
+          sheet.referrer = document.referrer || '';
+          var ts = (d.tracking && d.tracking.summary) ||
+            (window.qeTracking && window.qeTracking.summary ? window.qeTracking.summary() : null);
+          if (ts) sheet.tracking = ts;
+          fetch('/api/lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sheet),
+            keepalive: true,
+            credentials: 'same-origin'
+          }).catch(function () {});
+        } catch (e) { /* the sheet copy must never cost a lead */ }
+
+        var contact = "We couldn't deliver your message right now. Please WhatsApp +91 92744 86197, we'll reply within an hour.";
+
+        function post(body) {
+          return fetch('https://formsubmit.co/ajax/' + encodeURIComponent(FS_TARGET), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(body)
+          }).then(function (res) {
+            return res.text().then(function (t) { return { status: res.status, text: t }; });
+          });
+        }
+
+        function interpret(r) {
+          var j = null;
+          try { j = JSON.parse(r.text); } catch (e) { /* non-JSON body */ }
+          return { ok: String(j && j.success) === 'true', status: r.status, message: (j && j.message) || r.text.slice(0, 200) };
+        }
+
+        return post(payload(d))
+          .then(function (r) {
+            var res = interpret(r);
+            if (res.ok) { if (window.qeTrackLead) window.qeTrackLead(d); return { ok: true }; }
+
+            // The tracking block is the only part of a submission large enough
+            // to trip a size or content limit. A lead matters more than its
+            // metadata, so drop it and send the bare form once before giving up.
+            if (d.tracking) {
+              var bare = {};
+              for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) bare[k] = d[k]; }
+              delete bare.tracking;
+              console.warn('FormSubmit rejected the enriched payload (' + res.status + '); retrying without tracking.');
+              return post(payload(bare)).then(function (r2) {
+                var res2 = interpret(r2);
+                if (res2.ok) { if (window.qeTrackLead) window.qeTrackLead(d); return { ok: true }; }
+                console.error('FormSubmit error:', res2.status, res2.message);
+                return fail(contact);
+              });
+            }
+
+            if (/activat/i.test(res.message)) {
+              console.error('FormSubmit is not activated for this address. Click the "Activate Form" link in the email it sent.');
+            } else {
+              console.error('FormSubmit error:', res.status, res.message);
+            }
+            return fail(contact);
+          })
+          .catch(function () { return fail('Network error. Please check your connection and try again.'); });
+      };
+    })();
+  </script> <script>
+    // Scroll progress bar
+    (function(){
+      const bar = document.getElementById('progress');
+      if (bar) {
+        window.addEventListener('scroll', () => {
+          const h = document.documentElement;
+          const p = h.scrollTop / (h.scrollHeight - h.clientHeight);
+          bar.style.width = (p * 100) + '%';
+        }, { passive: true });
+      }
+      // Nav scroll effect
+      const nav = document.getElementById('nav');
+      if (nav) {
+        window.addEventListener('scroll', () => {
+          nav.classList.toggle('qe-scrolled', window.scrollY > 16);
+        }, { passive: true });
+      }
+      // Reveal on scroll
+      const revealEls = document.querySelectorAll('.reveal, .reveal-stagger');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add('in');
+              io.unobserve(e.target);
+            }
+          });
+        }, { threshold: 0.10, rootMargin: '0px 0px -40px 0px' });
+        revealEls.forEach(el => io.observe(el));
+      } else {
+        revealEls.forEach(el => el.classList.add('in'));
+      }
+      // Smooth scroll for hash links
+      document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          const id = a.getAttribute('href');
+          if (!id || id.length < 2) return;
+          const el = document.querySelector(id);
+          if (!el) return;
+          e.preventDefault();
+          // Pages with extra sticky chrome (e.g. the /best-solar-crm jump-nav)
+          // override the offset via --qe-scroll-offset; 70 covers the navbar alone.
+          const off = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--qe-scroll-offset')) || 70;
+          const y = el.getBoundingClientRect().top + window.scrollY - off;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        });
+      });
+    })();
+  </script> </body> </html> 

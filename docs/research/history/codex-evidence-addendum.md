@@ -1,0 +1,19 @@
+# Evidence addendum for the five-point market audit
+
+31 October 2026. Public desktop research; no interviews conducted by us. This adds pain evidence to the earlier product-capability research. A report about installer service is not proof of a software defect or of demand for our product.
+
+| Source and evidence type | What is supported | What is not supported | Architecture response (our inference) |
+|---|---|---|---|
+| [CEEW, 4 June 2026](https://www.ceew.in/publications/how-big-is-india-residential-rooftop-solar-maintenance-market), original study executive summary; structured surveys/consultations with more than 60 vendors across multiple states | Service scope and visit frequency vary; maintenance is often reactive; cleaning is commonly excluded from free maintenance; willingness to renew paid maintenance is limited | That a particular ERP fails; that households will buy our subscription; that a database can solve shortages of service staff | Store explicit service scope separately from component warranty, assign follow-ups, retain completion evidence, and expose internal service cost. Scheduled reminders can help execution but cannot supply labor. |
+| [KPMG India CX Report 2025, rooftop solar](https://kpmg.com/in/en/insights/2025/03/india-cx-report-2025/power-and-utility/rooftop-solar-providers.html), publisher's own customer-research summary | Report describes meter-installation delays, repeated documentation, unclear responsibility between system integrator and manufacturer, and nonresponsive support. It also reports strong installation performance and broadly high satisfaction. Sector-specific sample count is not shown on the opened page | That all installers underperform; that support pain is mainly a software problem; reliable prevalence figures beyond the published methodology | One assigned support owner, shared document references, milestone next-actor status and warranty routing. The app makes delays visible; it cannot force a utility to act. |
+| [Aisle Planner on Capterra](https://www.capterra.com/p/210290/Aisle-Planner/), two direct published user reviews, not the category-wide AI feature summary | One April 2026 reviewer alleges an ACH-entry failure, timeout and disputed fee/support response. A November 2021 reviewer praises planning breadth while criticizing email usability; that review is marked incentivized | Verified root cause of the payment complaint, current reproducibility, representative failure rate, Indian agency pain, or lack of payment features | Explicit validation, pending/confirmed/failed payment state, provider-reference reconciliation and visible support escalation. The proposed MVP records payments; it does not implement a replacement payment processor. |
+
+## Five-point coverage after the additions
+
+1. **Existing products:** capability landscape documented for both; no hands-on paid trials. Sources in `codex-research.md` and Claude's expanded market file.
+2. **Gaps:** distinguish published service problems from unverified competitor feature gaps. Solar service pain has stronger independent India evidence than wedding-agency software pain.
+3. **Solutions:** mapped to concrete scenarios and failure controls in `codex-architecture.md`; proposed benefits remain hypotheses until tested with users.
+4. **Failure and pain:** bounded direct user reports and original studies improve coverage. We cannot truthfully conclude software products are generally failing or identify all root causes. Wedding-specific India evidence remains limited.
+5. **Architectures:** both have explicit data/state/consistency designs in `codex-architecture.md`, pending cross-review. They use established patterns, rather than claiming novel inventions.
+
+The public-research deliverable can be complete with honest limits. Customer validation, vendor demos, real workflow observations and current official scheme verification remain separate work; they must not be marked as conducted.

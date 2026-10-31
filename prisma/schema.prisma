@@ -1,0 +1,32 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../apps/api/src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Platform foundation only. Domain models must follow docs/architecture/data-model.md.
+// Creating this table does NOT implement authentication or authorization.
+enum StaffRole {
+  ADMIN
+  SALES
+  WAREHOUSE
+  TECHNICIAN
+  SUPPORT
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  displayName  String
+  passwordHash String
+  role         StaffRole
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@map("users")
+}

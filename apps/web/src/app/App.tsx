@@ -1,0 +1,30 @@
+import { useQuery } from '@tanstack/react-query';
+import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
+import { apiGet } from '../lib/api';
+
+const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
+
+export function App() {
+  const health = useQuery({ queryKey: ['health'], queryFn: ({ signal }) => apiGet('/health', healthResponseSchema, signal) });
+  const database = useQuery({ queryKey: ['readiness'], queryFn: ({ signal }) => apiGet('/health/ready', readinessResponseSchema, signal) });
+  return (
+    <main className="shell">
+      <header><a className="brand" href="/" aria-label="Sunshine home"><span className="sun">☀</span> sunshine<span className="brand-tag">SOLAR OPERATIONS</span></a><span className="stage">Development scaffold</span></header>
+      <section className="hero">
+        <p className="eyebrow">ONE CUSTOMER. ONE CONNECTED LIFECYCLE.</p>
+        <h1>From rooftop enquiry<br />to years of reliable service.</h1>
+        <p className="intro">The foundation for SunPower Solutions. Business workflows are planned and have not been implemented yet.</p>
+      </section>
+      <section className="status-grid" aria-label="Live infrastructure status">
+        <Status label="Application API" pending={health.isPending} error={health.error} ready={health.isSuccess} onRetry={() => void health.refetch()} />
+        <Status label="Local PostgreSQL" pending={database.isPending} error={database.error} ready={database.isSuccess} onRetry={() => void database.refetch()} />
+      </section>
+      <section className="modules"><h2>Workspaces to build</h2><div className="module-grid">{areas.map((area, index) => <article key={area}><span className="module-number">0{index + 1}</span><h3>{area}</h3><p>Planned · not implemented</p></article>)}</div></section>
+      <footer>React + NestJS + local PostgreSQL <span>Shared contracts. Clear ownership. Real persistence.</span></footer>
+    </main>
+  );
+}
+
+function Status({ label, pending, error, ready, onRetry }: { label: string; pending: boolean; error: Error | null; ready: boolean; onRetry: () => void }) {
+  return <article className="status-card"><div><p>{label}</p><strong role="status">{pending ? 'Checking connection…' : ready ? 'Connected' : 'Unavailable'}</strong></div><span aria-hidden="true" className={`dot ${ready ? 'ready' : ''}`} />{error && <div className="status-error"><p>{error.message}</p><button onClick={onRetry}>Retry connection</button></div>}</article>;
+}

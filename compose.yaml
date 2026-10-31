@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sunshine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sunshine_local_only}
+      POSTGRES_DB: ${POSTGRES_DB:-sunshine}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55439}:5432"
+    volumes:
+      - sunshine-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+  app:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+    profiles: ["app"]
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sunshine}:${POSTGRES_PASSWORD:-sunshine_local_only}@db:5432/${POSTGRES_DB:-sunshine}?schema=public
+      UPLOAD_DIR: /app/var/uploads
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - sunshine-uploads:/app/var/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  sunshine-postgres:
+  sunshine-uploads:
