@@ -6,3 +6,4 @@ docs/research/solar/sources/raw/** -text -diff -whitespace
 
 # PostgreSQL retains function-body line endings; keep canonical migration bytes portable.
 prisma/migrations/**/migration.sql text eol=lf
+prisma/drafts/**/migration.sql text eol=lf

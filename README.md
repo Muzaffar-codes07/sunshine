@@ -2,7 +2,7 @@
 
 SunPower Solutions' enquiry-to-installation-to-service platform for the Odoo hackathon.
 
-**Current state: runnable scaffold, not a completed business application.** The frontend, NestJS API, shared validation contracts, local PostgreSQL configuration and initial platform migration are implemented. Public enquiry intake and staff cookie sessions are implemented; qualification, surveys, orders, inventory, installation, warranty, service and financial workflows remain planned; their folders explicitly identify the owner and next work. The landing screen reports live infrastructure status and does not fabricate business data.
+**Current state: runnable partial application, with explicit integration gates.** The frontend, NestJS API, shared contracts and local PostgreSQL migration queue are implemented. Enquiry/qualification, surveys, catalogue, quotes/orders, inventory/reservations, jobs/scheduling and private-file APIs have implementations. D4 warranty/service/reporting logic and its coordinated schema are present, while production domain authorization, persisted source adapters and physical repair/replacement integration remain gated. Passing infrastructure checks does not establish a completed business lifecycle.
 
 ## Start here
 
@@ -42,7 +42,16 @@ If the Compose app is already running, first use `docker compose --profile app s
 - Database readiness: <http://127.0.0.1:3001/api/v1/health/ready>
 - PostgreSQL: `127.0.0.1:55439` (loopback only; choose another port in `.env` if occupied).
 
-The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent. Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts are created only by the explicit staff seed command below; startup never seeds them.
+The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent.
+Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent
+of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts
+are created only by the explicit staff seed command below; startup never seeds
+them. Historical D4 demo seed preparation is available via
+`npm run db:seed -- --preview`; persisted seeding remains blocked on the real
+historical installation/source adapter. The coordinated D4 migration is now in
+the reviewed PR queue; see the [migration guide](docs/architecture/d4-migration.md). See the
+[seed handoff](prisma/seed/README.md). `db:deploy` applies migrations only and
+never seeds.
 
 Shared contracts are built before development starts. If you edit them, run `npm run build -w @sunshine/contracts`; dependent processes then need to reload. Frontend requests go through Vite's `/api` proxy, avoiding a separate development CORS policy.
 
@@ -57,16 +66,28 @@ The production build is served by NestJS at <http://127.0.0.1:3001>. PostgreSQL 
 
 After building and migrating with PostgreSQL running, `npm run smoke` starts temporary API processes and checks DB readiness, SPA/deep links, structured API errors and the unavailable-DB fallback. It stops those processes afterward.
 
+`npm test` also runs `tests/d4-invariants.spec.ts`: real D4 service composition for
+IST warranty expiry, covered/chargeable billing, source-cost deduplication,
+replacement continuity and HTTP customer confirmation. Its storage, stock and
+invoice adapters are test doubles; live D4 PostgreSQL acceptance still requires
+the upstream integrations described in [testing](docs/planning/testing.md).
+After building, run just this suite with `npm run test:invariants`.
+
 ## Full local container release
 
 ```bash
 docker compose --profile app build app
 docker compose up -d db
 docker compose --profile app run --rm app npm run db:deploy
-docker compose --profile app up -d app
+docker compose --profile app up -d --wait app
+npm run smoke:docker
 ```
 
 The app and database use persistent named volumes. Migrations are explicit: startup never resets or reseeds data. `docker compose stop` retains data. Do not use `down -v` unless you intentionally want to delete local data.
+
+The app healthcheck uses database readiness. `smoke:docker` checks the running
+container over HTTP on port 3001 without launching another API. Run native
+`npm run smoke` separately for its isolated unavailable-database case.
 
 ## Repository layout
 

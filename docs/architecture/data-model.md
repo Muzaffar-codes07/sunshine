@@ -1,6 +1,6 @@
 # Planned data model and integrity rules
 
-**Implementation status:** `prisma/schema.prisma` currently contains only the User foundation and its initial migration. The domain model below is a reviewed plan, not an already implemented schema. D3 coordinates migrations; each backend owner authors their own domain changes.
+**Implementation status:** The Prisma schema includes the migrated User foundation and Customer/Enquiry models, plus D4's Warranty, ServiceTicket, TicketLine, CostEntry and SubsidyMilestone definitions. The D4 models are not migrated; see the [D4 schema handoff](d4-schema-handoff.md) for upstream relation dependencies and migration gates. The rest of the domain model below remains a reviewed plan. D3 coordinates migrations; each backend owner authors their own domain changes.
 
 One company and one warehouse. UUID PKs, explicit FKs/statuses, UTC timestamps, optimistic `version` on mutable workflow records, `numeric(14,2)` money, `numeric(12,3)` quantities. API money is a decimal string with documented rounding.
 

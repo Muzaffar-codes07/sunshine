@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 export * from './staff';
+export * from './warranty';
+export * from './service';
+export * from './costs';
+export * from './reports';
 
 export const healthResponseSchema = z.object({
   data: z.object({

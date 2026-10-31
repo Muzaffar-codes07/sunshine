@@ -10,6 +10,10 @@ import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { WarrantyModule } from './warranty/warranty.module';
+import { FinanceModule } from './finance/finance.module';
+import { ReportingModule } from './reporting/reporting.module';
+import { ServiceModule } from './service/service.module';
 import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
@@ -23,6 +27,10 @@ import { InventoryModule } from './inventory/inventory.module';
     AuthModule,
     SalesModule,
     CatalogModule,
+    WarrantyModule,
+    FinanceModule,
+    ReportingModule,
+    ServiceModule,
     InventoryModule,
     QuotesModule,
     OrdersModule,
