@@ -59,7 +59,7 @@
 | Features | Catalogue/packages, goods receipt costs, stock, serials, allocations, scan records, dispatch, delivery/warranty activation |
 | Frontend | Supply fixtures; assist D1 with real-phone/scanner testing; no independent UI redesign |
 | Backend | Atomic stock services, unit traceability, replacement stock primitives, delivery activation |
-| Database | Product/package/items, stock balances/movements, units/allocations, dispatches, warranties; coordinate migrations |
+| Database | Product/package/items, stock movements (derived ledger), units/allocations, dispatches, warranties; coordinate migrations |
 | APIs | `/products`, `/packages`, `/stock`, `/units`, `/allocations`, `/dispatches`, `/warranties` |
 | Directories | `catalog`, `inventory`, `fulfillment`, `warranty`; `prisma/` coordination |
 | Dependencies | Confirmed order + recorded-payment gate; D2 `FinanceService.postCost(tx)` |

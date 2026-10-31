@@ -292,7 +292,7 @@
       "id": "I03",
       "owner": "D3",
       "focusedHours": 1.5,
-      "title": "Actual-cost stock receipts and balances",
+      "title": "Actual-cost stock receipts and derived on-hand",
       "dependsOn": [
         "I01",
         "I02"
