@@ -42,7 +42,15 @@ If the Compose app is already running, first use `docker compose --profile app s
 - Database readiness: <http://127.0.0.1:3001/api/v1/health/ready>
 - PostgreSQL: `127.0.0.1:55439` (loopback only; choose another port in `.env` if occupied).
 
-The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent. Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts are created only by the explicit staff seed command below; startup never seeds them.
+The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent.
+Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent
+of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts
+are created only by the explicit staff seed command below; startup never seeds
+them. Historical D4 demo seed preparation is available via
+`npm run db:seed -- --preview`; persisted seeding remains blocked on the real
+installation adapter and coordinated migration. See the
+[seed handoff](prisma/seed/README.md). `db:deploy` applies migrations only and
+never seeds.
 
 Shared contracts are built before development starts. If you edit them, run `npm run build -w @sunshine/contracts`; dependent processes then need to reload. Frontend requests go through Vite's `/api` proxy, avoiding a separate development CORS policy.
 
