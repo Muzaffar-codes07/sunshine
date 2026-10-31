@@ -83,6 +83,7 @@ test('scheduling saves the times and crew, and a new job has neither', async () 
   const { order, jobId, customerId } = await newJob();
   const fresh = await ok(get(`/jobs/${jobId}`));
   assert.equal(fresh.version, 1); assert.equal(fresh.scheduledStart, null); assert.deepEqual(fresh.technicianIds, []);
+  assert.equal(fresh.orderDisplayNumber, order.displayNumber);
   assert.equal(fresh.orderId, order.id); assert.equal(fresh.customerId, customerId); assert.equal(fresh.status, 'SCHEDULED');
   const done = await ok(schedule(jobId, { technicianIds: [staff.TECH_A.id, staff.TECH_B.id] }));
   assert.equal(done.version, 2); assert.equal(done.scheduledStart, start); assert.equal(done.scheduledFinish, finish);

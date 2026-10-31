@@ -22,6 +22,8 @@ export class InventoryController {
   @Post('orders/:id/dispatches')
   createDispatch(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(createDispatchRequestSchema)) body: CreateDispatchRequest) { return this.dispatchScans.create(request.user.id, key, id, body); }
+  @Get('orders/:id/dispatch')
+  orderDispatch(@Param('id', ParseUUIDPipe) id: string) { return this.dispatchScans.getForOrder(id); }
   @Get('dispatches/:id')
   dispatch(@Param('id', ParseUUIDPipe) id: string) { return this.dispatchScans.get(id); }
   @Post('dispatches/:id/scans')
