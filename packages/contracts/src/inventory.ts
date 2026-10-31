@@ -14,13 +14,18 @@ export const dispatchStatusSchema = z.enum(['DRAFT', 'DISPATCHED', 'DELIVERED'])
 
 export const stockReceiptLineSchema = z.object({
   productId: z.uuid(), quantity: positiveQuantitySchema, unitCost: moneySchema,
+  zeroCostReason: z.string().trim().min(5).max(500).optional(),
   serials: z.array(equipmentSerialSchema).max(200).default([]),
 }).strict().superRefine((line, ctx) => {
+  if (/^0(?:\.0{1,2})?$/.test(line.unitCost) && !line.zeroCostReason) {
+    ctx.addIssue({ code: 'custom', path: ['zeroCostReason'], message: 'Document the reason for a zero acquisition cost' });
+  }
   if (line.serials.length && (!/^(0|[1-9]\d*)(?:\.0{1,3})?$/.test(line.quantity)
     || BigInt(line.quantity.split('.')[0]!) !== BigInt(line.serials.length))) {
     ctx.addIssue({ code: 'custom', path: ['serials'], message: 'When serials are supplied, their count must equal a whole-number quantity' });
   }
 });
+// The service must reject receivedAt > serverNow and record the staff actor.
 export const receiveStockRequestSchema = z.object({
   reference, receivedAt: z.iso.datetime({ offset: true }), lines: z.array(stockReceiptLineSchema).min(1).max(100),
 }).strict().superRefine((receipt, ctx) => {
@@ -81,6 +86,21 @@ export const returnUnitRequestSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
   disposition: z.enum(['QUARANTINE', 'RETURN_TO_STOCK']).default('QUARANTINE'),
 }).strict();
+// General unused-installation and bulk returns reference the canonical issued
+// allocation; service returns may reference a ticket line. One return service
+// must validate the source, remaining quantity, unit and cost reversal.
+export const returnStockRequestSchema = z.object({
+  expectedVersion: version,
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('ALLOCATION'), allocationId: z.uuid() }).strict(),
+    z.object({ kind: z.literal('TICKET_LINE'), ticketLineId: z.uuid() }).strict(),
+  ]),
+  unitId: z.uuid().nullable(), quantity: positiveQuantitySchema,
+  reason: z.string().trim().min(1).max(1000),
+  disposition: z.enum(['QUARANTINE', 'RETURN_TO_STOCK']).default('QUARANTINE'),
+}).strict().refine((value) => value.unitId === null || /^1(?:\.0{1,3})?$/.test(value.quantity), {
+  path: ['quantity'], message: 'A physical unit return must have quantity one',
+});
 export const replacementStockRequestSchema = z.object({
   expectedVersion: version, ticketLineId: z.uuid(), oldUnitId: z.uuid(), newUnitId: z.uuid(),
 }).strict().refine((value) => value.oldUnitId !== value.newUnitId, {
@@ -100,3 +120,4 @@ export type ScanRecord = z.infer<typeof scanRecordSchema>;
 export type DispatchRequest = z.infer<typeof dispatchRequestSchema>;
 export type DispatchView = z.infer<typeof dispatchViewSchema>;
 export type ReturnUnitRequest = z.infer<typeof returnUnitRequestSchema>;
+export type ReturnStockRequest = z.infer<typeof returnStockRequestSchema>;
