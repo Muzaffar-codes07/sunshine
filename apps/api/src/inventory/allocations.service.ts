@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { allocationListResponseSchema, type AllocateOrderRequest, type RefusalReason } from '@sunshine/contracts';
+import { allocationListResponseSchema, releaseOrderAllocationsResponseSchema, type AllocateOrderRequest, type ReleaseOrderAllocationsRequest, type RefusalReason } from '@sunshine/contracts';
 import { InvoicesService } from '../finance/invoices.service';
 import { ApiError, refusal } from '../platform/api-error';
 import { IdempotencyService } from '../platform/idempotency';
@@ -62,6 +62,56 @@ export class AllocationsService {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, select: { jobId: true } });
     if (!order) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Order not found');
     return order.jobId ? this.view(this.prisma, order.jobId) : allocationListResponseSchema.parse({ data: [] });
+  }
+
+  /** Frees the complete pre-dispatch reservation, retaining its source identity and release evidence. */
+  async releaseOrder(actorId: string, key: string, orderId: string, input: ReleaseOrderAllocationsRequest) {
+    orderId = orderId.toLowerCase();
+    return this.idempotency.run({ actorId, key, action: 'ORDER_ALLOCATION_RELEASE', payload: { orderId, ...input } }, async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, select: { jobId: true } });
+      if (!order) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Order not found');
+      if (!order.jobId) throw notReleasable('This order has no job.');
+      const jobId = order.jobId;
+      const claimed = await tx.job.updateMany({ where: { id: jobId, version: input.expectedVersion, status: 'SCHEDULED' }, data: { version: { increment: 1 } } });
+      if (claimed.count !== 1) {
+        const job = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { status: true } });
+        if (job.status !== 'SCHEDULED') throw notReleasable('This job has started; its stock cannot be freed as an unused reservation.');
+        throw new ApiError(HttpStatus.CONFLICT, 'STALE_VERSION', 'This job was changed by someone else. Reload it and try again.');
+      }
+      const rows = await tx.allocation.findMany({ where: { jobId, status: { not: 'RELEASED' } } });
+      if (!rows.length || rows.some((row) => row.status !== 'RESERVED')) {
+        throw notReleasable('Only a complete, unused reservation can be released. Dispatched equipment needs a return.');
+      }
+      await this.ledger.lockProducts(tx, rows.map((row) => row.productId));
+      const locations = new Map(rows.map((row) => [`${row.productId}:${row.locationId}`, row]));
+      for (const [, row] of [...locations].sort(([a], [b]) => a.localeCompare(b))) await this.ledger.lockStock(tx, row.productId, row.locationId);
+      const unitIds = rows.flatMap((row) => row.unitId ? [row.unitId] : []).sort();
+      if (unitIds.length) {
+        await tx.$queryRaw`SELECT "id" FROM "units" WHERE "id" = ANY(${unitIds}::uuid[]) ORDER BY "id" FOR NO KEY UPDATE`;
+        const units = await tx.$queryRaw<{ id: string; productId: string; status: string; locationId: string | null }[]>`
+          SELECT u."id", u."productId", u."status"::text AS "status", l."locationId" FROM "units" u
+          LEFT JOIN "unit_locations" l ON l."unitId" = u."id" WHERE u."id" = ANY(${unitIds}::uuid[])`;
+        const byId = new Map(units.map((unit) => [unit.id, unit]));
+        if (units.length !== unitIds.length || rows.some((row) => {
+          if (!row.unitId) return false;
+          const unit = byId.get(row.unitId);
+          return !unit || unit.status !== 'RESERVED' || unit.productId !== row.productId || unit.locationId !== row.locationId;
+        })) throw notReleasable('A reserved unit has moved or changed state. Nothing was released.');
+      }
+      const releasedAt = new Date();
+      const changed = await tx.allocation.updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: 'RESERVED' }, data: {
+        status: 'RELEASED', version: { increment: 1 }, releasedAt, releasedById: actorId, releaseReason: input.reason,
+      } });
+      if (changed.count !== rows.length) throw notReleasable('The reservation changed while it was being released.');
+      if (unitIds.length) {
+        const freed = await tx.unit.updateMany({ where: { id: { in: unitIds }, status: 'RESERVED' }, data: { status: 'AVAILABLE', version: { increment: 1 } } });
+        if (freed.count !== unitIds.length) throw notReleasable('A reserved unit changed while it was being released.');
+      }
+      return releaseOrderAllocationsResponseSchema.parse({ data: {
+        jobId, jobVersion: input.expectedVersion + 1, releasedAt: releasedAt.toISOString(), releasedById: actorId,
+        reason: input.reason, allocations: (await this.view(tx, jobId)).data,
+      } });
+    });
   }
 
   private async usableLocation(tx: Prisma.TransactionClient) {
@@ -137,6 +187,13 @@ export class AllocationsService {
     return allocationListResponseSchema.parse({ data: rows.map((row) => ({
       id: row.id, jobId: row.jobId, productId: row.productId, unitId: row.unitId, quantity: row.quantity.toFixed(3), status: row.status,
       source: { kind: 'QUOTE_LINE', quoteLineId: row.quoteLineId },
+      releaseEvidence: row.releasedAt && row.releasedById && row.releaseReason ? {
+        releasedAt: row.releasedAt.toISOString(), releasedById: row.releasedById, reason: row.releaseReason,
+      } : null,
     })) });
   }
+}
+
+function notReleasable(reason: string) {
+  return refusal({ code: 'ALLOCATION_NOT_RELEASABLE', reason, source: 'INVENTORY', nextAction: 'Reload the order; use the return workflow for issued equipment.' });
 }

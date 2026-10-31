@@ -29,6 +29,8 @@ Stated foreign-key exceptions (keep the reason next to the relation in `schema.p
 
 ## Migration queue
 
+The D3 release-audit follow-up uses `20261031250000_allocation_release`, after job scheduling (`240000`). It adds audit fields and a guarded release transition to the existing Allocation model; it does not add placeholder ticket relations.
+
 One shared `prisma/schema.prisma`, with each owner's models kept in their own section. Migrations land in foreign-key order, so a later table can reference an earlier one. Two items with no link between them can swap.
 
 | # | Migration | Owner | Status |
