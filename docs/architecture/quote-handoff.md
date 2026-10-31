@@ -49,7 +49,10 @@ requireAcceptedQuote(tx, quoteId) inside its own transaction. The helper:
 - uses the caller transaction and never commits independently.
 
 C5 must create its order/invoice/job/packing effects in that same transaction,
-with its own idempotent command and durable unique business sources.
+with its own idempotent command and durable unique business sources. When the
+Order model lands, C5 must also guard revisions after confirmation or enforce
+one order per enquiry with an explicit correction path; a successor must not
+quietly create another sale for an already confirmed installation.
 Warehouse obligations reference COMPONENT quoteLine IDs and canonical product
 IDs; they do not reuse PackageItem IDs or charge component retail prices again.
 Stock units, acquisition costs, finance and actual coverage activation remain
@@ -74,7 +77,7 @@ A later policy change requires an explicit quote revision.
 
 ## Database verification
 
-Migration 20261031170000_quotes adds Quote and QuoteLine with real FKs to the
+Migration 20261031170000_quotes applies atomically in one transaction and adds Quote and QuoteLine with real FKs to the
 existing enquiry, survey, package, customer, user and product tables. Sixteen
 CHECKs and three partial unique indexes cover amounts, evidence, revision links,
 quantities, component zero charges and one package/service charge.
