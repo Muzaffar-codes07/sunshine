@@ -52,6 +52,14 @@ export const ORDER_ALREADY_CONFIRMED: RefusalReason = {
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
+  warranties_facts_frozen: { refusal: {
+    code: 'WARRANTY_FACTS_LOCKED', reason: 'Saved warranty evidence cannot be changed or removed.', source: 'WARRANTY',
+    nextAction: 'Keep the original terms and use a versioned void or the supported replacement workflow.',
+  } },
+  warranties_calendar_interval: { refusal: {
+    code: 'WARRANTY_DATES_INVALID', reason: 'Warranty dates do not match the saved calendar duration.', source: 'WARRANTY',
+    nextAction: 'Review the frozen delivery date and policy duration before activating coverage.',
+  } },
   files_evidence_frozen: { refusal: {
     code: 'FILE_EVIDENCE_LOCKED', reason: 'Persisted file evidence cannot be changed or removed.', source: 'FILES',
     nextAction: 'Keep the original evidence and upload a new file for a correction.',

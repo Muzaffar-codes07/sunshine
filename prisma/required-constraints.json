@@ -10,6 +10,34 @@
   ],
   "required": [
     {
+      "name": "warranties_calendar_interval",
+      "table": "warranties",
+      "kind": "check",
+      "owner": "D4",
+      "definition": "CHECK ((((\"durationMonths\" >= 1) AND (\"durationMonths\" <= 1200)) AND (\"startDate\" >= '0001-01-01'::date) AND (\"expiryDate\" <= '9999-12-31'::date) AND (\"expiryDate\" = ((\"startDate\" + make_interval(months => \"durationMonths\")))::date)))"
+    },
+    {
+      "name": "warranties_preserve_facts",
+      "table": "warranties_preserve_facts",
+      "kind": "function",
+      "owner": "D4",
+      "definition": "CREATE OR REPLACE FUNCTION public.warranties_preserve_facts()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP IN ('DELETE', 'TRUNCATE') THEN\n    RAISE EXCEPTION 'warranty evidence cannot be removed'\n      USING ERRCODE = '23514', CONSTRAINT = 'warranties_facts_frozen';\n  END IF;\n  IF to_jsonb(NEW) IS NOT DISTINCT FROM to_jsonb(OLD) THEN RETURN NEW; END IF;\n  IF (to_jsonb(NEW) - 'active' - 'version' - 'updatedAt') IS DISTINCT FROM\n     (to_jsonb(OLD) - 'active' - 'version' - 'updatedAt') OR\n     NOT (OLD.active AND NOT NEW.active AND NEW.version = OLD.version + 1) THEN\n    RAISE EXCEPTION 'saved warranty facts cannot change; only a versioned void is allowed'\n      USING ERRCODE = '23514', CONSTRAINT = 'warranties_facts_frozen';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "warranties_facts_frozen",
+      "table": "warranties",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER warranties_facts_frozen BEFORE DELETE OR UPDATE ON public.warranties FOR EACH ROW EXECUTE FUNCTION warranties_preserve_facts()"
+    },
+    {
+      "name": "warranties_no_truncate",
+      "table": "warranties",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER warranties_no_truncate BEFORE TRUNCATE ON public.warranties FOR EACH STATEMENT EXECUTE FUNCTION warranties_preserve_facts()"
+    },
+    {
       "name": "units_lineage_not_self",
       "table": "units",
       "kind": "check",

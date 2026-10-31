@@ -3,9 +3,9 @@
 Health/readiness, public enquiries, staff authentication, the staff enquiry queue,
 catalogue/package reads, and quote snapshots with recorded sending/acceptance
 are implemented. Warranty assessment and
-`GET /api/v1/warranties/lookup` are implemented with injected interfaces;
-production lookup returns 503 until staff authorization, Unit/Job reads and the
-coordinated warranty migration are integrated. Task 2.2 ticket commands and Task
+`GET /api/v1/warranties/lookup` use real ADMIN/SUPPORT sessions and persisted equipment/delivery/frozen-quote evidence.
+ADMIN policy configuration uses `GET/POST /api/v1/warranty-policies/:productId`; POST requires a saved fingerprint and Idempotency-Key.
+Task 2.2 ticket commands and Task
 4.1 report calculations/routes are implemented with the integration gates
 described below. Other routes below remain planned and need shared schemas and
 tests before use. The readiness endpoint checks DB connectivity, not completion
@@ -25,7 +25,7 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/movements`, `/stock/as-of`, `/stock/value`, `/stock/integrity`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule`, `start`, `complete` (implemented); `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
 | D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
-I06 draft/scans are implemented at `POST /orders/:id/dispatches`, `GET /orders/:id/dispatch`, `GET /dispatches/:id`, `POST /dispatches/:id/scans`, `POST /dispatches/:id/dispatch` and `POST /dispatches/:id/deliver`. They retain DRAFT status and expose scan completeness only. Stock/cost dispatch posting and delivery routes remain pending D4 integration; complete scans alone never move stock.
+I06 draft/scans, actual stock/cost dispatch and delivery are implemented at `POST /orders/:id/dispatches`, `GET /orders/:id/dispatch`, `GET /dispatches/:id`, `POST /dispatches/:id/scans`, `POST /dispatches/:id/dispatch` and `POST /dispatches/:id/deliver`. Complete scans alone never move stock; the posting command performs the atomic issue and costs. Delivery activates configured frozen quote terms. Delivery detail coverage distinguishes ACTIVE, NOT_STARTED, EXPIRED, VOID and NO_POLICY.
 
 ## H1.5 interfaces
 
@@ -96,7 +96,7 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
   legacy saved results without it remain replayable.
 - `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
 - Task 2.1 extends `WarrantyAssessmentResult` with required `asOfDate`, `policyRevision`, `scope`, `coverageStatus` (`COVERED`, `EXPIRED`, `VOID`, `NOT_STARTED`, `NO_WARRANTY`, `OUT_OF_SCOPE`), and `chargeStatus`. Policy name/revision/scope/start/expiry are null together only for `NO_WARRANTY`. Covered work returns `customerCharge: "0.00"` and `chargeStatus: "FREE"`; all other lookup outcomes return null charge and `PENDING_ASSESSMENT` until Task 3.1 assesses billable parts/labour. This is an intentional Task 1.1 contract revision; do not interpret null as a zero invoice. `isCovered` concerns only the returned saved scope; repair orchestration must evaluate its actual work scope separately.
-- `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization currently returns 503 `WARRANTY_AUTH_UNAVAILABLE`; the default equipment reader also rejects with 503. See the [warranty integration gate](../../apps/api/src/warranty/README.md).
+- `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization verifies active ADMIN/SUPPORT sessions (401 anonymous/revoked, 403 other roles). Persisted allocation/order/delivery and frozen quote facts are validated before coverage; corrupt sources fail closed with 503. Replacement coverage remains gated on actual service issue/billing evidence. See [warranty runtime](../../apps/api/src/warranty/README.md).
 - Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
 - `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
 - `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.

@@ -158,7 +158,7 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
       { id: 'reason', label: 'Saved reason', value: lookup.assessment.reason },
     ]} />}
 
-    {!ticketCommandsEnabled && <p role="status">Ticket actions are unavailable until authorized reads, retry handling and billing are connected. Warranty lookup can also be unavailable while equipment and policy integration is pending.</p>}
+    {!ticketCommandsEnabled && <p role="status">Ticket actions are unavailable until command retries, repair billing and replacement posting are verified. Warranty lookup uses the equipment’s recorded delivery and frozen quote terms.</p>}
     <fieldset disabled={!ticketCommandsEnabled} style={{ border: 0, padding: 0, minWidth: 0 }}>
     <legend>Service ticket actions</legend>
     {!ticket && <FormPattern title="Create service ticket" submitLabel="Create ticket" pending={ticketPending}
