@@ -3,7 +3,8 @@
 Owner: **D4**. Task 4.1 report engine, Prisma cost/subsidy queries, shared
 contracts and Nest routes are implemented. **Production access is integration
 gated (503)**; Job, Order, Invoice, Payment and verified staff authorization
-are absent on this branch. Pay summaries and CSV remain Task 4.2.
+are absent on this branch. Task 4.2 pay calculations, typed CSV export and guarded
+download routes are also implemented; persisted TimeEntry reads remain unavailable.
 
 ## Routes
 
@@ -14,11 +15,22 @@ are absent on this branch. Pay summaries and CSV remain Task 4.2.
   receipt and cost activity. Default is `today`. Week starts Monday.
 - `GET /api/v1/reports/subsidies`: milestone buckets with job IDs, pending
   documents and nullable responsible owner. Unassigned owners remain explicit.
+- `GET /api/v1/reports/pay-summary?period=today|week|month`: approved installation
+  and service hours and frozen-rate pay, grouped by technician with grand totals.
+  Default period is today; response includes the same IST window/server cutoff.
+- `GET /api/v1/reports/export.csv?report=overview&period=month`: streamed UTF-8
+  CSV attachment. `report=pay` uses the same period options; `report=profitability`
+  requires `jobId=<uuid>` and exports lifetime figures for that job. Period defaults
+  to today for overview/pay. `export-csv` is a compatibility alias. A report selector
+  is required; unknown/duplicate/mixed filters are rejected before reads.
 
 Success uses `{ data: ... }`. Query objects are strict: clients cannot override
 cutoffs, totals, completion or authorization. Guards run before report reads.
 Financial reports require verified ADMIN access (director in the current roles).
 No headers or unverified `request.user` fields grant access.
+CSV responses use `text/csv; charset=utf-8`, a fixed attachment filename,
+`Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. Pay JSON is also
+not cached. Failed reads retain the standard JSON error envelope before streaming.
 
 ## Definitions
 
@@ -37,6 +49,27 @@ Period activity is not completed-job profit. Lifetime queries have no period
 start: historical invoices/costs and current repairs stay attributed to the job.
 Only the cost ledger is expensed: ticket totals and raw time/stock rows are not
 counted again. Expected subsidy and pending supplier claims are not receipts.
+
+Pay uses positive decimal hours (up to three places) and a nonnegative frozen
+hourly rate (up to two places) from each approved time entry. Work occurrence is
+in `[start, end)` and `<= asOf`; approval must be present, ordered after work and
+`<= asOf`. Integer milli-hours times rate cents are rounded **half-up per entry**
+to cents, then summed. A technician's current rate never reprices history. Aggregate
+hours/pay exceed single-row precision safely. Duplicate IDs, inconsistent technician
+names and malformed records return `INVALID_REPORT_RECORD` (503). Pending/rejected
+entries and out-of-window/future work or approvals contribute nothing. Empty
+periods return an empty technician list and zero totals. This read-only pay summary
+does not post payroll, payments, invoices or additional ledger costs.
+
+CSV uses fixed headers, quoted/escaped cells, CRLF records and a final CRLF.
+Text with formula triggers (`=`, `+`, `-`, `@`), including behind leading whitespace
+or controls, or leading tabs/returns/newlines, receives an apostrophe prefix.
+Only explicitly typed decimal numeric cells bypass text protection; a name like
+`-1500.00` stays protected text while a financial loss stays numeric. Default
+exports omit phones/addresses. Profitability exports preserve provisional status,
+unfinished steps and separate lifetime revenue, cash, costs and profit. Empty pay
+CSV is headers only. CSV content is assembled in memory before streaming; this is
+appropriate for current demo scope, not an unbounded bulk-export implementation.
 
 ## Integration handoff
 
@@ -59,6 +92,16 @@ counted again. Expected subsidy and pending supplier claims are not receipts.
    Missing schema maps to `REPORTING_SCHEMA_UNAVAILABLE` (503).
 4. Verify real PostgreSQL joins, snapshot consistency, posting/reversal filters
    and migration replay before replacing the unavailable production providers.
+5. Task 4.2 adds `ReportingSourceReader.readTimeEntries(tx, window)`, wrapped by
+   the same RepeatableRead repository. D3/D4 supply persisted installation/service
+   entries, stable unique IDs, consistent technician ID/name, approved status/time,
+   positive exact hours, work occurrence and frozen hourly pay rate. Source queries
+   must enforce the same date/status/approval predicates without multiplicative
+   joins; the service also verifies them. No TimeEntry model exists on this branch,
+   so the default reader throws `REPORTING_TIME_SOURCE_UNAVAILABLE` (503), never a
+   fabricated empty report. Coordinate time schema/approval/frozen-rate migration
+   with D3, and reconcile time/pay with posted labour using real PostgreSQL before
+   enabling production. Existing ADMIN auth and all upstream schema gates apply.
 
 Unit and HTTP tests exercise reconciliation, exact cents, bounds, scoped Prisma
 queries, envelopes and access gates with injected adapters. They are not real
