@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { refusal } from '../platform/api-error';
 import { Prisma } from '../generated/prisma/client';
 
+export type LockedProduct = { id: string; kind: string; trackingMode: string; active: boolean; manufacturerId: string | null };
+
 export interface PostMovementInput {
   documentLineId: string;
   productId: string;
@@ -30,6 +32,14 @@ export class StockLedgerService {
       }
     }
     return tx.stockMovement.create({ data: input });
+  }
+
+  /** Product rows first, in sorted order: the start of the global lock order. No KEY lock, so FK inserts aren't blocked. */
+  async lockProducts(tx: Prisma.TransactionClient, ids: string[]) {
+    const rows = await tx.$queryRaw<LockedProduct[]>`
+      SELECT "id", "kind"::text AS "kind", "trackingMode"::text AS "trackingMode", "active", "manufacturerId" FROM "products"
+      WHERE "id" = ANY(${[...new Set(ids)].sort()}::uuid[]) ORDER BY "id" FOR NO KEY UPDATE`;
+    return new Map(rows.map((row) => [row.id, row]));
   }
 
   /** Serialises everything that removes this product from this location until the transaction ends. */

@@ -348,8 +348,8 @@ test('a line change and validation cannot race, in either order', async () => {
 });
 
 test('documents start as drafts, need lines to validate, and stay closed once cancelled', async () => {
-  const insert = (status, validated) => sql.query(`INSERT INTO stock_documents (id, kind, reference, status, "payloadHash", "actorId", "occurredAt", "validatedAt")
-    VALUES (gen_random_uuid(), 'ISSUE', $1, $2, 'test', $3, now(), $4) RETURNING id`, ['TEST-' + randomUUID(), status, staff.ADMIN, validated]);
+  const insert = (status, validated) => sql.query(`INSERT INTO stock_documents (id, kind, reference, status, "payloadHash", "actorId", "occurredAt", "validatedAt", "fromLocationId")
+    VALUES (gen_random_uuid(), 'ISSUE', $1, $2, 'test', $3, now(), $4, $5) RETURNING id`, ['TEST-' + randomUUID(), status, staff.ADMIN, validated, main.id]);
   await assert.rejects(insert('DONE', new Date()), /starts as a draft/);
   const { rows: [empty] } = await insert('DRAFT', null);
   await assert.rejects(sql.query(`UPDATE stock_documents SET status = 'DONE', "validatedAt" = now() WHERE id = $1`, [empty.id]), /needs lines/);
