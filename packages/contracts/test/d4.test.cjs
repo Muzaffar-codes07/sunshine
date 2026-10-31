@@ -29,6 +29,8 @@ test('warranty dates are valid ordered calendar dates and covered work is free',
   const assessment = {
     unitId: id, serial: 'INV-001', policyName: 'Component cover',
     startDate: '2024-02-29', expiryDate: '2026-02-28',
+    asOfDate: '2025-08-29', policyRevision: 'v1', scope: 'Component replacement',
+    coverageStatus: 'COVERED', chargeStatus: 'FREE',
     isCovered: true, reason: 'Within saved component policy', customerCharge: '0.00',
   };
   assert.equal(warrantyAssessmentResultSchema.safeParse(assessment).success, true);
@@ -39,8 +41,18 @@ test('warranty dates are valid ordered calendar dates and covered work is free',
     assert.equal(warrantyAssessmentResultSchema.safeParse({ ...assessment, ...change }).success, false);
   }
   assert.equal(warrantyAssessmentResultSchema.safeParse({
-    ...assessment, isCovered: false, customerCharge: '4000.00',
+    ...assessment, isCovered: false, coverageStatus: 'EXPIRED',
+    chargeStatus: 'PENDING_ASSESSMENT', customerCharge: null,
   }).success, true);
+  assert.equal(warrantyAssessmentResultSchema.safeParse({
+    ...assessment, coverageStatus: 'NO_WARRANTY', isCovered: false,
+    chargeStatus: 'PENDING_ASSESSMENT', customerCharge: null,
+    policyName: null, policyRevision: null, scope: null, startDate: null, expiryDate: null,
+  }).success, true);
+  for (const change of [
+    { isCovered: false }, { startDate: null }, { policyRevision: null },
+    { customerCharge: null }, { chargeStatus: 'PENDING_ASSESSMENT' }, { asOfDate: '2025-02-29' },
+  ]) assert.equal(warrantyAssessmentResultSchema.safeParse({ ...assessment, ...change }).success, false);
 });
 
 test('cost input preserves decimal money without coercion or excess precision', () => {

@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { PlatformModule } from './platform/platform.module';
 import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
+import { WarrantyModule } from './warranty/warranty.module';
 import { FinanceModule } from './finance/finance.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { FinanceModule } from './finance/finance.module';
     }),
     PlatformModule,
     SalesModule,
+    WarrantyModule,
     FinanceModule,
   ],
   controllers: [HealthController],
