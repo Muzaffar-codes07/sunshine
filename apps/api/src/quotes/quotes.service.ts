@@ -85,7 +85,7 @@ export class QuotesService {
   private async lockEnquiry(tx: Prisma.TransactionClient, id: string) {
     const [row] = await tx.$queryRawUnsafe<{ id: string; status: string }[]>('SELECT id, status FROM enquiries WHERE id = $1::uuid FOR UPDATE', id);
     if (!row) throw new ApiError(404, 'NOT_FOUND', 'Enquiry not found');
-    if (row.status !== 'QUALIFIED') throw blocked('ENQUIRY_NOT_QUALIFIED', 'Only an open qualified enquiry can receive quote changes.', 'Qualify the enquiry or reopen it through the sales workflow.');
+    if (row.status !== 'QUALIFIED') throw blocked('ENQUIRY_NOT_QUALIFIED', 'Only an open qualified enquiry can receive quote changes.', 'Qualify an open enquiry before quoting; keep closed enquiries as history.');
   }
 
   private async currentForCommand(tx: Prisma.TransactionClient, id: string, version: number) {
