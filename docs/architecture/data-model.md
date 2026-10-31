@@ -105,7 +105,6 @@ erDiagram
   USER ||--o{ TIME_ENTRY : works
   USER ||--o{ AUDIT_ENTRY : acts
   USER ||--o{ FILE : uploads
-  PRODUCT ||--|| STOCK_BALANCE : counted
   PRODUCT ||--o{ UNIT : serialized
   PRODUCT ||--o{ STOCK_MOVEMENT : moved
   QUOTE_LINE ||--o{ ALLOCATION : fulfilled
