@@ -9,6 +9,7 @@ import { apiGet } from '../lib/api';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PlannedWorkspace, Workspace, WorkspaceOverview, workspaces } from './Workspace';
 import { PatternsPage } from './PatternsPage';
+import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
@@ -28,6 +29,7 @@ export function App() {
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}
+      {import.meta.env.DEV && <Route path="/spike" element={<CapabilitySpikePage />} />}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
