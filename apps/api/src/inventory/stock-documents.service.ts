@@ -149,7 +149,7 @@ export class StockDocumentsService {
     // Serialized stock moves only with its units, and bulk never has any, so a line can't move quantity without them.
     for (const line of document.lines) {
       const serialized = this.stocked(products.get(line.productId), line.lineNumber).trackingMode === 'SERIALIZED';
-      if (!line.quantity.equals(serialized ? line.plannedUnits.length : line.quantity) || (!serialized && line.plannedUnits.length > 0)) {
+      if (serialized ? !line.quantity.equals(line.plannedUnits.length) : line.plannedUnits.length > 0) {
         throw refusal(notMovable(`Line ${line.lineNumber}: its quantity doesn't match its units.`, 'Cancel this draft and make a new one.'));
       }
     }
