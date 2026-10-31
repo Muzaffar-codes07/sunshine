@@ -376,6 +376,83 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((\"payloadHash\" ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "name": "invoice_lines_amounts_valid",
+      "table": "invoice_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (\"unitPrice\" >= (0)::numeric) AND (quantity <> 'NaN'::numeric) AND (\"unitPrice\" <> 'NaN'::numeric) AND (\"lineTotal\" = round((quantity * \"unitPrice\"), 2))))"
+    },
+    {
+      "name": "invoice_lines_position_positive",
+      "table": "invoice_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "invoices_amounts_valid",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((subtotal >= (0)::numeric) AND (\"taxAmount\" >= (0)::numeric) AND (subtotal <> 'NaN'::numeric) AND (\"taxAmount\" <> 'NaN'::numeric) AND (total = (subtotal + \"taxAmount\"))))"
+    },
+    {
+      "name": "invoices_paid_within_total",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"paidAmount\" >= (0)::numeric) AND (\"paidAmount\" <> 'NaN'::numeric) AND (\"paidAmount\" <= total)))"
+    },
+    {
+      "name": "invoices_source_matches_kind",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((\"sourceType\" = 'ORDER'::\"InvoiceSourceType\") AND (kind = 'SALE'::\"InvoiceKind\") AND (\"orderId\" IS NOT NULL) AND (\"orderId\" = \"sourceId\")) OR ((\"sourceType\" = 'TICKET'::\"InvoiceSourceType\") AND (kind = 'REPAIR'::\"InvoiceKind\") AND (\"orderId\" IS NULL))))"
+    },
+    {
+      "name": "invoices_status_matches_paid",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'POSTED'::\"InvoiceStatus\") AND (\"paidAmount\" = (0)::numeric)) OR ((status = 'PART_PAID'::\"InvoiceStatus\") AND (\"paidAmount\" > (0)::numeric) AND (\"paidAmount\" < total)) OR ((status = 'PAID'::\"InvoiceStatus\") AND (\"paidAmount\" = total))))"
+    },
+    {
+      "name": "invoices_tax_note_present",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((\"taxNote\")::text)) > 0))"
+    },
+    {
+      "name": "invoices_version_positive",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "packing_requirements_quantity_positive",
+      "table": "packing_requirements",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "payments_amount_positive",
+      "table": "payments",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((amount > (0)::numeric) AND (amount <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "payments_reference_not_blank",
+      "table": "payments",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
     }
   ]
 }

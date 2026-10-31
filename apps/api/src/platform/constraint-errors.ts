@@ -42,6 +42,11 @@ const COMMAND_RECORD_INVALID: RefusalReason = {
   nextAction: 'Try again; if it keeps failing, report it with the request ID.',
 };
 
+export const ORDER_ALREADY_CONFIRMED: RefusalReason = {
+  code: 'ORDER_ALREADY_CONFIRMED', reason: 'This enquiry already has a confirmed order.', source: 'ORDER',
+  nextAction: 'Open the existing order; changing a confirmed sale needs a cancellation or correction, not a second order.',
+};
+
 /**
  * Keyed by constraint name. Every rule in prisma/required-constraints.json owned by D2 must have an entry (a unit
  * test checks this); other owners add theirs here in the PR that adds the constraint.
@@ -56,6 +61,29 @@ export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
   ].map(name => [name, { refusal: {
     code: 'QUOTE_TERMS_INVALID', reason: 'The saved quote terms are inconsistent.', source: 'QUOTE',
     nextAction: 'Review the package and create a new quote revision; report persistent failures with the request ID.',
+  } }])),
+  // C5 orders and money. The service checks these first; the database is the backstop for races and bypasses.
+  orders_enquiryId_key: { refusal: ORDER_ALREADY_CONFIRMED },
+  orders_quoteId_key: { refusal: ORDER_ALREADY_CONFIRMED },
+  packing_requirements_quoteLineId_key: { refusal: ORDER_ALREADY_CONFIRMED },
+  invoices_sourceType_sourceId_kind_key: { refusal: {
+    code: 'INVOICE_ALREADY_POSTED', reason: 'This order or ticket already has its invoice.', source: 'FINANCE',
+    nextAction: 'Open the existing invoice; correct it with a reversal, not a second invoice.',
+  } },
+  payments_method_reference_key: { field: 'reference', message: 'This payment reference is already recorded for this method' },
+  payments_amount_positive: { field: 'amountInr', message: 'The amount must be more than zero' },
+  payments_reference_not_blank: { field: 'reference', message: 'Enter the payment reference' },
+  invoices_paid_within_total: { refusal: {
+    code: 'PAYMENT_EXCEEDS_BALANCE', reason: 'The payments would be more than the invoice total.', source: 'FINANCE',
+    nextAction: 'Record the amount actually received, up to the outstanding balance.',
+  } },
+  ...Object.fromEntries([
+    'packing_requirements_quantity_positive', 'invoices_amounts_valid', 'invoices_status_matches_paid',
+    'invoices_source_matches_kind', 'invoices_tax_note_present', 'invoices_version_positive',
+    'invoice_lines_amounts_valid', 'invoice_lines_position_positive',
+  ].map(name => [name, { refusal: {
+    code: 'INVOICE_DATA_INVALID', reason: 'The invoice figures are inconsistent.', source: 'FINANCE',
+    nextAction: 'Reload the order; report persistent failures with the request ID.',
   } }])),
   manufacturers_name_not_blank: { field: 'name', message: 'Enter the manufacturer name' },
   products_sku_format: { field: 'sku', message: 'Use 2–64 uppercase letters, digits, hyphens or underscores for the SKU' },

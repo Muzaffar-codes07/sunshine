@@ -41,7 +41,8 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 2c | `AuditEntry`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
 | 2d | `Command` (`20261031150000_commands`) | D2 | C7, idempotent command results; three CHECKs registered here |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
-| 4 | `Quote`, `QuoteLine`, `Order`, `Invoice`, `InvoiceLine`, `Payment` | D2 | Queued |
+| 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
+| 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |

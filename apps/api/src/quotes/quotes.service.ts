@@ -7,6 +7,7 @@ import { CatalogService } from '../catalog/catalog.service';
 import { SurveysService } from '../sales/surveys.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ApiError, refusal } from '../platform/api-error';
+import { ORDER_ALREADY_CONFIRMED } from '../platform/constraint-errors';
 import { Prisma } from '../generated/prisma/client';
 import { QUOTE_WARRANTY_POLICY_READER, type QuoteWarrantyPolicyReader } from './quote-policy.port';
 
@@ -86,6 +87,9 @@ export class QuotesService {
     const [row] = await tx.$queryRawUnsafe<{ id: string; status: string }[]>('SELECT id, status FROM enquiries WHERE id = $1::uuid FOR UPDATE', id);
     if (!row) throw new ApiError(404, 'NOT_FOUND', 'Enquiry not found');
     if (row.status !== 'QUALIFIED') throw blocked('ENQUIRY_NOT_QUALIFIED', 'Only an open qualified enquiry can receive quote changes.', 'Qualify an open enquiry before quoting; keep closed enquiries as history.');
+    // C5: once an order is confirmed, no quote may change, so a successor revision can never become a second sale.
+    // Confirmation share-locks this same row, so this check and confirmation are serialized.
+    if (await tx.order.findUnique({ where: { enquiryId: row.id }, select: { id: true } })) throw refusal(ORDER_ALREADY_CONFIRMED);
     return row.id;
   }
 
