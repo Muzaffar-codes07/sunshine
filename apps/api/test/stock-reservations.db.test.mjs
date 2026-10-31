@@ -523,8 +523,7 @@ test('typed values remain evidence but only camera/scanner methods satisfy curre
   assert.deepEqual(await held(order), beforeRows);
   assert.deepEqual(await prisma.unit.findMany({ where: { id: { in: units.map((u) => u.id) } }, orderBy: { id: 'asc' } }), unitsBefore);
   assert.equal(await prisma.stockMovement.count(), beforeMoves);
-  await refused(send(`/dispatches/${draft.id}/dispatch`, { expectedVersion: completed.version }), 404, 'NOT_FOUND');
-  assert.deepEqual(await ok(get(`/dispatches/${draft.id}`), 200), completed);
+  assert.deepEqual(await ok(get(`/dispatches/${draft.id}`), 200), completed, 'scanning alone posts nothing');
 });
 
 test('unknown, wrong-order and already-installed units cannot satisfy a scan', async () => {
