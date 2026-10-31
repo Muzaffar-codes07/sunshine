@@ -47,14 +47,21 @@ export const allocationSourceSchema = z.discriminatedUnion('kind', [
 ]);
 export type AllocationSource = z.infer<typeof allocationSourceSchema>;
 export const allocateOrderRequestSchema = z.object({ expectedVersion: version, unitIds: uuidList.optional() }).strict();
+export const releaseOrderAllocationsRequestSchema = z.object({ expectedVersion: version, reason: z.string().trim().min(5).max(500) }).strict();
+export type ReleaseOrderAllocationsRequest = z.infer<typeof releaseOrderAllocationsRequestSchema>;
 export const reserveTicketPartsRequestSchema = z.object({ expectedVersion: version, ticketLineId: z.uuid(), unitIds: uuidList.optional() }).strict();
 export const allocationViewSchema = z.object({
   id: z.uuid(), jobId: z.uuid(), productId: z.uuid(), source: allocationSourceSchema,
   unitId: z.uuid().nullable(), quantity: positiveQuantitySchema, status: allocationStatusSchema,
+  releaseEvidence: z.object({ releasedAt: z.iso.datetime({ offset: true }), releasedById: z.uuid(), reason: z.string().min(5).max(500) }).nullable().optional(),
 }).refine((value) => value.unitId === null || /^1(?:\.0{1,3})?$/.test(value.quantity), {
   path: ['quantity'], message: 'A physical unit allocation must have quantity one',
 });
 export const allocationListResponseSchema = z.object({ data: z.array(allocationViewSchema) });
+export const releaseOrderAllocationsResponseSchema = z.object({ data: z.object({
+  jobId: z.uuid(), jobVersion: version, releasedById: z.uuid(), releasedAt: z.iso.datetime({ offset: true }),
+  reason: z.string().min(5).max(500), allocations: z.array(allocationViewSchema),
+}) });
 
 const signedQuantity = z.string().regex(/^-?(0|[1-9]\d{0,8})(\.\d{1,3})?$/)
   .refine((value) => !/^-0(?:\.0{1,3})?$/.test(value), 'Serialize zero without a negative sign');
@@ -156,6 +163,16 @@ export const unitLookupQuerySchema = z.object({ serial: equipmentSerialSchema, p
 // Location comes from the unit's latest movement; null means the unit has left company stock.
 export const unitLocationViewSchema = unitViewSchema.extend({ locationId: z.uuid().nullable() });
 export const unitLookupResponseSchema = z.object({ data: z.array(unitLocationViewSchema) });
+// Assignment is derived from Allocation -> Job -> Order, rather than copying customer identity onto a unit.
+export const unitDetailViewSchema = unitLocationViewSchema.extend({
+  receiptId: z.uuid(),
+  activeAssignment: z.object({
+    allocationId: z.uuid(), status: allocationStatusSchema.exclude(['RELEASED']),
+    jobId: z.uuid(), orderId: z.uuid(), customerId: z.uuid(),
+  }).nullable(),
+});
+export const unitDetailResponseSchema = z.object({ data: unitDetailViewSchema });
+export type UnitDetailView = z.infer<typeof unitDetailViewSchema>;
 export type StockLocationView = z.infer<typeof stockLocationViewSchema>;
 export type StockLevelListQuery = z.infer<typeof stockLevelListQuerySchema>;
 export type StockLevelView = z.infer<typeof stockLevelViewSchema>;

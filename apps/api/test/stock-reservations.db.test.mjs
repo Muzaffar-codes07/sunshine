@@ -20,6 +20,7 @@ const { SurveysService } = require('../dist/sales/surveys.service');
 const { OrdersService } = require('../dist/orders/orders.service');
 const { InvoicesService } = require('../dist/finance/invoices.service');
 const { StockLedgerService } = require('../dist/inventory/stock-ledger.service');
+const { AllocationsService } = require('../dist/inventory/allocations.service');
 const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
 const { hashPassword } = require('../dist/auth/passwords');
@@ -109,6 +110,9 @@ async function stock(order, times = 1) {
 }
 const version = async (order) => (await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } })).version;
 const allocate = async (order, body = {}, role = 'WAREHOUSE', key = randomUUID()) => send(`/orders/${order.id}/allocations`, { expectedVersion: await version(order), ...body }, role, key);
+const release = async (order, body = {}, role = 'WAREHOUSE', key = randomUUID()) => send(`/orders/${order.id}/allocations/release`, {
+  expectedVersion: await version(order), reason: 'Reschedule equipment allocation', ...body,
+}, role, key);
 const held = (order) => prisma.allocation.findMany({ where: { jobId: order.jobId } });
 const stripStock = async (productId) => {
   const available = await prisma.$queryRaw`SELECT u."id" FROM "units" u JOIN "unit_locations" l ON l."unitId" = u."id" WHERE u."productId" = ${productId}::uuid AND u."status" = 'AVAILABLE' AND l."locationId" = ${main.id}::uuid`;
@@ -304,6 +308,174 @@ test('the database holds one active allocation per unit and matches each one to 
   await assert.rejects(sql.query('UPDATE allocations SET quantity = 99 WHERE id = $1', [bulk.id]), /identity cannot change/);
   await assert.rejects(sql.query(`UPDATE allocations SET "jobId" = $1 WHERE id = $2`, [other.jobId, serial.id]), /identity cannot change/);
   await assert.rejects(sql.query('DELETE FROM allocations WHERE id = $1', [serial.id]), /identity cannot change/);
-  await sql.query(`UPDATE allocations SET status = 'RELEASED' WHERE id = $1`, [serial.id]);
+  await sql.query(`UPDATE allocations SET status = 'RELEASED', "releasedAt"=now(), "releasedById"=$2, "releaseReason"='Direct constraint fixture' WHERE id = $1`, [serial.id, staff.WAREHOUSE.id]);
   await assert.rejects(sql.query(`UPDATE allocations SET status = 'RESERVED' WHERE id = $1`, [serial.id]), /identity cannot change/);
+});
+
+test('unit traceability retains its customer and exclusive assignment through installed state', async () => {
+  const [owner, other] = [await confirmedOrder(), await confirmedOrder()];
+  const received = await stock(owner, 2);
+  const products = await productsOf(owner);
+  const chosen = products.filter((p) => p.trackingMode === 'SERIALIZED').flatMap((p) => {
+    const needed = owner.packing.filter((line) => line.productId === p.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+    return received[p.id].slice(0, needed);
+  });
+  const allocations = await ok(allocate(owner, { unitIds: chosen }));
+  const heldUnit = allocations.find((row) => row.unitId);
+  const receiptLine = await prisma.unit.findUniqueOrThrow({ where: { id: heldUnit.unitId }, include: { receiptLine: true } });
+  const otherLine = other.packing.find((line) => line.productId === heldUnit.productId);
+  // These direct state fixtures test identity/index coverage, not execution of the future dispatch/delivery commands.
+  for (const status of ['RESERVED', 'DISPATCHED', 'DELIVERED', 'INSTALLED']) {
+    await prisma.$transaction(async (tx) => {
+      await tx.allocation.update({ where: { id: heldUnit.id }, data: { status } });
+      await tx.unit.update({ where: { id: heldUnit.unitId }, data: { status } });
+    });
+    const trace = await ok(get(`/units/${heldUnit.unitId}`), 200);
+    assert.equal(trace.receiptId, receiptLine.receiptLine.documentId);
+    assert.equal(trace.id, heldUnit.unitId); assert.equal(trace.status, status);
+    assert.deepEqual(trace.activeAssignment, {
+      allocationId: heldUnit.id, status, jobId: owner.jobId, orderId: owner.id, customerId: owner.customerId,
+    });
+    await refused(allocate(other, { unitIds: chosen }), 409, 'NOT_ALLOCATABLE');
+    assert.equal((await held(other)).length, 0);
+    await assert.rejects(sql.query(`INSERT INTO allocations
+      (id,"jobId","quoteLineId","productId","unitId","locationId",quantity,"actorId","updatedAt")
+      VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,1,$6,now())`,
+    [other.jobId, otherLine.quoteLineId, heldUnit.productId, heldUnit.unitId, main.id, staff.WAREHOUSE.id]), /allocations_one_active_unit/);
+    await assert.rejects(sql.query('UPDATE allocations SET "jobId"=$1,"quoteLineId"=$2 WHERE id=$3',
+      [other.jobId, otherLine.quoteLineId, heldUnit.id]), /identity cannot change/);
+  }
+  await sql.query(`UPDATE allocations SET status='RELEASED', "releasedAt"=now(), "releasedById"=$2, "releaseReason"='Direct constraint fixture' WHERE id=$1`, [heldUnit.id, staff.WAREHOUSE.id]);
+  assert.equal((await ok(get(`/units/${heldUnit.unitId}`), 200)).activeAssignment, null);
+  assert.equal(await prisma.allocation.count({ where: { id: heldUnit.id } }), 1, 'released assignment history remains');
+});
+
+test('release frees all held equipment without stock movement, retains audit and allows reallocation', async () => {
+  const order = await confirmedOrder(); await stock(order);
+  const first = await ok(allocate(order)); const unitIds = first.flatMap((row) => row.unitId ? [row.unitId] : []);
+  const productId = first.find((row) => !row.unitId).productId;
+  const beforeStock = await onHand(productId); const beforeReserved = await reserved(productId);
+  const movementCount = await prisma.stockMovement.count();
+  const key = randomUUID(); const input = { expectedVersion: await version(order), reason: 'Customer changed the installation date' };
+  const result = await ok(send(`/orders/${order.id}/allocations/release`, input, 'ADMIN', key), 200);
+  assert.equal(result.jobVersion, input.expectedVersion + 1); assert.equal(result.releasedById, staff.ADMIN.id);
+  const rows = await held(order);
+  assert.ok(rows.every((row) => row.status === 'RELEASED' && row.releasedById === staff.ADMIN.id && row.releaseReason === input.reason
+    && row.releasedAt.toISOString() === result.releasedAt));
+  const reloaded = await ok(get(`/orders/${order.id}/allocations`), 200);
+  assert.ok(reloaded.every((row) => row.releaseEvidence?.reason === input.reason
+    && row.releaseEvidence.releasedById === staff.ADMIN.id && row.releaseEvidence.releasedAt === result.releasedAt));
+  assert.equal(await prisma.unit.count({ where: { id: { in: unitIds }, status: 'AVAILABLE' } }), unitIds.length);
+  const releasedBulk = first.filter((row) => row.productId === productId).reduce((sum, row) => sum + Number(row.quantity), 0);
+  assert.equal((await reserved(productId)).toFixed(3), beforeReserved.minus(releasedBulk).toFixed(3));
+  assert.equal((await onHand(productId)).toFixed(3), beforeStock.toFixed(3));
+  assert.equal(await prisma.stockMovement.count(), movementCount);
+  assert.equal((await ok(get(`/units/${unitIds[0]}`), 200)).activeAssignment, null);
+  await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
+  const again = await ok(allocate(order, { unitIds }));
+  assert.ok(again.some((row) => row.status === 'RESERVED'));
+  assert.equal((await held(order)).filter((row) => row.status === 'RELEASED').length, first.length);
+  // A late duplicate replays the old release; it must not free the new reservation.
+  assert.deepEqual(await ok(send(`/orders/${order.id}/allocations/release`, input, 'ADMIN', key), 200), result);
+  assert.equal((await held(order)).filter((row) => row.status === 'RESERVED').length, first.length);
+  await refused(send(`/orders/${order.id}/allocations/release`, { ...input, reason: 'Different action with reused key' }, 'ADMIN', key), 409, 'IDEMPOTENCY_CONFLICT');
+});
+
+test('release rejects stale versions, started jobs and a partly dispatched reservation without freeing anything', async () => {
+  const order = await confirmedOrder(); await stock(order); const allocated = await ok(allocate(order));
+  const v = await version(order); const before = await held(order);
+  await refused(release(order, { expectedVersion: v + 1 }), 409, 'STALE_VERSION');
+  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'IN_PROGRESS' } });
+  await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
+  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'SCHEDULED' } });
+  await prisma.allocation.update({ where: { id: allocated[0].id }, data: { status: 'DISPATCHED' } });
+  await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
+  assert.equal(await version(order), v);
+  const after = await held(order);
+  assert.equal(after.filter((row) => row.status === 'RELEASED').length, 0);
+  assert.ok(after.every((row) => row.releasedAt === null && row.releasedById === null && row.releaseReason === null));
+  assert.equal(after.length, before.length);
+});
+
+test('an inconsistent unit refuses the complete release and the same key can retry after correction', async () => {
+  const order = await confirmedOrder(); await stock(order); const allocated = await ok(allocate(order));
+  const unitId = allocated.find((row) => row.unitId).unitId;
+  await prisma.unit.update({ where: { id: unitId }, data: { status: 'QUARANTINED' } });
+  const before = await held(order); const v = await version(order); const key = randomUUID();
+  await refused(release(order, {}, 'WAREHOUSE', key), 409, 'ALLOCATION_NOT_RELEASABLE');
+  assert.deepEqual(await held(order), before); assert.equal(await version(order), v);
+  await prisma.unit.update({ where: { id: unitId }, data: { status: 'RESERVED' } });
+  await ok(release(order, {}, 'WAREHOUSE', key), 200);
+});
+
+test('two release attempts have one winner, while identical-key attempts replay one result', async () => {
+  for (const sameKey of [false, true]) {
+    const order = await confirmedOrder(); await stock(order); await ok(allocate(order));
+    const input = { expectedVersion: await version(order), reason: 'Release this unused reservation' }; const key = randomUUID();
+    const results = await Promise.all([send(`/orders/${order.id}/allocations/release`, input, 'WAREHOUSE', key),
+      send(`/orders/${order.id}/allocations/release`, input, 'WAREHOUSE', sameKey ? key : randomUUID())]);
+    assert.deepEqual(results.map((r) => r.status).sort(), sameKey ? [200, 200] : [200, 409]);
+    if (sameKey) assert.deepEqual(await results[0].json(), await results[1].json());
+    assert.equal(await version(order), input.expectedVersion + 1);
+    assert.ok((await held(order)).every((row) => row.status === 'RELEASED'));
+  }
+});
+
+test('a late failure rolls back the release audit, free units, job version and command claim', async () => {
+  const order = await confirmedOrder(); await stock(order); await ok(allocate(order));
+  const before = await held(order); const unitIds = before.flatMap((row) => row.unitId ? [row.unitId] : []);
+  const unitsBefore = await prisma.unit.findMany({ where: { id: { in: unitIds } }, orderBy: { id: 'asc' } });
+  const input = { expectedVersion: await version(order), reason: 'Release rollback fault injection' }; const key = randomUUID();
+  const broken = new AllocationsService(prisma, { run: (command, work) => idempotency.run(command, async (tx) => {
+    await work(tx); throw new Error('injected after release effects');
+  }) }, ledger, invoices);
+  await assert.rejects(broken.releaseOrder(staff.WAREHOUSE.id, key, order.id, input), /injected after release effects/);
+  assert.deepEqual(await held(order), before);
+  assert.deepEqual(await prisma.unit.findMany({ where: { id: { in: unitIds } }, orderBy: { id: 'asc' } }), unitsBefore);
+  assert.equal(await version(order), input.expectedVersion);
+  assert.equal(await prisma.command.count({ where: { actorId: staff.WAREHOUSE.id, idempotencyKey: key } }), 0);
+  await ok(release(order, input, 'WAREHOUSE', key), 200);
+});
+
+test('release racing another order allocation never gives one unit two active owners', async () => {
+  const [owner, other] = [await confirmedOrder(), await confirmedOrder()];
+  await stock(owner);
+  const rows = await ok(allocate(owner)); const unitIds = rows.flatMap((row) => row.unitId ? [row.unitId] : []);
+  const productId = rows.map((row) => row.productId).sort()[0];
+  await sql.query('BEGIN');
+  await sql.query('SELECT id FROM products WHERE id=$1 FOR NO KEY UPDATE', [productId]);
+  const pending = Promise.all([release(owner), allocate(other, { unitIds })]);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.equal((await held(owner)).filter((row) => row.status === 'RELEASED').length, 0);
+    assert.equal((await held(other)).length, 0);
+  } finally { await sql.query('COMMIT'); }
+  const [released, allocated] = await pending;
+  assert.equal(released.status, 200);
+  assert.ok([201, 409].includes(allocated.status));
+  assert.ok((await held(owner)).every((row) => row.status === 'RELEASED'));
+  for (const unitId of unitIds) {
+    const active = await prisma.allocation.findMany({ where: { unitId, status: { not: 'RELEASED' } } });
+    assert.equal(active.length, allocated.status === 201 ? 1 : 0);
+    if (active.length) assert.equal(active[0].jobId, other.jobId);
+  }
+});
+
+test('release requires warehouse/admin, a key, a real order and a reason; raw releases need durable evidence', async () => {
+  const order = await confirmedOrder(); await stock(order); const rows = await ok(allocate(order));
+  for (const role of ['SALES', 'TECHNICIAN']) await refused(release(order, {}, role), 403, 'FORBIDDEN');
+  await refused(release(order, {}, 'WAREHOUSE', null), 400, 'INVALID_INPUT');
+  await refused(release(order, { reason: ' ' }), 400, 'INVALID_INPUT');
+  await refused(release(order, { releasedById: staff.ADMIN.id }), 400, 'INVALID_INPUT');
+  await refused(send(`/orders/${randomUUID()}/allocations/release`, { expectedVersion: 1, reason: 'Unknown source order' }), 404, 'NOT_FOUND');
+  await assert.rejects(sql.query(`UPDATE allocations SET status='RELEASED' WHERE id=$1`, [rows[0].id]), /needs actor, time and reason/);
+  await assert.rejects(sql.query(`UPDATE allocations SET status='RELEASED',"releasedAt"=now(),"releasedById"=$2,"releaseReason"='bad' WHERE id=$1`,
+    [rows[0].id, staff.WAREHOUSE.id]), /allocations_release_evidence_valid/);
+  await assert.rejects(sql.query(`UPDATE allocations SET status='RELEASED',"releasedAt"="createdAt"-interval '1 second',"releasedById"=$2,"releaseReason"='Backdated invalid audit' WHERE id=$1`,
+    [rows[0].id, staff.WAREHOUSE.id]), /allocations_release_evidence_valid/);
+  await assert.rejects(sql.query(`UPDATE allocations SET status='RELEASED',"releasedAt"=now(),"releasedById"=$2,"releaseReason"='Unknown release actor' WHERE id=$1`,
+    [rows[0].id, randomUUID()]), /allocations_releasedById_fkey/);
+  await assert.rejects(sql.query(`UPDATE allocations SET "releasedAt"=now(),"releasedById"=$2,"releaseReason"='Premature evidence' WHERE id=$1`, [rows[0].id, staff.WAREHOUSE.id]), /recorded only when releasing/);
+  await ok(release(order), 200);
+  await assert.rejects(sql.query(`UPDATE allocations SET "releaseReason"='Rewritten history' WHERE id=$1`, [rows[0].id]), /identity cannot change/);
 });

@@ -33,6 +33,9 @@ model User {
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
   allocations Allocation[]
+  allocationsReleased Allocation[] @relation("AllocationReleaseActor")
+  jobAssignments JobAssignment[] @relation("JobAssignmentTechnician")
+  jobAssignmentsMade JobAssignment[] @relation("JobAssignmentMadeBy")
   commands       Command[]
   surveysAssigned Survey[] @relation("SurveyTechnician")
   surveysDecided  Survey[] @relation("SurveyDecision")
@@ -746,12 +749,15 @@ model Job {
   orderId   String    @unique @db.Uuid
   status    JobStatus @default(SCHEDULED)
   version   Int       @default(1)
+  scheduledStart DateTime? @db.Timestamptz(3)
+  scheduledFinish DateTime? @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @db.Timestamptz(3)
 
   order     Order     @relation("JobOrder", fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   linkedBy  Order?    @relation("OrderJob")
   allocations Allocation[]
+  assignments JobAssignment[]
 
   @@unique([orderId, id])
   @@map("jobs")
@@ -779,17 +785,39 @@ model Allocation {
   actorId String @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  releasedAt DateTime? @db.Timestamptz(3)
+  releasedById String? @db.Uuid
+  releaseReason String? @db.VarChar(500)
   job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
   quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   unit Unit? @relation(fields: [unitId], references: [id], onDelete: Restrict)
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  releasedBy User? @relation("AllocationReleaseActor", fields: [releasedById], references: [id], onDelete: Restrict)
   @@index([jobId, status])
   @@index([productId, locationId, status])
   @@index([quoteLineId])
   @@index([unitId])
   @@index([locationId])
   @@index([actorId])
+  @@index([releasedById])
   @@map("allocations")
+}
+
+// D3: who is on a job. A removed assignment stays as history, so only rows without removedAt are active.
+model JobAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  jobId String @db.Uuid
+  technicianId String @db.Uuid
+  assignedById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  removedAt DateTime? @db.Timestamptz(3)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  technician User @relation("JobAssignmentTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("JobAssignmentMadeBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  @@index([jobId])
+  @@index([technicianId, removedAt])
+  @@index([assignedById])
+  @@map("job_assignments")
 }
