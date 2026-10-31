@@ -31,13 +31,15 @@ cost writer, replacement orchestrator and profitability engine. It verifies:
 - Actual Nest HTTP confirmation rejects each missing name/channel/time with
   400 and leaves the row unchanged. Valid confirmation closes; replay conflicts.
 
-All storage, inventory, source and invoice adapters in this suite are test-only
+All storage, inventory, source and invoice adapters in this invariant suite are test-only
 doubles. Quarantine/assignment assertions verify the orchestration boundary;
 they do not prove D3's physical stock writer. No placeholder models, production
-authorization bypass, D4 migration or persisted demo seed is introduced.
-Real D4 PostgreSQL constraint/concurrency/rollback and authenticated lifecycle
-acceptance remain pending Unit/Job/time/source/invoice adapters and the
-[coordinated migration](../architecture/d4-schema-handoff.md).
+authorization bypass or persisted demo seed is introduced by that suite.
+The coordinated migration and separate PostgreSQL cost/schema tests now cover
+real database constraints, concurrent replay and caller rollback. Full authenticated
+repair/replacement and historical seed acceptance still require the production
+time/source/stock/invoice adapters described in the
+[schema handoff](../architecture/d4-schema-handoff.md).
 
 For infrastructure release verification, use the root README commands: start
 PostgreSQL with `docker compose up -d --wait db`, build, explicitly apply existing

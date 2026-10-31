@@ -1,6 +1,6 @@
 # Finance module
 
-Cost writer: **implemented by D4 (Task 1.3)**. Invoices and payments: **D2, planned**.
+Cost writer: **implemented by D4 (Task 1.3)**. Invoices and payments: **owned by D2**.
 
 `FinanceModule` exports `CostWriterService.postCost(tx, input)`. Import this module
 in each consuming domain module and pass its existing `Prisma.TransactionClient`.
