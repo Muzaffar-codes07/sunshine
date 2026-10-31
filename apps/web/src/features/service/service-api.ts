@@ -9,20 +9,17 @@ import {
   type WarrantyLookupQuery,
   type WarrantyLookupResponse,
 } from '@sunshine/contracts';
-import { d4Json } from './d4-http';
+import { apiGet, apiPost } from '../../lib/api';
 
 function postTicket(path: string, body: unknown, idempotencyKey: string) {
-  return d4Json(path, serviceTicketResponseSchema, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify(body),
-  });
+  return apiPost(path, serviceTicketResponseSchema, body, { idempotencyKey });
 }
 
 export function lookupWarranty(query: WarrantyLookupQuery, signal?: AbortSignal): Promise<WarrantyLookupResponse> {
   const search = new URLSearchParams({ serial: query.serial });
   if (query.manufacturerId) search.set('manufacturerId', query.manufacturerId);
   if (query.productId) search.set('productId', query.productId);
-  return d4Json(`/warranties/lookup?${search.toString()}`, warrantyLookupResponseSchema, { signal });
+  return apiGet(`/warranties/lookup?${search.toString()}`, warrantyLookupResponseSchema, signal);
 }
 
 export function createTicket(input: CreateTicketInput, idempotencyKey: string): Promise<ServiceTicketResponse> {

@@ -10,7 +10,8 @@ import {
   type SubsidyReport,
   type TechnicianPayReport,
 } from '@sunshine/contracts';
-import { d4Json, d4Fetch, D4RequestError } from '../service/d4-http';
+import { apiGet } from '../../lib/api';
+import { d4Fetch, D4RequestError } from '../service/d4-http';
 
 const overviewResponseSchema = z.object({ data: periodSummarySchema });
 const profitabilityResponseSchema = z.object({ data: jobProfitabilityReportSchema });
@@ -18,19 +19,19 @@ const payResponseSchema = z.object({ data: technicianPayReportSchema });
 const subsidiesResponseSchema = z.object({ data: subsidyReportSchema });
 
 export async function readOverview(period: ReportPeriod, signal?: AbortSignal): Promise<PeriodSummary> {
-  return (await d4Json(`/reports/overview?${new URLSearchParams({ period }).toString()}`, overviewResponseSchema, { signal })).data;
+  return (await apiGet(`/reports/overview?${new URLSearchParams({ period }).toString()}`, overviewResponseSchema, signal)).data;
 }
 
 export async function readProfitability(jobId: string, signal?: AbortSignal): Promise<JobProfitabilityReport> {
-  return (await d4Json(`/reports/profitability?${new URLSearchParams({ jobId }).toString()}`, profitabilityResponseSchema, { signal })).data;
+  return (await apiGet(`/reports/profitability?${new URLSearchParams({ jobId }).toString()}`, profitabilityResponseSchema, signal)).data;
 }
 
 export async function readPay(period: ReportPeriod, signal?: AbortSignal): Promise<TechnicianPayReport> {
-  return (await d4Json(`/reports/pay-summary?${new URLSearchParams({ period }).toString()}`, payResponseSchema, { signal })).data;
+  return (await apiGet(`/reports/pay-summary?${new URLSearchParams({ period }).toString()}`, payResponseSchema, signal)).data;
 }
 
 export async function readSubsidies(signal?: AbortSignal): Promise<SubsidyReport> {
-  return (await d4Json('/reports/subsidies', subsidiesResponseSchema, { signal })).data;
+  return (await apiGet('/reports/subsidies', subsidiesResponseSchema, signal)).data;
 }
 
 export async function readCsv(url: string, signal?: AbortSignal): Promise<Blob> {

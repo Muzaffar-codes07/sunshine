@@ -1,6 +1,6 @@
 # Issue 44: independent D4 frontend preparation
 
-This branch is stacked on PR #8, because its D4 contracts are not yet on main. The integration merge also incorporates canonical main `bd7b97e` (Files). It does not activate the D4 draft migration or change backend behavior.
+This branch is stacked on PR #8, because its D4 contracts are not yet on main. It incorporates PR #8 head `304efec`, including the active D4 migration and upstream sales/dispatch work. The frontend slice makes no backend changes relative to that base.
 
 ## Components ready for review
 
@@ -43,7 +43,7 @@ The transport preserves `error.fieldErrors`, refusal `reason`/`nextAction`, HTTP
 
 ## Integration gates still open
 
-1. PR #8's contracts, coordinated migration and verified production access/read adapters must land before production feature acceptance.
+1. PR #8's contracts and active coordinated migration must merge, and verified production access/read adapters must be wired, before production feature acceptance.
 2. The ticket controller currently ignores `Idempotency-Key`. Backend replay in the caller transaction and ticket list/detail GET routes are required before enabling writes. Sending a header alone is not retry protection.
 3. Repair billing/invoice/cost projections and replacement commands need public authorized routes. Pending-job/open-repair reporting and subsidy evidence navigation are also incomplete.
 4. Nirmayi's route placement and UI review remain necessary for production release. These components can be implemented and tested before that input.

@@ -6,7 +6,7 @@ Issue #44 assigns this bounded D4-facing frontend slice to Bhanu for Nirmayi's U
 
 Coverage, customer charges, policy dates and replacement IDs come from validated contracts. Repair billing/costs, replacement commands and ticket list/detail routes are still upstream requirements. The frontend does not fabricate those results.
 
-The transport stays inside these D4 feature folders because the shared client currently drops `error.reasons`. It preserves 400 field errors, 401/403, 409 reason/next action, request ID, 503 and network/response errors. Shared `lib/api.ts` remains unchanged.
+JSON requests use the existing shared API client, including its refusal reasons. A feature-local CSV response handler uses the same error type so field errors, 401/403, 409 next action, request ID, 503 and network/response errors stay visible. This slice makes no changes to shared `lib/api.ts`.
 
 ## Review without shell changes
 

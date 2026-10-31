@@ -79,7 +79,6 @@ test('warranty lookup encodes serial input and validates the complete server res
   const result = await serviceApi.lookupWarranty({ serial: 'INV & 1', manufacturerId: unitId });
   assert.equal(new URL(`https://example.test${calls[0][0]}`).searchParams.get('serial'), 'INV & 1');
   assert.equal(calls[0][1].credentials, 'same-origin');
-  assert.equal(calls[0][1].cache, 'no-store');
   assert.equal(result.data.assessment.customerCharge, '0.00');
   globalThis.fetch.mock.mockImplementation(async () => json({ data: { paid: true } }));
   await assert.rejects(serviceApi.lookupWarranty({ serial: 'INV-TEST' }), { code: 'CONTRACT_MISMATCH' });
@@ -128,7 +127,7 @@ test('CSV failures stay JSON errors and successful CSV bytes are preserved', asy
   assert.equal(await (await reportApi.readCsv('/api/v1/reports/export.csv?report=overview')).text(), csv);
 });
 
-test('reports render server money, frozen pay, loss and empty states', () => {
+test('reports render server monetary totals, cutoff and empty states', () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(['reports', 'overview', 'today'], overview);
   client.setQueryData(['reports', 'pay', 'today'], { ...overview, technicians: [], totalHours: '0.000', totalPay: '0.00' });
