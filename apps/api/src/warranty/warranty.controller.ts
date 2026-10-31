@@ -1,4 +1,4 @@
-import { CanActivate, Controller, ExecutionContext, Get, Injectable, Query, UseGuards } from '@nestjs/common';
+import { CanActivate, Controller, ExecutionContext, Get, Header, Injectable, Query, UseGuards } from '@nestjs/common';
 import { warrantyLookupQuerySchema, type WarrantyLookupQuery } from '@sunshine/contracts';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { WarrantyLookupAccess } from './warranty-readers';
@@ -19,6 +19,7 @@ export class WarrantyController {
   constructor(private readonly warranty: WarrantyService) {}
 
   @Get('lookup')
+  @Header('Cache-Control', 'no-store')
   lookup(@Query(new ZodValidationPipe(warrantyLookupQuerySchema)) query: WarrantyLookupQuery) {
     return this.warranty.lookup(query);
   }

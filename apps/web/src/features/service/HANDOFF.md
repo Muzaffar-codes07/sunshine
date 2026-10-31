@@ -18,7 +18,7 @@ import { ServiceWorkspaceRoute } from '../features/service/ServiceWorkspaceRoute
 import { ReportsWorkspacePage } from '../features/reports';
 ```
 
-Mount the service page at a dedicated service child route that does not replace D3's field/job screen. Mount the reports page under the reports workspace. Leave `ticketCommandsEnabled` at its default `false` until the ticket APIs below are completed. Saved-ticket and financial/operational reads are live; warranty lookup and ticket writes still retain their explicit activation gates.
+Mount the service page at a dedicated service child route that does not replace D3's field/job screen. Mount the reports page under the reports workspace. Leave `ticketCommandsEnabled` at its default `false` until the ticket APIs below are completed. Saved-ticket and financial/operational reads are live; warranty lookup and ADMIN future-policy editing are connected in the takeover candidate; ticket writes retain their explicit activation gates.
 
 For review without changing shared routes, start the web server (for example `npm run dev -w @sunshine/web -- --port 5187`) and open `/test/d4-preview.html`. The preview uses the real API proxy with no success fixtures and leaves writes disabled. Production builds do not include that HTML entry.
 
@@ -59,7 +59,7 @@ An invalid serial field produces the standard 400 envelope, for example:
 {"error":{"code":"INVALID_INPUT","message":"Some fields need attention","fieldErrors":{"serial":["Enter a serial number"]},"requestId":"33333333-3333-4333-8333-333333333333"}}
 ```
 
-An absent/expired session returns 401; a verified session without the required role returns 403. A stale ticket version returns 409 `STALE_VERSION` and must be reloaded before a new action. Some 409 responses also include `error.reasons[]` with `reason`, `source` and `nextAction`; the UI shows them when supplied. A currently unwired warranty lookup returns 503 `WARRANTY_AUTH_UNAVAILABLE` before any serial read. The UI shows unavailable rather than a fabricated result.
+An absent/expired session returns 401; a verified session without the required role returns 403. A stale ticket version returns 409 `STALE_VERSION` and must be reloaded before a new action. Some 409 responses also include `error.reasons[]` with `reason`, `source` and `nextAction`; the UI shows them when supplied. Warranty lookup validates real delivery/frozen-policy evidence. Corrupt sources return 503 `INVALID_WARRANTY_RECORD`; a replacement pointer without verified issue/billing remains 503 `WARRANTY_REPLACEMENT_UNAVAILABLE`. Unknown serials return 404 and ambiguous serials return 409; unsupported roles never receive customer facts.
 
 Report reads are `/reports/overview?period=today|week|month`, `/reports/pay-summary?period=...`, `/reports/profitability?jobId=<UUID>` and `/reports/subsidies`. For the synthetic covered job, the profitability URL would be `/api/v1/reports/profitability?jobId=d4510000-0000-4000-8000-000000000021`. This URL is an identifier handoff, not a claim that posted finance facts exist. CSV uses `/reports/export.csv?report=overview|pay&period=...` or `report=profitability&jobId=...`. A CSV success is `text/csv` with a fixed attachment name; a failed read is a JSON error envelope. Download uses a new server cutoff, so identical filters do not promise an identical earlier snapshot.
 
@@ -67,7 +67,7 @@ The transport preserves `error.fieldErrors`, refusal `reason`/`nextAction`, HTTP
 
 ## Integration gates still open
 
-1. Quote policy snapshots and delivery activation are implemented in #67. Products without configured terms remain unconfigured. Warranty equipment/access adapters and the configuration UI still need completion; read-only lookup may return its unavailable error until those adapters land. Existing frozen quote terms must never change when future product policies are edited.
+1. Quote policy snapshots and delivery activation are implemented in #67. Products without configured terms remain unconfigured. The takeover candidate adds real equipment/access readers and ADMIN future-policy configuration with exact-key retry. Replacement consumption/billing and ticket commands remain incomplete. Existing frozen quote terms must never change when future product policies are edited.
 2. Authorized ticket list/detail/reload is on main through #66. Ticket POST authorization, caller-transaction replay, billing/stock obligations and SQL state/snapshot guards remain #53 work. Keep writes disabled until those pass; sending a header alone does not provide replay safety.
 3. #69 provides real ADMIN-authorized financial sources, JSON/CSV reconciliation and pending-job/open-repair queues. Frozen approved labour rates/payroll, service billing/replacement, and subsidy evidence/actions remain incomplete. A completed installation stays financially provisional while costs are incomplete; no zero payroll is fabricated.
 4. Tuhin/Codex now owns the all-screen consistency, accessibility, state/error/retry review and remaining implementation. No step waits on the former D1/D4 owners. Preserve session/role guards and avoid duplicate business rules in React.

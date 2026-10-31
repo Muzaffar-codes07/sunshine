@@ -6,6 +6,7 @@ import { IdempotencyService } from '../platform/idempotency';
 import { PrismaService } from '../platform/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { StockLedgerService } from './stock-ledger.service';
+import { istDate } from '../warranty/warranty-activation';
 
 /** Draft and evidence only. This service never posts stock, cost, delivery or warranty effects. */
 @Injectable()
@@ -130,10 +131,13 @@ export class DispatchScansService {
     const scanned = new Set(scans.filter((scan) => scan.countsForDispatch).map((scan) => scan.unitId));
     const missingUnitIds = requiredUnitIds.filter((unitId) => !scanned.has(unitId));
     const warranties = dispatch.status === 'DELIVERED' ? await tx.warranty.findMany({ where: { unitId: { in: requiredUnitIds } } }) : [];
+    const today = istDate(new Date());
     const coverage = dispatch.status !== 'DELIVERED' ? [] : requiredUnitIds.map((unitId) => {
       const warranty = warranties.find((row) => row.unitId === unitId);
       return warranty
-        ? { unitId, status: 'ACTIVE' as const, startDate: warranty.startDate.toISOString().slice(0, 10), expiryDate: warranty.expiryDate.toISOString().slice(0, 10), policyName: warranty.policyName }
+        ? { unitId, status: !warranty.active ? 'VOID' as const : today < warranty.startDate.toISOString().slice(0, 10) ? 'NOT_STARTED' as const
+          : today >= warranty.expiryDate.toISOString().slice(0, 10) ? 'EXPIRED' as const : 'ACTIVE' as const,
+          startDate: warranty.startDate.toISOString().slice(0, 10), expiryDate: warranty.expiryDate.toISOString().slice(0, 10), policyName: warranty.policyName }
         : { unitId, status: 'NO_POLICY' as const, startDate: null, expiryDate: null, policyName: null };
     });
     return dispatchResponseSchema.parse({ data: {

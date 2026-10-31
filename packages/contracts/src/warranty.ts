@@ -15,6 +15,21 @@ export const warrantyPolicySchema = z.object({
 });
 export type WarrantyPolicy = z.infer<typeof warrantyPolicySchema>;
 
+// These bounds match persisted product terms. Quotes retain their own immutable snapshot.
+export const saveWarrantyPolicyInputSchema = z.strictObject({
+  expectedFingerprint: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+  policyName: z.string().trim().min(1).max(200),
+  revision: z.string().trim().min(1).max(100),
+  scope: z.string().trim().min(1).max(2000),
+  durationMonths: z.number().int().min(1).max(1200),
+});
+export type SaveWarrantyPolicyInput = z.infer<typeof saveWarrantyPolicyInputSchema>;
+export const productWarrantyPolicyResponseSchema = z.object({ data: z.object({
+  productId: z.uuid(), policy: warrantyPolicySchema.nullable(),
+  fingerprint: z.string().regex(/^[a-f0-9]{64}$/).nullable(),
+}) });
+export type ProductWarrantyPolicyResponse = z.infer<typeof productWarrantyPolicyResponseSchema>;
+
 export const warrantyAssessmentResultSchema = z.object({
   unitId: z.uuid(),
   serial: z.string().trim().min(1),
@@ -50,8 +65,8 @@ export type WarrantyAssessmentResult = z.infer<typeof warrantyAssessmentResultSc
 
 export const warrantyLookupQuerySchema = z.strictObject({
   serial: z.string().trim().min(1).max(128).transform((serial) => serial.toUpperCase()),
-  manufacturerId: z.uuid().optional(),
-  productId: z.uuid().optional(),
+  manufacturerId: z.uuid().transform(id => id.toLowerCase()).optional(),
+  productId: z.uuid().transform(id => id.toLowerCase()).optional(),
 });
 export type WarrantyLookupQuery = z.infer<typeof warrantyLookupQuerySchema>;
 
