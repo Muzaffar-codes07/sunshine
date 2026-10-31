@@ -129,6 +129,10 @@ export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
     code: 'SERIAL_ALREADY_RECEIVED', reason: 'A unit with this manufacturer, product and serial already exists.', source: 'INVENTORY',
     nextAction: 'Check the serial, or open the existing unit.',
   } },
+  installation_time_records_no_overlap: { refusal: {
+    code: 'TIME_RECORD_OVERLAP', reason: 'This technician already has time recorded for part of this period.', source: 'JOBS',
+    nextAction: 'Correct the times, then try again.',
+  } },
   users_email_key: { refusal: {
     code: 'STAFF_EMAIL_TAKEN', reason: 'A staff account with this email already exists.', source: 'AUTH',
     nextAction: 'Use a different email or reactivate the existing account.',
