@@ -16,19 +16,19 @@ export function CommandDrawer<T>({ label, title, submitLabel, enquiryId, path, s
   const [problem, setProblem] = useState<Problem>({ message: '', fields: {} });
   // The form shows the record as it was when opened, so it must submit that version too: a refetch while it is
   // open must not move the version forward under stale inputs, or another person's change would be overwritten.
-  const buildAtOpen = useRef(build);
+  const atOpen = useRef({ build, path });
   const command = useSalesCommand(enquiryId, responseSchema);
 
-  function show() { buildAtOpen.current = build; setOpen(true); }
+  function show() { atOpen.current = { build, path }; setOpen(true); }
   function close() { setOpen(false); setProblem({ message: '', fields: {} }); }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (command.isPending) return;
-    const checked = validate(schema, buildAtOpen.current(new FormData(event.currentTarget)));
+    const checked = validate(schema, atOpen.current.build(new FormData(event.currentTarget)));
     if ('problem' in checked) { setProblem(checked.problem); return; }
     setProblem({ message: '', fields: {} });
-    command.mutate({ path, body: checked.data }, { onSuccess: close, onError: (error) => setProblem(describeProblem(error)) });
+    command.mutate({ path: atOpen.current.path, body: checked.data }, { onSuccess: close, onError: (error) => setProblem(describeProblem(error)) });
   }
 
   return <>
