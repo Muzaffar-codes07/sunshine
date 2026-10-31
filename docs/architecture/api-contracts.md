@@ -1,7 +1,8 @@
 # API contracts and module handoffs
 
 Health/readiness, public enquiries, staff authentication, the staff enquiry queue,
-and catalogue/package reads are implemented. Warranty assessment and
+catalogue/package reads, and quote snapshots with recorded sending/acceptance
+are implemented. Warranty assessment and
 `GET /api/v1/warranties/lookup` are implemented with injected interfaces;
 production lookup returns 503 until staff authorization, Unit/Job reads and the
 coordinated warranty migration are integrated. Task 2.2 ticket commands and Task
@@ -21,8 +22,8 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D2 | `/auth/login`, `/auth/logout`, `/auth/me`; `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
 | D2 | `/products`, `/packages` (read APIs and caller-transaction catalogue helpers) |
 | D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
-| D3 | `/stock/receipts`, `/units`, `/orders/:id/allocations`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
-| D4 | `/jobs` and schedule/start/complete actions, `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
+| D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule` (implemented); start/complete actions on `/jobs`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
+| D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
 ## H1.5 interfaces
 
@@ -41,14 +42,14 @@ Helpers accept the caller's transaction. No upload/network request inside a stoc
 
 ## Planned state transitions
 
-- Survey: DRAFT → SCHEDULED → SUBMITTED → APPROVED/REJECTED. Approved edits create a new revision.
+- Survey (built in C4): SCHEDULED → SUBMITTED → APPROVED/REJECTED, one row per revision. A decided revision is never edited; a change means scheduling the next revision, and only one revision per enquiry can be open. A quote needs the latest revision to be APPROVED (`SurveysService.requireApprovedSurvey`, else 409 `SURVEY_NOT_APPROVED`). Routes: `POST`/`GET /enquiries/:id/surveys` and `POST /surveys/:id/reschedule|approve|reject` (sales, admin); `GET /surveys/assigned` (technician's own schedule); `POST /surveys/:id/submit` (assigned technician, admin); `GET /surveys/:id` (sales, admin, assigned technician). There is no DRAFT state: scheduling creates the record.
 - Quote: DRAFT → SENT → ACCEPTED/REJECTED. Quote creation requires approved survey.
-- Order: CONFIRMED → PAYMENT_PENDING → READY → FULFILLMENT → COMPLETED.
+- Order (built in C5): confirmation creates the order, packing requirements and sales invoice together; fulfilment is `released` once any payment is recorded. Fulfilment and completion phases belong to D3 jobs. See [orders handoff](orders-handoff.md).
 - Allocation: RESERVED → DISPATCHED → DELIVERED/INSTALLED → RELEASED explicitly; installed unit remains assigned.
 - Dispatch: DRAFT → DISPATCHED → DELIVERED.
 - Installation: SCHEDULED → IN_PROGRESS → AWAITING_ACCEPTANCE → COMPLETED.
 - Ticket: OPEN → ASSESSED → IN_PROGRESS → AWAITING_CUSTOMER_CONFIRMATION → CLOSED.
-- Invoice: DRAFT → POSTED → PART_PAID/PAID; corrections through reversal.
+- Invoice (built in C5): POSTED → PART_PAID → PAID, driven only by recorded receipts; corrections through reversal.
 
 ## Early validation rules
 

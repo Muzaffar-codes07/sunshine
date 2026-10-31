@@ -1,0 +1,347 @@
+// Explicit disposable test database only; never load the application .env.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { randomInt, randomUUID } from 'node:crypto';
+const require = createRequire(import.meta.url);
+const testUrl = process.env.TEST_DATABASE_URL;
+if (!testUrl || !/test/i.test(new URL(testUrl).pathname)) throw new Error('TEST_DATABASE_URL must name a disposable test database');
+process.env.DATABASE_URL = testUrl;
+process.env.SESSION_SECRET = 'allocation-tests-only-session-secret';
+process.env.AUTH_TRUSTED_ORIGINS = 'http://127.0.0.1:3001';
+process.env.SESSION_COOKIE_SECURE = 'false';
+const { NestFactory } = require('@nestjs/core');
+const { AppModule } = require('../dist/app.module');
+const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
+const { PrismaService } = require('../dist/platform/prisma.service');
+const { IdempotencyService } = require('../dist/platform/idempotency');
+const { QuotesService } = require('../dist/quotes/quotes.service');
+const { SurveysService } = require('../dist/sales/surveys.service');
+const { OrdersService } = require('../dist/orders/orders.service');
+const { InvoicesService } = require('../dist/finance/invoices.service');
+const { StockLedgerService } = require('../dist/inventory/stock-ledger.service');
+const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
+const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
+const { hashPassword } = require('../dist/auth/passwords');
+const { Client } = require('pg');
+
+const origin = 'http://127.0.0.1:3001';
+const password = 'allocation-test-password-2026';
+const facts = { roofDirection: 'S', roofTiltDeg: '18.5', cableDistanceM: '22.00', usableRoofAreaSqm: '30.00' };
+const cookies = {}; const staff = {};
+let app, base, prisma, idempotency, quotes, surveys, orders, invoices, ledger, sql, main, quarantine;
+
+const identity = (row) => ({ id: row.id, email: row.email, displayName: row.displayName, role: row.role });
+before(async () => {
+  app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix('api/v1'); app.useGlobalFilters(new ApiExceptionFilter());
+  await app.listen(0, '127.0.0.1'); base = (await app.getUrl()) + '/api/v1';
+  prisma = app.get(PrismaService); idempotency = app.get(IdempotencyService); quotes = app.get(QuotesService); surveys = app.get(SurveysService);
+  orders = app.get(OrdersService); invoices = app.get(InvoicesService); ledger = app.get(StockLedgerService);
+  await seedCatalogue(prisma);
+  sql = new Client({ connectionString: testUrl }); await sql.connect();
+  for (const role of ['WAREHOUSE', 'SALES', 'ADMIN', 'TECHNICIAN']) {
+    const row = await prisma.user.create({ data: { email: randomUUID() + '@test.local', displayName: role + ' allocation tester', role, passwordHash: await hashPassword(password) } });
+    staff[role] = row;
+    const response = await fetch(base + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ email: row.email, password }) });
+    assert.equal(response.status, 200); cookies[role] = response.headers.get('set-cookie').split(';')[0];
+  }
+  main = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
+  quarantine = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'QUARANTINE' } });
+});
+after(async () => { await sql?.end(); await app?.close(); });
+
+const send = (route, body, role = 'WAREHOUSE', key = randomUUID()) => fetch(base + route, {
+  method: 'POST', headers: { 'content-type': 'application/json', origin, ...(key ? { 'idempotency-key': key } : {}), cookie: cookies[role] }, body: JSON.stringify(body),
+});
+const get = (route, role = 'WAREHOUSE') => fetch(base + route, { headers: { cookie: cookies[role] } });
+const ok = async (pending, status = 201) => {
+  const response = await pending; const body = await response.json();
+  assert.equal(response.status, status, JSON.stringify(body)); return body.data;
+};
+const refused = async (pending, status, code) => {
+  const response = await pending; const body = await response.json();
+  assert.equal(response.status, status, JSON.stringify(body)); assert.equal(body.error.code, code); return body.error;
+};
+const onHand = async (productId, locationId = main.id) => (await prisma.$transaction((tx) => ledger.onHand(tx, productId, locationId)));
+const reserved = async (productId) => (await prisma.$transaction((tx) => ledger.reserved(tx, productId, main.id)));
+
+/** A confirmed 1 kW order for the demo package, paid unless told otherwise. */
+async function confirmedOrder({ paid = true } = {}) {
+  const customer = await prisma.customer.create({ data: {
+    name: 'Allocation Customer', phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '5 Stock Road', city: 'Nagpur', pincode: '440001',
+  } });
+  const enquiry = await prisma.enquiry.create({ data: {
+    customerId: customer.id, source: 'PHONE', requestedCapacityKw: 1, status: 'QUALIFIED',
+    contactName: 'Allocation Customer', siteAddressLine: '5 Stock Road', siteCity: 'Nagpur', sitePincode: '440001',
+  } });
+  const sales = identity(staff.SALES);
+  const survey = (await surveys.schedule(enquiry.id, { technicianId: staff.TECHNICIAN.id, scheduledFor: '2026-11-02T05:00:00.000Z' })).data;
+  await surveys.submit(survey.id, { version: 1, ...facts }, identity(staff.TECHNICIAN));
+  await surveys.approve(survey.id, { version: 2 }, sales);
+  const draft = (await quotes.create(enquiry.id, { surveyId: survey.id, packageId: id(1001) }, sales)).data;
+  await quotes.send(draft.id, { version: 1, channel: 'PRINT' }, sales);
+  await quotes.accept(draft.id, { version: 2, acceptedByName: 'Allocation Customer', channel: 'IN_PERSON' }, sales);
+  const order = (await orders.confirm({ quoteId: draft.id }, randomUUID(), sales)).data;
+  if (paid) {
+    const receipt = { amountInr: '1000.00', method: 'UPI', reference: `UTR${randomUUID().slice(0, 12)}`, receivedAt: new Date().toISOString() };
+    await idempotency.run({ actorId: staff.ADMIN.id, key: randomUUID(), action: 'PAYMENT_RECEIPT', payload: { order: order.id, ...receipt } },
+      (tx) => invoices.recordPayment(tx, order.invoice.id, receipt, identity(staff.ADMIN)));
+  }
+  return order;
+}
+const productsOf = (order) => prisma.product.findMany({ where: { id: { in: order.packing.map((line) => line.productId) } } });
+const receive = (productId, quantity, serials = []) => ok(send('/stock/receipts', {
+  reference: 'REC-' + randomUUID(), locationId: main.id, receivedAt: '2026-10-30T10:00:00.000Z', lines: [{ productId, quantity: String(quantity), unitCost: '100.00', serials }],
+}));
+/** Enough free stock for `times` orders of this package. */
+async function stock(order, times = 1) {
+  const created = {};
+  for (const product of await productsOf(order)) {
+    const needed = order.packing.filter((line) => line.productId === product.id).reduce((sum, line) => sum + Number(line.quantity), 0) * times;
+    if (product.trackingMode === 'SERIALIZED') {
+      const serials = Array.from({ length: needed }, () => 'SN-' + randomUUID().slice(0, 13).toUpperCase());
+      const receipt = await receive(product.id, needed, serials);
+      created[product.id] = receipt.lines[0].unitIds;
+    } else await receive(product.id, needed);
+  }
+  return created;
+}
+const version = async (order) => (await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } })).version;
+const allocate = async (order, body = {}, role = 'WAREHOUSE', key = randomUUID()) => send(`/orders/${order.id}/allocations`, { expectedVersion: await version(order), ...body }, role, key);
+const held = (order) => prisma.allocation.findMany({ where: { jobId: order.jobId } });
+const stripStock = async (productId) => {
+  const available = await prisma.$queryRaw`SELECT u."id" FROM "units" u JOIN "unit_locations" l ON l."unitId" = u."id" WHERE u."productId" = ${productId}::uuid AND u."status" = 'AVAILABLE' AND l."locationId" = ${main.id}::uuid`;
+  const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  const free = (await onHand(productId)).minus(await reserved(productId));
+  if (product.trackingMode === 'SERIALIZED' && available.length === 0) return;
+  if (product.trackingMode !== 'SERIALIZED' && !free.greaterThan(0)) return;
+  const units = await prisma.unit.findMany({ where: { id: { in: available.map((row) => row.id) } } });
+  const line = product.trackingMode === 'SERIALIZED' ? { productId, quantity: String(units.length), serials: units.map((unit) => unit.rawSerial) } : { productId, quantity: free.toFixed(3) };
+  const draft = await ok(send('/stock/transfers', { reference: 'DRAIN-' + randomUUID(), fromLocationId: main.id, toLocationId: quarantine.id, lines: [line] }));
+  await ok(send(`/stock/documents/${draft.id}/validate`, { expectedVersion: draft.version }), 200);
+};
+
+test('a paid order reserves every requirement; free stock falls and units are held', async () => {
+  const order = await confirmedOrder();
+  const created = await stock(order);
+  const products = await productsOf(order);
+  const bulk = products.find((product) => product.trackingMode === 'BULK');
+  const before = await reserved(bulk.id); const hand = await onHand(bulk.id);
+  const data = await ok(allocate(order));
+  const required = order.packing.reduce((sum, line) => sum + (products.find((p) => p.id === line.productId).trackingMode === 'SERIALIZED' ? Number(line.quantity) : 1), 0);
+  assert.equal(data.length, required);
+  assert.ok(data.every((row) => row.status === 'RESERVED' && row.jobId === order.jobId && row.source.kind === 'QUOTE_LINE'));
+  const units = await prisma.unit.findMany({ where: { id: { in: data.map((row) => row.unitId).filter(Boolean) } } });
+  assert.equal(units.length, Object.values(created).flat().length);
+  assert.ok(units.every((unit) => unit.status === 'RESERVED' && unit.version === 2));
+  const need = order.packing.filter((line) => line.productId === bulk.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+  assert.equal((await reserved(bulk.id)).toNumber(), before.toNumber() + need);
+  assert.equal((await onHand(bulk.id)).toNumber(), hand.toNumber(), 'reserving moves no stock');
+  const level = (await ok(get(`/stock?productId=${bulk.id}&locationId=${main.id}`), 200)).items[0];
+  assert.equal(level.reserved, (before.toNumber() + need).toFixed(3));
+  assert.equal(level.free, (hand.toNumber() - before.toNumber() - need).toFixed(3));
+  assert.deepEqual(await ok(get(`/orders/${order.id}/allocations`), 200), data);
+});
+
+test('an unpaid order reserves nothing', async () => {
+  const order = await confirmedOrder({ paid: false });
+  await stock(order);
+  const v = await version(order);
+  await refused(allocate(order), 409, 'ORDER_NOT_RELEASED');
+  assert.equal((await held(order)).length, 0); assert.equal(await version(order), v, 'the claim rolled back');
+});
+
+test('one short line rolls back every reservation and names what is short', async () => {
+  const order = await confirmedOrder();
+  await stock(order);
+  const products = await productsOf(order);
+  const bulk = products.find((product) => product.trackingMode === 'BULK');
+  const serial = products.find((product) => product.trackingMode === 'SERIALIZED');
+  await stripStock(bulk.id); await stripStock(serial.id);
+  const before = await prisma.allocation.count();
+  const reservedUnits = await prisma.unit.count({ where: { status: 'RESERVED' } });
+  const error = await refused(allocate(order), 409, 'NOT_READY');
+  assert.deepEqual(error.reasons.map((reason) => reason.code), ['INSUFFICIENT_STOCK', 'INSUFFICIENT_STOCK']);
+  assert.ok(error.reasons.some((reason) => reason.reason.includes(bulk.id)) && error.reasons.some((reason) => reason.reason.includes(serial.id)));
+  assert.equal(await prisma.allocation.count(), before);
+  assert.equal(await prisma.unit.count({ where: { status: 'RESERVED' } }), reservedUnits);
+  await stock(order);
+  assert.ok((await ok(allocate(order))).length > 0, 'it works once stock arrives');
+});
+
+test('two orders for the last stock have one winner and leave nothing partial', async () => {
+  const [one, two] = [await confirmedOrder(), await confirmedOrder()];
+  for (const product of await productsOf(one)) await stripStock(product.id);
+  await stock(one);
+  // Holding one Product row from outside proves both requests wait for the lock instead of reading free stock at once.
+  const contested = (await productsOf(one))[0].id;
+  await sql.query('BEGIN');
+  await sql.query('SELECT id FROM products WHERE id = $1 FOR NO KEY UPDATE', [contested]);
+  const pending = Promise.all([allocate(one), allocate(two)]);
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.equal((await held(one)).length + (await held(two)).length, 0, 'nothing commits while the lock is held');
+  await sql.query('COMMIT');
+  const results = await pending;
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
+  const counts = [(await held(one)).length, (await held(two)).length].sort((a, b) => a - b);
+  assert.equal(counts[0], 0); assert.ok(counts[1] > 0);
+});
+
+test('two orders naming the same unit have one winner; a held unit cannot be substituted', async () => {
+  const [one, two] = [await confirmedOrder(), await confirmedOrder()];
+  const created = await stock(one, 2);
+  const products = await productsOf(one);
+  const units = (taken) => products.filter((p) => p.trackingMode === 'SERIALIZED').flatMap((p) => {
+    const needed = one.packing.filter((line) => line.productId === p.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+    return created[p.id].slice(taken * needed, (taken + 1) * needed);
+  });
+  const shared = units(0);
+  const results = await Promise.all([allocate(one, { unitIds: shared }), allocate(two, { unitIds: shared })]);
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
+  const loser = results[0].status === 201 ? two : one;
+  await refused(allocate(loser, { unitIds: shared }), 409, 'NOT_ALLOCATABLE');
+  assert.equal((await held(loser)).length, 0);
+  assert.ok((await ok(allocate(loser, { unitIds: units(1) }))).length > 0, 'its own units still work');
+  const rows = await prisma.allocation.findMany({ where: { unitId: { in: shared } } });
+  assert.equal(rows.length, shared.length);
+  assert.equal(new Set(rows.map((row) => row.jobId)).size, 1);
+});
+
+test('chosen units must be free, in usable stock, the right product and the right number', async () => {
+  const order = await confirmedOrder();
+  const created = await stock(order, 2);
+  const products = await productsOf(order);
+  const serial = products.filter((p) => p.trackingMode === 'SERIALIZED');
+  const needed = (p) => order.packing.filter((line) => line.productId === p.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+  const right = serial.flatMap((p) => created[p.id].slice(0, needed(p)));
+  await refused(allocate(order, { unitIds: [randomUUID()] }), 409, 'NOT_ALLOCATABLE');
+  await refused(allocate(order, { unitIds: right.slice(1) }), 409, 'NOT_ALLOCATABLE');
+  const foreign = await prisma.unit.findFirst({ where: { productId: { notIn: serial.map((p) => p.id) } } });
+  if (foreign) await refused(allocate(order, { unitIds: [...right.slice(1), foreign.id] }), 409, 'NOT_ALLOCATABLE');
+  const moved = await prisma.unit.findUniqueOrThrow({ where: { id: right[0] } });
+  const draft = await ok(send('/stock/transfers', { reference: 'Q-' + randomUUID(), fromLocationId: main.id, toLocationId: quarantine.id, lines: [{ productId: moved.productId, quantity: '1', serials: [moved.rawSerial] }] }));
+  await ok(send(`/stock/documents/${draft.id}/validate`, { expectedVersion: draft.version }), 200);
+  await refused(allocate(order, { unitIds: right }), 409, 'NOT_ALLOCATABLE');
+  assert.equal((await held(order)).length, 0);
+});
+
+test('a retry replays, another key is refused, and a stale version is refused', async () => {
+  const order = await confirmedOrder();
+  await stock(order);
+  const v = await version(order);
+  await refused(send(`/orders/${order.id}/allocations`, { expectedVersion: v + 5 }), 409, 'STALE_VERSION');
+  const key = randomUUID();
+  const first = await ok(send(`/orders/${order.id}/allocations`, { expectedVersion: v }, 'WAREHOUSE', key));
+  assert.deepEqual(await ok(send(`/orders/${order.id}/allocations`, { expectedVersion: v }, 'WAREHOUSE', key)), first);
+  await refused(allocate(order), 409, 'ALREADY_ALLOCATED');
+  assert.equal((await held(order)).length, first.length);
+});
+
+test('concurrent allocations across orders finish without a deadlock', async () => {
+  const batch = await Promise.all(Array.from({ length: 4 }, () => confirmedOrder()));
+  await stock(batch[0], batch.length);
+  const results = await Promise.all(batch.map((order) => allocate(order)));
+  assert.deepEqual(results.map((result) => result.status), [201, 201, 201, 201]);
+});
+
+test('reserved stock limits transfers: bulk to the reserved floor, and a reserved unit not at all', async () => {
+  const order = await confirmedOrder();
+  await stock(order);
+  const products = await productsOf(order);
+  const bulk = products.find((product) => product.trackingMode === 'BULK');
+  const rows = await ok(allocate(order));
+  const free = (await onHand(bulk.id)).minus(await reserved(bulk.id));
+  const transfer = async (line) => ok(send('/stock/transfers', { reference: 'T-' + randomUUID(), fromLocationId: main.id, toLocationId: quarantine.id, lines: [line] }));
+  const over = await transfer({ productId: bulk.id, quantity: free.plus('0.001').toFixed(3) });
+  await refused(send(`/stock/documents/${over.id}/validate`, { expectedVersion: over.version }), 409, 'STOCK_RESERVED');
+  if (free.greaterThan(0)) {
+    const exact = await transfer({ productId: bulk.id, quantity: free.toFixed(3) });
+    await ok(send(`/stock/documents/${exact.id}/validate`, { expectedVersion: exact.version }), 200);
+  }
+  const unit = await prisma.unit.findUniqueOrThrow({ where: { id: rows.find((row) => row.unitId).unitId } });
+  const held = await transfer({ productId: unit.productId, quantity: '1', serials: [unit.rawSerial] });
+  await refused(send(`/stock/documents/${held.id}/validate`, { expectedVersion: held.version }), 409, 'NOT_MOVABLE');
+});
+
+test('a count below reserved is recorded truthfully and free goes negative', async () => {
+  const order = await confirmedOrder();
+  await stock(order);
+  const bulk = (await productsOf(order)).find((product) => product.trackingMode === 'BULK');
+  await ok(allocate(order));
+  const draft = await ok(send('/stock/counts', { reference: 'C-' + randomUUID(), locationId: main.id, lines: [{ productId: bulk.id, countedQuantity: '0' }] }));
+  await ok(send(`/stock/documents/${draft.id}/validate`, { expectedVersion: draft.version }), 200);
+  const level = (await ok(get(`/stock?productId=${bulk.id}&locationId=${main.id}`), 200)).items[0];
+  assert.equal(level.onHand, '0.000'); assert.ok(Number(level.free) < 0); assert.equal(level.free, '-' + level.reserved);
+  await receive(bulk.id, level.reserved);
+});
+
+test('routes need warehouse or admin staff and an Idempotency-Key', async () => {
+  const order = await confirmedOrder({ paid: false });
+  await refused(allocate(order, {}, 'SALES'), 403, 'FORBIDDEN');
+  await refused(allocate(order, {}, 'TECHNICIAN'), 403, 'FORBIDDEN');
+  await refused(allocate(order, {}, 'WAREHOUSE', null), 400, 'INVALID_INPUT');
+  await refused(send(`/orders/${randomUUID()}/allocations`, { expectedVersion: 1 }), 404, 'NOT_FOUND');
+  await refused(get(`/orders/${randomUUID()}/allocations`), 404, 'NOT_FOUND');
+});
+
+test('the database holds one active allocation per unit and matches each one to what was sold', async () => {
+  const [order, other] = [await confirmedOrder(), await confirmedOrder()];
+  await stock(order); await stock(other);
+  const rows = await ok(allocate(order));
+  const serial = rows.find((row) => row.unitId); const bulk = rows.find((row) => !row.unitId);
+  const insert = (fields) => sql.query(`INSERT INTO allocations (id, "jobId", "quoteLineId", "productId", "unitId", "locationId", quantity, status, "actorId", "updatedAt")
+    VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now())`, [fields.jobId, fields.quoteLineId, fields.productId, fields.unitId ?? null, main.id, fields.quantity ?? 1, fields.status ?? 'RESERVED', staff.WAREHOUSE.id]);
+  const base = { jobId: order.jobId, productId: serial.productId, quoteLineId: serial.source.quoteLineId };
+  await assert.rejects(insert({ ...base, unitId: serial.unitId }), /allocations_one_active_unit/);
+  await assert.rejects(insert({ ...bulk, jobId: order.jobId, productId: bulk.productId, quoteLineId: bulk.source.quoteLineId, unitId: null }), /allocations_one_active_bulk_line/);
+  await assert.rejects(insert({ ...base, jobId: other.jobId, unitId: serial.unitId }), /must match a component sold/);
+  await assert.rejects(insert({ ...base, productId: bulk.productId, unitId: serial.unitId }), /must match a component sold/);
+  await assert.rejects(insert({ ...base, unitId: null }), /allocated by unit/);
+  await assert.rejects(insert({ jobId: order.jobId, productId: bulk.productId, quoteLineId: bulk.source.quoteLineId, unitId: serial.unitId }), /allocated by unit|one_active/);
+  await assert.rejects(insert({ ...base, unitId: serial.unitId, status: 'DISPATCHED' }), /starts as reserved/);
+  await assert.rejects(insert({ ...base, unitId: serial.unitId, quantity: 2 }), /allocations_unit_is_one/);
+  await assert.rejects(sql.query('UPDATE allocations SET quantity = 99 WHERE id = $1', [bulk.id]), /identity cannot change/);
+  await assert.rejects(sql.query(`UPDATE allocations SET "jobId" = $1 WHERE id = $2`, [other.jobId, serial.id]), /identity cannot change/);
+  await assert.rejects(sql.query('DELETE FROM allocations WHERE id = $1', [serial.id]), /identity cannot change/);
+  await sql.query(`UPDATE allocations SET status = 'RELEASED' WHERE id = $1`, [serial.id]);
+  await assert.rejects(sql.query(`UPDATE allocations SET status = 'RESERVED' WHERE id = $1`, [serial.id]), /identity cannot change/);
+});
+
+test('unit traceability retains its customer and exclusive assignment through installed state', async () => {
+  const [owner, other] = [await confirmedOrder(), await confirmedOrder()];
+  const received = await stock(owner, 2);
+  const products = await productsOf(owner);
+  const chosen = products.filter((p) => p.trackingMode === 'SERIALIZED').flatMap((p) => {
+    const needed = owner.packing.filter((line) => line.productId === p.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+    return received[p.id].slice(0, needed);
+  });
+  const allocations = await ok(allocate(owner, { unitIds: chosen }));
+  const heldUnit = allocations.find((row) => row.unitId);
+  const receiptLine = await prisma.unit.findUniqueOrThrow({ where: { id: heldUnit.unitId }, include: { receiptLine: true } });
+  const otherLine = other.packing.find((line) => line.productId === heldUnit.productId);
+  // These direct state fixtures test identity/index coverage, not execution of the future dispatch/delivery commands.
+  for (const status of ['RESERVED', 'DISPATCHED', 'DELIVERED', 'INSTALLED']) {
+    await prisma.$transaction(async (tx) => {
+      await tx.allocation.update({ where: { id: heldUnit.id }, data: { status } });
+      await tx.unit.update({ where: { id: heldUnit.unitId }, data: { status } });
+    });
+    const trace = await ok(get(`/units/${heldUnit.unitId}`), 200);
+    assert.equal(trace.receiptId, receiptLine.receiptLine.documentId);
+    assert.equal(trace.id, heldUnit.unitId); assert.equal(trace.status, status);
+    assert.deepEqual(trace.activeAssignment, {
+      allocationId: heldUnit.id, status, jobId: owner.jobId, orderId: owner.id, customerId: owner.customerId,
+    });
+    await refused(allocate(other, { unitIds: chosen }), 409, 'NOT_ALLOCATABLE');
+    assert.equal((await held(other)).length, 0);
+    await assert.rejects(sql.query(`INSERT INTO allocations
+      (id,"jobId","quoteLineId","productId","unitId","locationId",quantity,"actorId","updatedAt")
+      VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,1,$6,now())`,
+    [other.jobId, otherLine.quoteLineId, heldUnit.productId, heldUnit.unitId, main.id, staff.WAREHOUSE.id]), /allocations_one_active_unit/);
+    await assert.rejects(sql.query('UPDATE allocations SET "jobId"=$1,"quoteLineId"=$2 WHERE id=$3',
+      [other.jobId, otherLine.quoteLineId, heldUnit.id]), /identity cannot change/);
+  }
+  await sql.query(`UPDATE allocations SET status='RELEASED' WHERE id=$1`, [heldUnit.id]);
+  assert.equal((await ok(get(`/units/${heldUnit.unitId}`), 200)).activeAssignment, null);
+  assert.equal(await prisma.allocation.count({ where: { id: heldUnit.id } }), 1, 'released assignment history remains');
+});

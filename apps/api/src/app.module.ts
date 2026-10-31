@@ -1,3 +1,6 @@
+import { QuotesModule } from './quotes/quotes.module';
+import { OrdersModule } from './orders/orders.module';
+import { SummaryModule } from './summary/summary.module';
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { resolve } from 'node:path';
@@ -10,6 +13,7 @@ import { WarrantyModule } from './warranty/warranty.module';
 import { FinanceModule } from './finance/finance.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { ServiceModule } from './service/service.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -25,6 +29,10 @@ import { ServiceModule } from './service/service.module';
     FinanceModule,
     ReportingModule,
     ServiceModule,
+    InventoryModule,
+    QuotesModule,
+    OrdersModule,
+    SummaryModule,
   ],
   controllers: [HealthController],
 })

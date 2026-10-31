@@ -37,13 +37,15 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 1 | `Customer`, `Enquiry` (`20261031100000_sales_enquiry`) | D2 | Merged in #6 (`854b96e`); nine CHECKs registered here |
 | 1b | `enquiries.monthlyBillInr` to `Decimal(14,2)` (`20261031120000_enquiry_bill_money`) | D2 | Merged in #12 |
 | 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Merged in #9 |
-| 2b | `Survey`, then `AuditEntry`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
+| 2b | `Survey` (`20261031140000_survey`) | D2 | C4; eight CHECKs and `surveys_one_open_per_enquiry` registered here |
+| 2c | `AuditEntry`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
 | 2d | `Command` (`20261031150000_commands`) | D2 | C7, idempotent command results; three CHECKs registered here |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
-| 4 | `Quote`, `QuoteLine`, `Order`, `Invoice`, `InvoiceLine`, `Payment` | D2 | Queued |
-| 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
+| 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
+| 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
+| 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `20261031240000_job_scheduling` adds its schedule and `JobAssignment`; time records follow |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
-| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |
+| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `20261031230000_allocations` adds `Allocation`; `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
 
 **To land a migration:**
@@ -85,7 +87,9 @@ Row locks work inside `$transaction` through the driver adapter. Two concurrent 
 | `SELECT ... FOR UPDATE`, then check and update | 20 of 20 | The app's own `INSUFFICIENT_STOCK` |
 | No lock, CHECK constraint only | 20 of 20 | A raw database error, `P2010` |
 
-So use both: the lock gives a clean refusal, and the constraint is the backstop. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
+So use both: the lock gives a clean refusal, and the constraint is the backstop.
+
+**Isolation levels need the callback form.** With `@prisma/adapter-pg`, the array form `$transaction([...], { isolationLevel })` silently runs at READ COMMITTED; only `$transaction(async (tx) => ..., { isolationLevel })` reaches PostgreSQL. `summary.db.test.mjs` asserts both, so it fails if Prisma changes this. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
 
 Two concurrent active allocations of one unit also had one winner in 20 of 20 rounds, and the unit could be allocated again after release.
 
@@ -114,8 +118,14 @@ SELECT pg_get_indexdef('allocations_one_active_per_unit'::regclass);
 
 Copy the returned definition exactly into the manifest’s `definition` field, alongside `name`, `table`, `kind` and `owner`. Do not blindly update the manifest to match a changed database: first establish that the new definition is the intended migration. Canonical text can change with PostgreSQL versions; a version upgrade needs explicit review rather than weakened matching. PostgreSQL 17.11 is pinned in the checker CI job. Arbitrary equivalent SQL formatting is not normalized away, and wrong predicates must fail.
 
+The checker also covers triggers, views and functions, because the append-only ledger and derived on-hand depend on them. A disabled trigger counts as wrong, and a trigger whose function was emptied fails on the function's definition. For a view or function, `table` repeats its name.
+
 Run `npm run test:constraints` with an explicit `TEST_DATABASE_URL` naming a disposable test database. The suite creates only its own UUID schema and removes it afterwards. It does not load the normal application database configuration. Sixteen scenarios cover valid custom-schema definitions, a same-name table decoy, weakened CHECK, unvalidated CHECK, wrong index key/predicate/uniqueness, altered/missing exclusion, restoration, duplicate entries, missing definitions, empty manifests and unlisted rules of all three supported kinds. CI runs the suite serially after migrations and the real manifest check.
 
 The original row-lock/deadlock experiments above remain historical evidence, not a new runtime inventory implementation. For new stock commands acquire all Product rows in ID order, then product/location locks in sorted order, then Unit rows in ID order. Helpers use the caller’s transaction; test mixed receipt/dispatch paths as well as opposite-order documents. New code follows Sunshine’s existing source-reuse rules.
 
 Compose currently uses a floating PostgreSQL 17 image. Before generating or refreshing canonical definitions, check `SHOW server_version`; use 17.11 to match CI. A shared Compose pin is a D4 release-coordination change, not silently included in this D3 PR.
+
+## Migration source line endings
+
+Migration SQL uses LF on every platform, enforced by .gitattributes. PostgreSQL retains source line endings inside function bodies, so a CRLF checkout changes pg_get_functiondef and fails the exact canonical manifest check even when the SQL statements read the same. Existing clean Windows worktrees must re-check out their migration files after this attribute change before replaying migrations; keep the exact checker and committed SQL contents unchanged.
