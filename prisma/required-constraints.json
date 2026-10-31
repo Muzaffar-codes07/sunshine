@@ -222,6 +222,139 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_charging_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'COMPONENT'::\"QuoteLineKind\") AND (\"unitPrice\" = (0)::numeric) AND (\"lineTotal\" = (0)::numeric)) OR ((kind = ANY (ARRAY['PACKAGE'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (quantity = (1)::numeric) AND (\"unitPrice\" = \"lineTotal\"))))"
+    },
+    {
+      "name": "quote_lines_description_not_blank",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((description)::text)) > 0))"
+    },
+    {
+      "name": "quote_lines_position_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "quote_lines_prices_nonnegative",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"unitPrice\" >= (0)::numeric) AND (\"lineTotal\" >= (0)::numeric) AND (\"unitPrice\" <> 'NaN'::numeric) AND (\"lineTotal\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_product_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'PACKAGE'::\"QuoteLineKind\") AND (\"productId\" IS NULL) AND (\"productSnapshot\" IS NULL) AND (\"policyStatus\" = 'NOT_APPLICABLE'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL)) OR ((kind = ANY (ARRAY['COMPONENT'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (\"productId\" IS NOT NULL) AND (\"productSnapshot\" IS NOT NULL) AND (jsonb_typeof(\"productSnapshot\") = 'object'::text) AND (\"productSnapshot\" ?& ARRAY['id'::text, 'kind'::text, 'trackingMode'::text]) AND (jsonb_typeof((\"productSnapshot\" -> 'id'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'kind'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'trackingMode'::text)) = 'string'::text) AND ((\"productSnapshot\" ->> 'id'::text) = (\"productId\")::text) AND ((\"productSnapshot\" ->> 'kind'::text) =\nCASE\n    WHEN (kind = 'COMPONENT'::\"QuoteLineKind\") THEN 'HARDWARE'::text\n    ELSE 'SERVICE'::text\nEND) AND (((\"policyStatus\" = 'CONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NOT NULL) AND (jsonb_typeof(\"warrantyPolicySnapshot\") = 'object'::text)) OR ((\"policyStatus\" = 'UNCONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL))))))"
+    },
+    {
+      "name": "quote_lines_quantity_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_serialized_whole",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"productSnapshot\" IS NULL) OR ((\"productSnapshot\" ->> 'trackingMode'::text) <> 'SERIALIZED'::text) OR (quantity = trunc(quantity))))"
+    },
+    {
+      "name": "quotes_accepted_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NOT NULL) AND (length(btrim((\"acceptedByName\")::text)) >= 2) AND (\"decisionChannel\" IS NOT NULL) AND (\"decisionReason\" IS NULL)) OR ((status <> 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NULL) AND (\"decisionChannel\" IS NULL) AND (\"decisionReference\" IS NULL))))"
+    },
+    {
+      "name": "quotes_decision_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = ANY (ARRAY['ACCEPTED'::\"QuoteStatus\", 'REJECTED'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NOT NULL) AND (\"decidedById\" IS NOT NULL)) OR ((status = ANY (ARRAY['DRAFT'::\"QuoteStatus\", 'SENT'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NULL) AND (\"decidedById\" IS NULL))))"
+    },
+    {
+      "name": "quotes_prices_reconcile",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"hardwarePrice\" >= (0)::numeric) AND (\"installationPrice\" >= (0)::numeric) AND (\"totalPrice\" >= (0)::numeric) AND (\"hardwarePrice\" <> 'NaN'::numeric) AND (\"installationPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" = (\"hardwarePrice\" + \"installationPrice\"))))"
+    },
+    {
+      "name": "quotes_rejected_reason",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NOT NULL) AND (length(btrim(\"decisionReason\")) >= 3)) OR ((status <> 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NULL))))"
+    },
+    {
+      "name": "quotes_revision_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "quotes_revision_source",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((revision = 1) AND (\"supersedesQuoteId\" IS NULL) AND (\"revisionReason\" IS NULL)) OR ((revision > 1) AND (\"supersedesQuoteId\" IS NOT NULL) AND (\"revisionReason\" IS NOT NULL) AND (length(btrim(\"revisionReason\")) >= 3))))"
+    },
+    {
+      "name": "quotes_sent_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NULL) AND (\"sentById\" IS NULL) AND (\"sentChannel\" IS NULL)) OR ((status <> 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NOT NULL) AND (\"sentById\" IS NOT NULL) AND (\"sentChannel\" IS NOT NULL))))"
+    },
+    {
+      "name": "quotes_snapshots_objects",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((jsonb_typeof(\"customerSnapshot\") = 'object'::text) AND (jsonb_typeof(\"packageSnapshot\") = 'object'::text)))"
+    },
+    {
+      "name": "quotes_version_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_one_package_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_package_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'PACKAGE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_service_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_service_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'SERVICE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_component_product",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_component_product ON public.quote_lines USING btree (\"quoteId\", \"productId\") WHERE (kind = 'COMPONENT'::\"QuoteLineKind\")"
     }
   ]
 }
