@@ -1,0 +1,26 @@
+requirement_id,requirement,backend_owner,frontend_owner,tickets,acceptance,presentation_proof,implementation_status
+R1,Persist public enquiry,D2,D1,B03 F03,Submission visible after refresh; invalid email corrected,full evaluator step 1,PLANNED
+R2,Qualification and follow-up,D2,D1,B03 F03,"Roof space, bill, grid and owner recorded",full evaluator step 2,PLANNED
+R3,Technician roof survey,D2,D1,B04 F03,"Direction, tilt, cable distance and assignment saved",full evaluator step 2,PLANNED
+R4,Approved survey before quote,D2,D1,B04 B05 F03,Server rejects quote until approval,short A; full step 3,PLANNED
+R5,Template quotation,D2,D1,B05 I02 F04,Selected capacity/type creates frozen priced quote,short A; full step 3,PLANNED
+R6,Complete automatic component list,D2,D1,B05 I02 F04,All kit components and units match frozen template,short A; full step 3,PLANNED
+R7,Advance/full payment before work,D2,D1,B07 F04,Receipt changes balance/readiness once,full evaluator step 4,PLANNED
+R8,Warehouse packing requirements on confirmation,D2,D1,B06 F04,Packing requirements appear without manual duplicate entry,full evaluator step 4,PLANNED
+R9,Crew job/schedule on confirmation,D4,D1,S01 S02 B06,One assigned job created automatically,full evaluator steps 4 and 6,PLANNED
+R10,Required units scanned before warehouse exit,D3,D1,I06 F05,Every required unit has valid scan event; missing/wrong scan rejects dispatch,short B; full step 5,PLANNED
+R11,Equipment linked to customer,D3,D1,I06 I07 F05,Unit history names correct order/job/customer,short B; full step 5,PLANNED
+R12,Delivery starts serial warranties,D3,D1,I07 F05,Correct per-product expiry; retry unchanged,short B; full step 5,PLANNED
+R13,Field start/finish and confirmed kW,D4,D1,S03 F06,Valid times and size required; future/invalid time rejected,short C; full step 6,PLANNED
+R14,Installation photographs,D4,D1,S03 B08 F06,Private persisted photo linked to job and authorized,short C; full step 6,PLANNED
+R15,Homeowner signature,D4,D1,S03 B08 F06,Persisted signature/acceptance evidence required,short C; full step 6,PLANNED
+R16,Find customer/inverter and coverage,D4,D1,S05 I07 F06,Lookup returns unit/customer/dates and saved reason,short D serial lookup; full step 7,PLANNED
+R17,Covered repair/replacement free to customer,D4,D1,S07 S08 I08 F06,Zero customer charge; actual cost and replacement lineage preserved,short D; full step 7,PLANNED
+R18,Expired/no-service repair parts/labour billed,D4,D1,S07 B07 F06,One parts/labour invoice; no duplicate on retry,short E prepared billed comparison; full step 8 creates bill,PLANNED
+R19,Customer-confirmed resolution,D4,D1,S06 F06,Cannot close before confirmer/channel/time,short D; full step 7,PLANNED
+R20,Job contribution and unfinished work,D4,D1,S09 F07,Completed/lifetime job figures reconcile; pending jobs separate,short D report; full step 9,PLANNED
+R21,Invoices to send and receivables,D2,D1,B07 F07,Invoice list and unpaid balance match posted records,short director invoice/receivables summary; full steps 4 and 9,PLANNED
+R22,Subsidy paperwork,D2,D1,B09 F07,Milestone owner/status/dates/evidence queryable,short director subsidy card; full step 9,PLANNED
+R23,Technician pay from hours,D4,D1,S04 S10 F07,Approved hours times recorded rate; costs not posted twice,short director technician pay card; full step 9,PLANNED
+R24,"Today/week/month, job result, open repairs",D4,D1,S09 F07,"IST ranges, rollover/leap checks and scope labels",short director period/open repairs/job result summary; full step 9,PLANNED
+R25,Share numbers,D4,D1,S10 F07,CSV matches current filter/scope and selected job,short director CSV scope/control; full step 9 downloads and reconciles,PLANNED

@@ -6,6 +6,8 @@
 
 These checks do **not** validate business logic that has not been implemented. Authentication, stock safety, money and coverage remain future work.
 
+`npm run check:plan` separately checks the [backlog](build-backlog.json), [traceability](requirements-traceability.csv) and [oracle](demo-seed-oracle.json): exactly four owners, one dedicated frontend owner, hour budgets, no dependency cycles, all R1–R25 rows and worked financial arithmetic. Passing it does not mean the database returns those figures or that the demo fits three minutes.
+
 ## Domain testing plan
 
 Use backend Jest/Supertest familiarity, real local PostgreSQL integration tests for concurrency, Vitest/Testing Library for important forms, and one-browser Playwright for the connected lifecycle. Pin compatible versions. Avoid a large browser matrix or tests mirroring simple component markup.

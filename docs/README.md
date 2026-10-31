@@ -1,5 +1,15 @@
 # Documentation index and precedence
 
+## Foundational documents
+
+- [PRD — Product Requirements](PRD.md): product goals, users, R1–R25 scope, acceptance, unhappy paths and communication.
+- [PDR — Product Design Requirements](PDR.md): navigation, workflows, UI patterns, mobile states and presentation design.
+- [TRD — Technical Requirements](TRD.md): stack, boundaries, schema/transactions, security, dates/money, operations and technical acceptance.
+- [Decision/assumption register](foundations/decisions-and-assumptions.md): authority, provisional defaults and external questions.
+- [Delivery contract](foundations/delivery-contract.md): ready/code-ready/integrated done, ownership and evidence.
+
+These document the planned product. They do not turn the current scaffold into a completed application.
+
 ## Current implementation guidance
 
 1. [Solar PDF](requirements/solar-problem-statement.pdf): authoritative functional brief.
@@ -7,6 +17,17 @@
 3. [Roles](team/roles.md): **one frontend developer and three backend developers**, the latest owner decision.
 4. [Architecture](architecture/README.md), [data model](architecture/data-model.md), [API contracts](architecture/api-contracts.md).
 5. [Execution plan](planning/execution-plan.md), [testing](planning/testing.md), [submission and demo](planning/submission-and-demo.md).
+
+## Full hackathon build and presentation package
+
+- [Complete 16-section build plan](planning/demo-build-plan.md): implementation order, roles, gates, cuts and acceptance.
+- [Ordered ticket backlog](planning/build-backlog.json): owner, focused hours, dependencies, requirements and concrete done conditions.
+- [R1–R25 traceability](planning/requirements-traceability.csv): every required behavior, accountable owner and demonstration/evaluator proof.
+- [Operator and evaluator runbook](planning/demo-runbook.md): honest three-minute staged presentation, full walkthrough, device setup, Q&A and recovery.
+- [Financial/seed oracle](planning/demo-seed-oracle.json): synthetic expected values that actual future reports must calculate.
+- [Technology comparison and reasoning](architecture/technology-decisions.md): choices and alternatives against the supplied deliverables.
+
+`npm run check:plan` verifies effort/dependencies/coverage/arithmetic, not implementation or a performed rehearsal. All domain tickets remain planned.
 
 ## Research
 

@@ -7,10 +7,13 @@ SunPower Solutions' enquiry-to-installation-to-service platform for the Odoo hac
 ## Start here
 
 - [Documentation index](docs/README.md)
+- [PRD](docs/PRD.md), [PDR](docs/PDR.md), and [TRD](docs/TRD.md)
 - [Four developer roles — one frontend, three backend](docs/team/roles.md)
 - [Current architecture](docs/architecture/README.md)
 - [Data model and transaction rules](docs/architecture/data-model.md)
 - [24-hour execution plan](docs/planning/execution-plan.md)
+- [Complete demo-focused build plan](docs/planning/demo-build-plan.md)
+- [Technology choices and detailed reasoning](docs/architecture/technology-decisions.md)
 - [Solar market research](docs/research/solar/README.md)
 - [Authoritative problem statement](docs/requirements/solar-problem-statement.pdf)
 - [Supplied organizer-video deliverables](docs/requirements/organizer-video-deliverables.md)
@@ -29,6 +32,8 @@ npm run db:generate
 npm run db:deploy
 npm run dev
 ```
+
+If the Compose app is already running, first use `docker compose --profile app stop app` before `npm run dev`; both use port 3001. Keep the DB running. For a phone, read [device setup and rehearsals](docs/planning/demo-runbook.md): the default loopback-only setup does not expose the app to a phone over Wi-Fi.
 
 - Frontend: <http://127.0.0.1:5173>
 - API liveness: <http://127.0.0.1:3001/api/v1/health>

@@ -1,74 +1,36 @@
-# Relative 24-hour execution plan
+# Resource-aware 24-hour execution overview
 
-The user asked to ignore unverified wall-clock deadlines. These are elapsed-hour budgets, not 24 uninterrupted hours of effort per person. Plan 16–18 focused hours each, stagger breaks, and keep the last two hours as recovery/submission buffer.
+Start with [the full build plan](demo-build-plan.md), [PRD](../PRD.md), [PDR](../PDR.md), [TRD](../TRD.md), [backlog](build-backlog.json), [traceability](requirements-traceability.csv) and [operator runbook](demo-runbook.md). This replaces earlier optimistic H8 full-sales/H16 full-demo gates.
 
-## Four-lane timeline
+The backlog has a concrete one-task-per-owner candidate with coding dependencies, real domain/UI integration joins, and three staggered half-hour breaks per person. It finishes at **H21.75 under the estimates**, targets release H22.5 and leaves **H22.5–24** for recovery/submission. It is not measured throughput or a guarantee. Focused estimates are D1 16h, D2 16.25h, D3 16h, D4 16.25h; remaining time includes breaks, waiting/review and contingency. Do not promise 24 equally productive hours.
 
-| Hours | D1 frontend | D2 platform/sales/finance | D3 inventory/database | D4 field/service/reports | Gate |
+## Four lanes and verifiable gates
+
+| Hours | D1 frontend | D2 platform/sales/finance | D3 inventory/database | D4 field/service/reporting | Gate |
 |---|---|---|---|---|---|
-| 0–1 | Tokens/shell/page patterns | Runtime/auth/contracts | Joint schema/catalogue | Job/ticket/report contracts | Rules/ownership freeze |
-| 1–3 | Forms and mobile scan/signature prototype | Auth/intake/validation | Migrations/stock fixtures | Job/time/evidence fixtures | Persisted authenticated enquiry |
-| 3–6 | Sales/survey screens | Approval/quote/order | Receipts/serials/balances | Assignment/completion rules | Approved survey creates quote |
-| 6–8 | Quote/BOM/payment UI | Invoice/receipt/subsidy | Atomic allocation | Coverage and ticket API | Paid order ready |
-| 8–12 | Warehouse/scan/dispatch | Files/security/build/test harness | Dispatch/delivery/coverage activation | Field completion/time costs | Delivered serial traced |
-| 12–16 | Field/service/reports UI | Finance integration/E2E | Replacement primitives/concurrency | Tickets/reports/pay/CSV | Whole lifecycle |
-| 16–18 | Mobile/errors/polish | Security/retries | Cost/stock reconciliation | Acceptance walkthrough | Feature freeze |
-| 18–20 | Critical UI fixes | Clean startup/release rehearsal | Backup/restore/schema replay | Demo data/reconciliation | Fresh-start rehearsal |
-| 20–21 | Visual consistency | Release candidate/README | ERD/test evidence | Timed demo | Release freeze |
-| 21–22 | Rehearsal | Artifact/repository verification | Migrations/seed verification | Whole-team presentation | Package ready |
-| 22–24 | Recovery | Recovery/submission | Recovery | Recovery/submission | Buffer |
+| 0–1.5 | Shell/patterns | Contracts/runtime/auth start | Schema/catalogue | Job contracts, then core helper | G1 contracts/schema |
+| 1.5–6 | Enquiry/survey form and device spike | Auth/enquiry/survey/private files | Actual receipts/units/fixture-backed allocation | Assigned jobs, coverage/ticket core, evidence | G2 persisted intake + hardware capability |
+| 6–12 | Quote/payment/warehouse/field patterns | Finance writer, frozen quote, confirmation preparation | Replacement/dispatch/activation primitives and tests | Time/cost/repair helpers, fixtures | G3 quote/finance/core allocation |
+| 12–15 | Service/report surfaces | Join actual order/job/invoice/payment, subsidy | Real delivery/activation; invariant tests | Complete field/service/report queries | G4 order by H13; G5 endpoints by H15 |
+| 15–19 | Finish report patterns; sequential integration slots | Sales/finance integration and security tests | Fulfillment integration, restore, ERD | Service/report tests, demo fixtures | G6 feature freeze H19 |
+| 19–20.75 | Domain integration passes | Support own endpoint fixes | Support fulfillment fixes | Service/report final join | G7 complete evaluator path |
+| 20.75–22 | Three timed runs and critical UI fixes | Release/submission check | DB/files/scan proof | Presenters/evidence | G8 rehearsal |
+| 22–22.5 | Release verification | Freeze artifacts | Verify migration/seed | Confirm script/limits | G9 release |
+| 22.5–24 | Recovery | Recovery/submission | Recovery | Recovery/presentation | Buffer |
 
-## Contracts and integration
+The detailed `resourceSchedule` is more precise than these broad bands; they are not independent staffing estimates. Breaks: D1 H4/9/14 for 30min each; D2 H4.5/9.5/14.5; D3 H5/10/15; D4 H5.5/10.5/15.5. Idle integration windows can be used for rest/review, not an unassigned extra feature list. `npm run check:plan` checks effort, owner overlap, dependency order, breaks, gate-task finish times and recovery allocation.
 
-H0.75 initial rules agreed; H1.5 schema/contracts/fixtures; H3 first persisted UI; H8 sales/payment stable; H12 fulfillment stable; H16 entire lifecycle. At each checkpoint D1 gets sequential D2/D3/D4 integration slots, with that owner available to fix issues.
+## Parallelism without fake done
 
-```mermaid
-flowchart LR
-  Contracts[Schema and typed fixtures] --> UI[D1 UI]
-  Contracts --> Sales[D2 sales and finance]
-  Contracts --> Stock[D3 inventory]
-  Contracts --> Field[D4 field and service]
-  Sales --> Paid[Confirmed paid order]
-  Paid --> Stock
-  Paid --> Field
-  Stock --> Delivered[Delivery and warranty]
-  Delivered --> Field
-  Field --> Reports[Reconciled reports]
-  Sales --> Reports
-  Stock --> Reports
-  Reports --> Demo[Connected demo]
-  UI --> Demo
-```
+Stock and service core code can use valid PostgreSQL fixture factories after the schema/contracts are frozen; it need not wait for an entire sales UI. Runtime payment/stock/coverage rules still apply. B12/I11/S13 join real services, F08A/B/C join UI; F09 cannot pass without all joins. An isolated helper is code-ready, not integrated done.
 
-## P0: all mandatory scenes, at simple depth
+At checkpoints D1 gets short consecutive sales, fulfillment and service slots; the relevant backend owner stays to fix payloads. Everyone writes their own domain tests and commits. D2 owns submission/release, D4 owns the presentation.
 
-- Capture enquiry, qualification, follow-up and approved roof survey.
-- Generate quote and frozen complete BOM from seeded templates; confirm order and record advance/full payment.
-- Show packing requirements and crew assignment automatically; reserve actual stock atomically.
-- Scan required serialized units before dispatch; link each customer and unit; delivery starts warranty once.
-- Capture installation time/kW/photos/signature; reject incomplete completion.
-- Find inverter/customer/warranty; explained free or chargeable repair/replacement; customer-confirmed closure.
-- Real invoiced revenue, actual material/labour/repair costs, period/job result, unpaid balances and unfinished work.
-- Subsidy paperwork milestones, technician pay summary and CSV.
+## P0, cuts and missed-gate response
 
-P0 implementation depth: one warehouse, manual payment recording, seeded catalogue/templates, printable invoice, staff-recorded customer confirmation. These are real database-backed actions, not static cards.
+R1–R25 remain P0 at simple depth, including actual scanning, pay summary, subsidy milestones, expired billing and CSV. Seed templates instead of building editors; record payments manually; one warehouse; no external integration or full payroll. P1/P2 may not steal time before core acceptance.
 
-## P1 after connected P0
-
-Template editing, bulk entry/search refinements, portable handover pack, richer service-scope policy, customer confirmation link and improved reports. Required pay/subsidy/scanning/export are not P1.
-
-## P2 / excluded
-
-Reliable offline sync, service reserves, proactive maintenance are optional. No simulation engine, marketplace, chatbot, live government integration, payment gateway, multi-warehouse optimization, full payroll, Redis or distributed workflow infrastructure.
-
-## Scope cuts
-
-- H3 foundation failing: fix auth/API/DB integration before expanding modules.
-- H8 behind: remove catalogue/template editors, retain complete seeded templates.
-- H12 camera failing: use tested USB scanner; typed serial entry is a disclosed fallback, not proof of scanning.
-- H16 missing link: stop optional work and connect the mandatory lifecycle.
-- H18 no new features/schema expansion. H21 fixes only for crashes, corruption, access failures or demo blockers.
-- Simplify presentation/integration first. Never fake totals, payments, stock allocation, warranty decisions or completion evidence.
+At H6 foundation failing, fix it before more pages. At H12 shared-helper failure, stop optional work. At H15 missing fulfillment, all affected owners join the handoff. At H19 no feature/schema expansion. At H20.75 missing mandatory flow, record the failure and fix it before presentation polish. At H22.5 freeze the known release; do not switch frameworks/hosting or fake outputs. A shorter honest presentation is allowed; dropping a mandatory implementation silently is not.
 
 ## Ten risks
 
@@ -83,10 +45,8 @@ Reliable offline sync, service reserves, proactive maintenance are optional. No 
 | Isolated modules | High/high | Only fixture demos | Integration gates; pause optional work | D2 |
 | Release failure | Medium/high | Cloud-only runnable build | Local release and second-machine backup | D2 |
 | Warranty/replacement error | Medium/high | Serial overwritten or expiry reset | Lineage/policy/date tests; reviewed policy | D4 |
-| Submission/team omission | Medium/high | Portal unchecked or one member speaks | Verify artifacts, all-member commits/demo | D4 |
+| Submission/team omission | Medium/high | Portal unchecked or one member speaks | D2 verifies submission artifacts; D4 coordinates all-member presentation | D2 |
 
 ## Planning self-critique
 
-Judgment scores, not predictions: feasibility 7/10, workload balance 7, architecture 8, integration 8, PDF coverage 9, UI 7, demo 9, CRUD differentiation 8, deployment 8, competitive strength 8.
-
-Largest weaknesses: D1 UI capacity, D2 platform/finance bottleneck, and breadth of required scope. Mitigations already included: six UI patterns, shared tx helpers owned by each domain, early fixtures/integration, minimal administration, no optional expansion before P0. The research's novelty hypotheses are not validated buyer demand.
+Judgment scores, not forecasts: feasibility 7/10, workload balance 7, architecture 8, integration 8, PDF coverage 9, UI 7, demo 8, differentiation 8, deployment 8, competitive strength 8. The greatest risks remain the sole frontend owner, D2's breadth and modest buffer. Mitigations are six reusable patterns, narrow shared helpers, fixture-enabled parallel development, real joins, no optional integrations, and a staged short pitch plus full evaluator path. Update estimates when implementation evidence arrives.

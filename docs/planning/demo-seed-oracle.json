@@ -1,0 +1,378 @@
+{
+  "status": "Synthetic planning oracle only; not a runtime seed or implemented report.",
+  "currency": "INR",
+  "amountBasis": "Pre-tax management amounts; no current tax/subsidy rule asserted.",
+  "seedDateRule": "Freeze seed anchor once; D delivered minus18 calendar months; E minus30; duration24 months. Keep production time unchanged.",
+  "jobs": [
+    {
+      "id": "D",
+      "description": "Fully paid standard-margin 1 kW installation with covered inverter replacement",
+      "packagePrice": 50000,
+      "installationPrice": 5000,
+      "receipt": 55000,
+      "componentCovered": true,
+      "activeServiceCover": false,
+      "repair": {
+        "kind": "inverter_replacement",
+        "partsCost": 14000,
+        "labourHours": 2,
+        "hourlyCost": 300,
+        "partsCharge": 0,
+        "labourCharge": 0,
+        "paymentReceived": 0,
+        "supplierClaimPending": 14000,
+        "supplierRecoveryPosted": 0,
+        "replacementCoverage": "remaining_original_expiry"
+      },
+      "expected": {
+        "baseInvoice": 55000,
+        "materialCost": 40000,
+        "installationLabour": 2400,
+        "beforeContribution": 12600,
+        "repairCost": 14600,
+        "repairInvoice": 0,
+        "afterContribution": -2000,
+        "invoicedTotal": 55000,
+        "receivedTotal": 55000,
+        "outstanding": 0
+      },
+      "materialLines": [
+        {
+          "product": "500 W panel",
+          "quantity": 2,
+          "unitCost": 9000
+        },
+        {
+          "product": "1 kW inverter",
+          "quantity": 1,
+          "unitCost": 14000
+        },
+        {
+          "product": "Charge controller (fictional PDF catalogue)",
+          "quantity": 1,
+          "unitCost": 3000
+        },
+        {
+          "product": "Mounting set",
+          "quantity": 1,
+          "unitCost": 3000
+        },
+        {
+          "product": "Wiring and safety set",
+          "quantity": 1,
+          "unitCost": 2000
+        }
+      ],
+      "installationLabour": {
+        "technicians": 2,
+        "hoursEach": 4,
+        "hourlyCost": 300
+      }
+    },
+    {
+      "id": "E",
+      "description": "Fully paid historical 3 kW non-subsidized sample; expired component and no active service cover",
+      "packagePrice": 170000,
+      "installationPrice": 10000,
+      "receipt": 180000,
+      "componentCovered": false,
+      "activeServiceCover": false,
+      "repair": {
+        "partsCost": 1500,
+        "labourHours": 1,
+        "hourlyCost": 500,
+        "partsCharge": 3000,
+        "labourCharge": 1000,
+        "paymentReceived": 0
+      },
+      "expected": {
+        "baseInvoice": 180000,
+        "materialCost": 120000,
+        "installationLabour": 8000,
+        "beforeContribution": 52000,
+        "repairCost": 2000,
+        "repairInvoice": 4000,
+        "afterContribution": 54000,
+        "invoicedTotal": 184000,
+        "receivedTotal": 180000,
+        "outstanding": 4000
+      },
+      "materialLines": [
+        {
+          "product": "500 W panel",
+          "quantity": 6,
+          "unitCost": 9000
+        },
+        {
+          "product": "Inverter",
+          "quantity": 1,
+          "unitCost": 30000
+        },
+        {
+          "product": "Charge controller (fictional PDF catalogue)",
+          "quantity": 1,
+          "unitCost": 8000
+        },
+        {
+          "product": "Mounting set",
+          "quantity": 1,
+          "unitCost": 12000
+        },
+        {
+          "product": "Cable metres",
+          "quantity": 40,
+          "unitCost": 200
+        },
+        {
+          "product": "Switch/protection set",
+          "quantity": 1,
+          "unitCost": 5000
+        },
+        {
+          "product": "Earthing set",
+          "quantity": 1,
+          "unitCost": 3000
+        }
+      ],
+      "installationLabour": {
+        "technicians": 2,
+        "hoursEach": 8,
+        "hourlyCost": 500
+      }
+    }
+  ],
+  "reportRules": [
+    "Per-job lifetime contribution, not current-month profit; D/E original invoices fully paid.",
+    "D/E portfolio numbers apply only after both repair scenarios and exclude changing cases A/B/C.",
+    "Period test scope includes a separate boundary-control cost to exercise IST day/week/month rollover.",
+    "Do not count pending supplier claim as posted recovery or cash."
+  ],
+  "expectedPortfolio": {
+    "invoiced": 239000,
+    "received": 235000,
+    "outstanding": 4000,
+    "contribution": 52000
+  },
+  "technicianPay": [
+    {
+      "technician": "DEMO-TECH-D",
+      "hours": 2,
+      "payRate": 300
+    },
+    {
+      "technician": "DEMO-TECH-E",
+      "hours": 1,
+      "payRate": 500
+    }
+  ],
+  "expectedCurrentRepairPay": 1100,
+  "expectedCsv": {
+    "scope": "Jobs D and E after both repair scenarios; numeric amounts pre-tax",
+    "columns": [
+      "job_id",
+      "invoiced",
+      "received",
+      "outstanding",
+      "actual_cost",
+      "contribution"
+    ],
+    "rows": [
+      [
+        "D",
+        55000,
+        55000,
+        0,
+        57000,
+        -2000
+      ],
+      [
+        "E",
+        184000,
+        180000,
+        4000,
+        130000,
+        54000
+      ]
+    ],
+    "totals": [
+      239000,
+      235000,
+      4000,
+      187000,
+      52000
+    ]
+  },
+  "periodScenarios": [
+    {
+      "anchor": "2026-10-15T12:00:00+05:30",
+      "scope": "Dedicated activity-test scope: D/E repairs plus a separate boundary-control cost, not the D/E portfolio headline.",
+      "day": {
+        "startUtc": "2026-10-14T18:30:00Z",
+        "endUtc": "2026-10-15T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16600
+        }
+      },
+      "week": {
+        "startUtc": "2026-10-11T18:30:00Z",
+        "endUtc": "2026-10-18T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16711
+        }
+      },
+      "month": {
+        "startUtc": "2026-09-30T18:30:00Z",
+        "endUtc": "2026-10-31T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16711
+        }
+      },
+      "events": [
+        {
+          "kind": "cost",
+          "amount": 14600,
+          "occurredAt": "2026-10-14T18:40:00Z",
+          "source": "D-replacement"
+        },
+        {
+          "kind": "cost",
+          "amount": 2000,
+          "occurredAt": "2026-10-14T18:45:00Z",
+          "source": "E-repair"
+        },
+        {
+          "kind": "invoice",
+          "amount": 4000,
+          "occurredAt": "2026-10-14T18:45:00Z",
+          "source": "E-invoice"
+        },
+        {
+          "kind": "cost",
+          "amount": 111,
+          "occurredAt": "2026-10-14T18:29:00Z",
+          "source": "separate-boundary-control-fixture"
+        }
+      ]
+    },
+    {
+      "anchor": "2026-11-01T00:30:00+05:30",
+      "scope": "Dedicated activity-test scope: D/E repairs plus a separate boundary-control cost, not the D/E portfolio headline.",
+      "day": {
+        "startUtc": "2026-10-31T18:30:00Z",
+        "endUtc": "2026-11-01T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16600
+        }
+      },
+      "week": {
+        "startUtc": "2026-10-25T18:30:00Z",
+        "endUtc": "2026-11-01T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16711
+        }
+      },
+      "month": {
+        "startUtc": "2026-10-31T18:30:00Z",
+        "endUtc": "2026-11-30T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16600
+        }
+      },
+      "events": [
+        {
+          "kind": "cost",
+          "amount": 14600,
+          "occurredAt": "2026-10-31T18:40:00Z",
+          "source": "D-replacement"
+        },
+        {
+          "kind": "cost",
+          "amount": 2000,
+          "occurredAt": "2026-10-31T18:45:00Z",
+          "source": "E-repair"
+        },
+        {
+          "kind": "invoice",
+          "amount": 4000,
+          "occurredAt": "2026-10-31T18:45:00Z",
+          "source": "E-invoice"
+        },
+        {
+          "kind": "cost",
+          "amount": 111,
+          "occurredAt": "2026-10-31T18:29:00Z",
+          "source": "separate-boundary-control-fixture"
+        }
+      ]
+    },
+    {
+      "anchor": "2026-11-02T00:30:00+05:30",
+      "scope": "Dedicated activity-test scope: D/E repairs plus a separate boundary-control cost, not the D/E portfolio headline.",
+      "day": {
+        "startUtc": "2026-11-01T18:30:00Z",
+        "endUtc": "2026-11-02T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16600
+        }
+      },
+      "week": {
+        "startUtc": "2026-11-01T18:30:00Z",
+        "endUtc": "2026-11-08T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16600
+        }
+      },
+      "month": {
+        "startUtc": "2026-10-31T18:30:00Z",
+        "endUtc": "2026-11-30T18:30:00Z",
+        "expected": {
+          "invoices": 4000,
+          "receipts": 0,
+          "costs": 16711
+        }
+      },
+      "events": [
+        {
+          "kind": "cost",
+          "amount": 14600,
+          "occurredAt": "2026-11-01T18:40:00Z",
+          "source": "D-replacement"
+        },
+        {
+          "kind": "cost",
+          "amount": 2000,
+          "occurredAt": "2026-11-01T18:45:00Z",
+          "source": "E-repair"
+        },
+        {
+          "kind": "invoice",
+          "amount": 4000,
+          "occurredAt": "2026-11-01T18:45:00Z",
+          "source": "E-invoice"
+        },
+        {
+          "kind": "cost",
+          "amount": 111,
+          "occurredAt": "2026-11-01T18:29:00Z",
+          "source": "separate-boundary-control-fixture"
+        }
+      ]
+    }
+  ]
+}

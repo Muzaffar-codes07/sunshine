@@ -40,7 +40,7 @@ One company and one warehouse. UUID PKs, explicit FKs/statuses, UTC timestamps, 
 ## Coverage and field invariants
 
 - Standard sales delivery completion sets warranty start/expiry once; retries never extend it.
-- Coverage interval: `start <= assessmentDate < expiry`; calendar-year/leap-day rules explicit.
+- Coverage interval: `start <= assessmentDate < expiry` over IST calendar dates, stored as date-only values; retain delivery occurrence as UTC separately. Clamp invalid month-anniversary days to month end and test that selected policy, including leap day.
 - Record component coverage, service coverage, scope, customer charge, internal cost, supplier claim status and reasoning separately. Warranty does not guarantee supplier reimbursement.
 - Installation completion requires timestamps, confirmed kW size, checklist/photos and homeowner signature evidence.
 - Ticket resolution is separate from closure. Closure requires customer confirmer, channel and timestamp; staff-recorded phone confirmation is labeled honestly.
@@ -50,6 +50,7 @@ One company and one warehouse. UUID PKs, explicit FKs/statuses, UTC timestamps, 
 - Posted invoice value is invoiced revenue; cash received is separate. Booking receipts do not create revenue a second time.
 - Estimated, committed and actual/billed margin are labeled separately; unfinished work is visible.
 - Job material cost comes from actual dispatched units/bulk costs; labour/repair cost is job-tagged once through unique sources.
+- D3 posts each consumed part from its stock-movement source; D4 posts labour from its time-entry source through D2's finance helper. A ticket repair total is an aggregation, not another cost posting. Otherwise the same part could be counted both as inventory consumption and as a ticket expense.
 - Repairs can cost the company while customer charge is zero. Expired chargeable repairs produce one invoice with parts/labour lines.
 - Payments reference an invoice; multiple partial receipts are supported. Duplicate external references/retries cannot double balances.
 - Cash reflects receipts/recoveries minus refunds and actual disbursements. A subsidy paid to the customer is not installer cash.
@@ -66,6 +67,7 @@ Multi-warehouse, purchase-order management, general ledger, notification deliver
 ```mermaid
 erDiagram
   CUSTOMER ||--o{ ENQUIRY : submits
+  CUSTOMER ||--o{ ORDER : places
   ENQUIRY ||--o{ SURVEY : receives
   SURVEY ||--o{ QUOTE : permits
   PACKAGE ||--|{ PACKAGE_ITEM : defines
@@ -74,6 +76,10 @@ erDiagram
   QUOTE ||--o| ORDER : accepted
   ORDER ||--|| JOB : creates
   JOB ||--o{ JOB_ASSIGNMENT : assigned
+  USER ||--o{ JOB_ASSIGNMENT : assigned_to
+  USER ||--o{ TIME_ENTRY : works
+  USER ||--o{ AUDIT_ENTRY : acts
+  USER ||--o{ FILE : uploads
   PRODUCT ||--|| STOCK_BALANCE : counted
   PRODUCT ||--o{ UNIT : serialized
   PRODUCT ||--o{ STOCK_MOVEMENT : moved
@@ -86,6 +92,10 @@ erDiagram
   JOB ||--o{ FILE : evidence
   JOB ||--o{ TIME_ENTRY : consumes
   JOB ||--o{ SERVICE_TICKET : serviced
+  UNIT ||--o{ SERVICE_TICKET : concerns
+  UNIT o|--o{ UNIT : replaced_by
+  SERVICE_TICKET o|--o{ FILE : evidence
+  SERVICE_TICKET o|--o{ TIME_ENTRY : consumes
   SERVICE_TICKET ||--o{ TICKET_LINE : contains
   ORDER o|--o{ INVOICE : bills
   SERVICE_TICKET o|--o| INVOICE : charged
@@ -94,3 +104,5 @@ erDiagram
   JOB ||--o{ COST_ENTRY : costs
   JOB ||--o{ SUBSIDY_MILESTONE : tracks
 ```
+
+Replacement's optional old-unit link is stored on the new unit; an old unit may have zero or more historical replacements, while only one active installation/assignment is permitted. The schema freeze must add appropriate FKs and cross-record job/customer matching checks; this ERD is not an already migrated schema.

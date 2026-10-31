@@ -1,0 +1,1289 @@
+{
+  "revision": "2026-10-31",
+  "scope": "Planning only: no domain ticket is implemented by this file.",
+  "elapsedHours": 24,
+  "focusedHoursCapPerDeveloper": 18,
+  "owners": {
+    "D1": "Frontend & UI/UX",
+    "D2": "Backend Platform/Sales/Finance",
+    "D3": "Backend Inventory/Fulfillment/Database",
+    "D4": "Backend Installation/Service/Reporting"
+  },
+  "tasks": [
+    {
+      "id": "B01",
+      "owner": "D2",
+      "focusedHours": 1,
+      "title": "Shared contracts, errors, runtime validation and transaction interfaces",
+      "dependsOn": [],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Contracts compile; fixtures show success, field errors and invalid states; no business route claims before implementation."
+    },
+    {
+      "id": "I01",
+      "owner": "D3",
+      "focusedHours": 0.75,
+      "title": "Schema/FKs/constraints review and migration queue",
+      "dependsOn": [],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Reviewed schema matches approved contracts; replay on clean PG; partial indexes and CHECKs survive migration workflow."
+    },
+    {
+      "id": "S01",
+      "owner": "D4",
+      "focusedHours": 1,
+      "title": "Idempotent job creation helper",
+      "dependsOn": [
+        "B01",
+        "I01"
+      ],
+      "requirements": [
+        "R9"
+      ],
+      "status": "planned",
+      "acceptance": "Order confirmation can create exactly one scheduled job using caller transaction."
+    },
+    {
+      "id": "F01",
+      "owner": "D1",
+      "focusedHours": 1.5,
+      "title": "Shared shell/login and six page patterns",
+      "dependsOn": [],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "One list/detail/form/timeline/action/summary pattern; consistent keyboard, loading, empty and failure states."
+    },
+    {
+      "id": "B02",
+      "owner": "D2",
+      "focusedHours": 1.75,
+      "title": "Staff sessions, roles and authorization",
+      "dependsOn": [
+        "B01",
+        "I01"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Real login/logout, password hashing, CSRF and record/file authorization; no role-picker bypass."
+    },
+    {
+      "id": "B03",
+      "owner": "D2",
+      "focusedHours": 1.25,
+      "title": "Public enquiry, CRM, qualification and follow-up",
+      "dependsOn": [
+        "B02"
+      ],
+      "requirements": [
+        "R1",
+        "R2"
+      ],
+      "status": "planned",
+      "acceptance": "Invalid contacts fail gracefully; valid public submission persists and is visible after refresh; phone/WhatsApp source recorded manually."
+    },
+    {
+      "id": "B04",
+      "owner": "D2",
+      "focusedHours": 1,
+      "title": "Survey scheduling, submission and approval",
+      "dependsOn": [
+        "B03",
+        "I01"
+      ],
+      "requirements": [
+        "R3",
+        "R4"
+      ],
+      "status": "planned",
+      "acceptance": "Required roof measurements, assigned technician and immutable approved revision; rejected/unapproved survey cannot quote."
+    },
+    {
+      "id": "I02",
+      "owner": "D3",
+      "focusedHours": 0.75,
+      "title": "Catalogue and versioned 1\u20135 kW package/BOM fixtures",
+      "dependsOn": [
+        "I01"
+      ],
+      "requirements": [
+        "R5",
+        "R6"
+      ],
+      "status": "planned",
+      "acceptance": "All required parts present; on/off-grid distinct; controller follows fictional PDF catalogue; current templates do not rewrite history."
+    },
+    {
+      "id": "B05",
+      "owner": "D2",
+      "focusedHours": 1.75,
+      "title": "Quote snapshot and complete component requirements",
+      "dependsOn": [
+        "B04",
+        "I02"
+      ],
+      "requirements": [
+        "R5",
+        "R6"
+      ],
+      "status": "planned",
+      "acceptance": "Approved survey FK, package/component/service line types; package and BOM not charged twice; accepted version immutable."
+    },
+    {
+      "id": "B07",
+      "owner": "D2",
+      "focusedHours": 2.5,
+      "title": "Single finance writer: invoices, payments and costs",
+      "dependsOn": [
+        "B01",
+        "I01"
+      ],
+      "requirements": [
+        "R7",
+        "R18",
+        "R21"
+      ],
+      "status": "planned",
+      "acceptance": "Unique posting source/idempotency; partial receipts reconcile; money and signed reversals explicit; payment recording not gateway processing."
+    },
+    {
+      "id": "B06",
+      "owner": "D2",
+      "focusedHours": 1,
+      "title": "Acceptance/order confirmation and fulfillment handoff",
+      "dependsOn": [
+        "B05",
+        "B07",
+        "S01"
+      ],
+      "requirements": [
+        "R8",
+        "R9"
+      ],
+      "status": "planned",
+      "acceptance": "One transaction creates order/job/invoice/packing obligations once; payment is separate and gates work."
+    },
+    {
+      "id": "B08",
+      "owner": "D2",
+      "focusedHours": 1,
+      "title": "Private evidence upload/download",
+      "dependsOn": [
+        "B02",
+        "I01"
+      ],
+      "requirements": [
+        "R14",
+        "R15"
+      ],
+      "status": "planned",
+      "acceptance": "Completed file metadata, size/type checks and authorized access; failed upload never satisfies completion evidence."
+    },
+    {
+      "id": "B09",
+      "owner": "D2",
+      "focusedHours": 0.5,
+      "title": "Subsidy milestones and next responsible party",
+      "dependsOn": [
+        "B06"
+      ],
+      "requirements": [
+        "R22"
+      ],
+      "status": "planned",
+      "acceptance": "Stage/owner/dates/evidence queryable; no live portal or guaranteed subsidy claim."
+    },
+    {
+      "id": "B10",
+      "owner": "D2",
+      "focusedHours": 1.75,
+      "title": "Sales/finance/security tests and E2E harness",
+      "dependsOn": [
+        "B03",
+        "B04",
+        "B05",
+        "B06",
+        "B07",
+        "B08",
+        "B09"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Server invalid-state, receipt retry, role/file tests; harness uses real API and PostgreSQL."
+    },
+    {
+      "id": "B11",
+      "owner": "D2",
+      "focusedHours": 0.75,
+      "title": "Clean release startup, setup and submission checklist",
+      "dependsOn": [
+        "B02",
+        "B08"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Native/Compose mode conflict documented; actual event fields checked; local release/recovery steps reproducible."
+    },
+    {
+      "id": "B12",
+      "owner": "D2",
+      "focusedHours": 2,
+      "title": "Sales/finance frontend integration and reconciliation",
+      "dependsOn": [
+        "B10",
+        "B11",
+        "F04"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "D1 integration slot resolves contract mismatches; real writes refresh; report definitions and invoice/payment/cost source ownership agreed."
+    },
+    {
+      "id": "F02",
+      "owner": "D1",
+      "focusedHours": 2,
+      "title": "Scan/photo/signature capability spike and phone topology",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "H3 actual available hardware tested; source method preserved; permission/error states visible; rerun against real endpoints by H12."
+    },
+    {
+      "id": "F03",
+      "owner": "D1",
+      "focusedHours": 2,
+      "title": "Public enquiry, qualification and survey UI",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "status": "planned",
+      "acceptance": "Typed fixture contract first, then persisted API; survey gate and field errors visible; no static acceptance data."
+    },
+    {
+      "id": "F04",
+      "owner": "D1",
+      "focusedHours": 2,
+      "title": "Order workspace, quote/BOM, invoice and receipt UI",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [
+        "R5",
+        "R6",
+        "R7",
+        "R8"
+      ],
+      "status": "planned",
+      "acceptance": "Current status/next action visible; finance totals from API; idempotent submit/retry behavior."
+    },
+    {
+      "id": "I03",
+      "owner": "D3",
+      "focusedHours": 1.5,
+      "title": "Actual-cost stock receipts and balances",
+      "dependsOn": [
+        "I01",
+        "I02"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Receipt reference/quantity/cost stored; bulk weighted average and serialized acquisition costs are real inputs, not hardcoded margins."
+    },
+    {
+      "id": "I04",
+      "owner": "D3",
+      "focusedHours": 1,
+      "title": "Unit serial identity and active assignment constraints",
+      "dependsOn": [
+        "I01",
+        "I02"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Normalized scoped serial uniqueness; unit UUID; active allocation persists through installed state."
+    },
+    {
+      "id": "I05",
+      "owner": "D3",
+      "focusedHours": 2.5,
+      "title": "Atomic allocation of complete order requirements",
+      "dependsOn": [
+        "I03",
+        "I04",
+        "B01"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Stable sorted locks, sufficient quantities, exact source requirements; all-or-none reservation and no double booking."
+    },
+    {
+      "id": "I06",
+      "owner": "D3",
+      "focusedHours": 1.75,
+      "title": "Scanning, dispatch and consumed cost posting",
+      "dependsOn": [
+        "I05",
+        "B07"
+      ],
+      "requirements": [
+        "R10",
+        "R11"
+      ],
+      "status": "planned",
+      "acceptance": "All serialized panels/inverter/controller/battery required by package have scan events before dispatch; distinguish CAMERA/SCANNER/TYPED; reject invalid units; post movement/cost once."
+    },
+    {
+      "id": "I07",
+      "owner": "D3",
+      "focusedHours": 1.25,
+      "title": "Delivery and equipment-specific coverage activation",
+      "dependsOn": [
+        "I06"
+      ],
+      "requirements": [
+        "R12",
+        "R16"
+      ],
+      "status": "planned",
+      "acceptance": "Delivery starts each unit warranty once; customer/unit lookup returns traceable dates; no extension on retry."
+    },
+    {
+      "id": "I08",
+      "owner": "D3",
+      "focusedHours": 1.5,
+      "title": "Replacement and return stock primitives",
+      "dependsOn": [
+        "I03",
+        "I04",
+        "B01",
+        "B07"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Ticket source allocation; old unit quarantined and linked to new; coverage continuation explicit; use caller tx."
+    },
+    {
+      "id": "I09",
+      "owner": "D3",
+      "focusedHours": 2,
+      "title": "Real PostgreSQL concurrency, rollback and retry tests",
+      "dependsOn": [
+        "I05",
+        "I06",
+        "I07",
+        "I08"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Two connections contend for same unit; one winner; balance/movement/cost counts correct; delivery retry and replacement preserve history."
+    },
+    {
+      "id": "I10",
+      "owner": "D3",
+      "focusedHours": 0.75,
+      "title": "Catalogue/stock/history seed helpers",
+      "dependsOn": [
+        "I02",
+        "I03",
+        "I04",
+        "S01"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Explicit disposable demo DB, fixture IDs and historical dates; same invariants as production; no normal-startup reset."
+    },
+    {
+      "id": "I11",
+      "owner": "D3",
+      "focusedHours": 1.5,
+      "title": "Fulfillment UI integration and scan rehearsal",
+      "dependsOn": [
+        "I06",
+        "I07",
+        "I08",
+        "I09",
+        "F05",
+        "B06"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Real device/scanner scan persists; every required unit accounted for; D1 integration slot and runtime serial timeline work."
+    },
+    {
+      "id": "I12",
+      "owner": "D3",
+      "focusedHours": 0.75,
+      "title": "ERD, migration replay and DB/files restore evidence",
+      "dependsOn": [
+        "I09",
+        "I10"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Clean migration replay and second-host matching DB/files backup; no real customer data or credentials committed."
+    },
+    {
+      "id": "F05",
+      "owner": "D1",
+      "focusedHours": 2,
+      "title": "Warehouse allocation, scan and delivery UI",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [
+        "R10",
+        "R11",
+        "R12"
+      ],
+      "status": "planned",
+      "acceptance": "Use I06/I07 APIs at integration; scan source/missing units clear; no local stock mutation."
+    },
+    {
+      "id": "S02",
+      "owner": "D4",
+      "focusedHours": 0.75,
+      "title": "Crew schedule and assigned-job permissions",
+      "dependsOn": [
+        "S01",
+        "B02"
+      ],
+      "requirements": [
+        "R9"
+      ],
+      "status": "planned",
+      "acceptance": "Assigned jobs visible without phone handoff; unauthorized technician cannot access another job."
+    },
+    {
+      "id": "S03",
+      "owner": "D4",
+      "focusedHours": 1.5,
+      "title": "Field completion with time, size and acceptance evidence",
+      "dependsOn": [
+        "S02",
+        "B08"
+      ],
+      "requirements": [
+        "R13",
+        "R14",
+        "R15"
+      ],
+      "status": "planned",
+      "acceptance": "Reject missing photo/signature/time/kW, future/invalid times and completion before delivery; uploaded evidence belongs to job."
+    },
+    {
+      "id": "S04",
+      "owner": "D4",
+      "focusedHours": 1,
+      "title": "Time entries and cost/pay rate snapshots",
+      "dependsOn": [
+        "S01",
+        "B07"
+      ],
+      "requirements": [
+        "R23"
+      ],
+      "status": "planned",
+      "acceptance": "Valid chronological hours times recorded rates; cost posted once; staff entry actor distinguished from technician who performed work."
+    },
+    {
+      "id": "S05",
+      "owner": "D4",
+      "focusedHours": 1.5,
+      "title": "Explained warranty/service coverage decision",
+      "dependsOn": [
+        "B01",
+        "I01"
+      ],
+      "requirements": [
+        "R16",
+        "R17",
+        "R18"
+      ],
+      "status": "planned",
+      "acceptance": "Stored unit/policy/as-of/scope/reason; covered/expired/boundary examples; no automatic supplier reimbursement."
+    },
+    {
+      "id": "S06",
+      "owner": "D4",
+      "focusedHours": 1.5,
+      "title": "Ticket lifecycle and customer-confirmed closure",
+      "dependsOn": [
+        "S01",
+        "B01"
+      ],
+      "requirements": [
+        "R19"
+      ],
+      "status": "planned",
+      "acceptance": "Resolve differs from close; confirmer/channel/time required; historical policy snapshot not rewritten by later changes."
+    },
+    {
+      "id": "S07",
+      "owner": "D4",
+      "focusedHours": 1.25,
+      "title": "Repair costs and chargeable invoice orchestration",
+      "dependsOn": [
+        "S04",
+        "S06",
+        "B07"
+      ],
+      "requirements": [
+        "R17",
+        "R18",
+        "R21"
+      ],
+      "status": "planned",
+      "acceptance": "Covered customer charge zero but actual parts/time cost; expired/no-service case invoice once; no receipt implied by invoice."
+    },
+    {
+      "id": "S08",
+      "owner": "D4",
+      "focusedHours": 1,
+      "title": "Replacement orchestration and lineage",
+      "dependsOn": [
+        "I08",
+        "S06",
+        "S07"
+      ],
+      "requirements": [
+        "R17"
+      ],
+      "status": "planned",
+      "acceptance": "Same transaction invokes stock/finance helpers; old/new serials traceable; customer charge follows assessed policy."
+    },
+    {
+      "id": "S09",
+      "owner": "D4",
+      "focusedHours": 1.75,
+      "title": "Operational and financial report queries",
+      "dependsOn": [
+        "B07",
+        "S04",
+        "S07"
+      ],
+      "requirements": [
+        "R20",
+        "R24"
+      ],
+      "status": "planned",
+      "acceptance": "Period invoice/cash/cost activity separate from lifetime job contribution; incomplete jobs not completed profit; IST half-open ranges."
+    },
+    {
+      "id": "S10",
+      "owner": "D4",
+      "focusedHours": 0.75,
+      "title": "Technician pay summary and filtered CSV",
+      "dependsOn": [
+        "S04",
+        "S09"
+      ],
+      "requirements": [
+        "R23",
+        "R25"
+      ],
+      "status": "planned",
+      "acceptance": "Approved hours times rates reconcile; filtered CSV matches source and scope, quotes text safely and prevents spreadsheet formula injection without corrupting numeric losses."
+    },
+    {
+      "id": "S11",
+      "owner": "D4",
+      "focusedHours": 1.5,
+      "title": "Field/service/date/reconciliation acceptance tests",
+      "dependsOn": [
+        "S03",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Evidence/auth gates; coverage dates including leap day; midnight/month rollover; actual query values match oracle."
+    },
+    {
+      "id": "S12",
+      "owner": "D4",
+      "focusedHours": 1.75,
+      "title": "Historical demo fixtures, speakers and rehearsal script",
+      "dependsOn": [
+        "I10",
+        "S01",
+        "B07",
+        "I07"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Run-prefixed valid historical records; fully paid 1 kW replacement loss plus expired 3 kW charge; portfolio/period/pay/CSV oracle; no global clock change."
+    },
+    {
+      "id": "S13",
+      "owner": "D4",
+      "focusedHours": 1,
+      "title": "Field/service/report integration slot",
+      "dependsOn": [
+        "S03",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "F06",
+        "F07",
+        "I07",
+        "I08",
+        "B06"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "D1 consumes real endpoints; confirmation and report updates persist; no mocked success."
+    },
+    {
+      "id": "F06",
+      "owner": "D1",
+      "focusedHours": 1.75,
+      "title": "Field completion and service decision UI",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [
+        "R13",
+        "R14",
+        "R15",
+        "R16",
+        "R17",
+        "R18",
+        "R19"
+      ],
+      "status": "planned",
+      "acceptance": "Phone form, ticket explanation, acceptance/confirmation states; use backend response, not duplicate eligibility formulas."
+    },
+    {
+      "id": "F07",
+      "owner": "D1",
+      "focusedHours": 1,
+      "title": "Director report, pay/subsidy summaries and CSV UI",
+      "dependsOn": [
+        "F01",
+        "B01"
+      ],
+      "requirements": [
+        "R20",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25"
+      ],
+      "status": "planned",
+      "acceptance": "Explicit scope/period labels, real API values, no static KPIs; required summaries accessible."
+    },
+    {
+      "id": "F08A",
+      "owner": "D1",
+      "focusedHours": 0.75,
+      "title": "Sales/finance integration slot",
+      "dependsOn": [
+        "F03",
+        "F04",
+        "B12"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Six coherent workspaces; one order/customer timeline; no unresolved critical errors, stale data or keyboard/mobile blockers."
+    },
+    {
+      "id": "F08B",
+      "owner": "D1",
+      "focusedHours": 0.75,
+      "title": "Stock/fulfillment integration slot",
+      "dependsOn": [
+        "F05",
+        "I11"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Six coherent workspaces; one order/customer timeline; no unresolved critical errors, stale data or keyboard/mobile blockers."
+    },
+    {
+      "id": "F08C",
+      "owner": "D1",
+      "focusedHours": 0.75,
+      "title": "Field/service/report integration slot",
+      "dependsOn": [
+        "F06",
+        "F07",
+        "S13"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Six coherent workspaces; one order/customer timeline; no unresolved critical errors, stale data or keyboard/mobile blockers."
+    },
+    {
+      "id": "F08P",
+      "owner": "D1",
+      "focusedHours": 0.5,
+      "title": "Responsive/accessibility final pass",
+      "dependsOn": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Six coherent workspaces; one order/customer timeline; no unresolved critical errors, stale data or keyboard/mobile blockers."
+    },
+    {
+      "id": "F09",
+      "owner": "D1",
+      "focusedHours": 1,
+      "title": "Three timed demonstrations and UI fixes",
+      "dependsOn": [
+        "F08A",
+        "F08B",
+        "F08C",
+        "F08P",
+        "S11",
+        "S12",
+        "I12",
+        "B11"
+      ],
+      "requirements": [],
+      "status": "planned",
+      "acceptance": "Actual action count and three run times recorded; <=180-second short presentation or explicitly shorter honest script; full evaluator path remains."
+    }
+  ],
+  "dependencyMeaning": "Required coding inputs: agreed contracts and valid DB fixture factories allow parallel implementation. Acceptance of helpers with fixture inputs is not end-to-end done; B12/I11/S13 and F09 join real modules. No runtime validation bypass is permitted.",
+  "ownerPriority": {
+    "D1": [
+      "F01",
+      "F03",
+      "F02",
+      "F04",
+      "F05",
+      "F06",
+      "F07",
+      "F08P",
+      "F08A",
+      "F08B",
+      "F08C",
+      "F09"
+    ],
+    "D2": [
+      "B01",
+      "B02",
+      "B03",
+      "B04",
+      "B08",
+      "B07",
+      "B05",
+      "B06",
+      "B09",
+      "B10",
+      "B11",
+      "B12"
+    ],
+    "D3": [
+      "I01",
+      "I02",
+      "I03",
+      "I04",
+      "I05",
+      "I08",
+      "I06",
+      "I07",
+      "I10",
+      "I09",
+      "I12",
+      "I11"
+    ],
+    "D4": [
+      "S01",
+      "S02",
+      "S05",
+      "S06",
+      "S03",
+      "S04",
+      "S07",
+      "S08",
+      "S12",
+      "S09",
+      "S10",
+      "S11",
+      "S13"
+    ]
+  },
+  "breaks": {
+    "D1": [
+      [
+        4,
+        4.5
+      ],
+      [
+        9,
+        9.5
+      ],
+      [
+        14,
+        14.5
+      ]
+    ],
+    "D2": [
+      [
+        4.5,
+        5
+      ],
+      [
+        9.5,
+        10
+      ],
+      [
+        14.5,
+        15
+      ]
+    ],
+    "D3": [
+      [
+        5,
+        5.5
+      ],
+      [
+        10,
+        10.5
+      ],
+      [
+        15,
+        15.5
+      ]
+    ],
+    "D4": [
+      [
+        5.5,
+        6
+      ],
+      [
+        10.5,
+        11
+      ],
+      [
+        15.5,
+        16
+      ]
+    ]
+  },
+  "resourceSchedule": [
+    {
+      "id": "B01",
+      "owner": "D2",
+      "startHour": 0,
+      "endHour": 1
+    },
+    {
+      "id": "F01",
+      "owner": "D1",
+      "startHour": 0,
+      "endHour": 1.5
+    },
+    {
+      "id": "I01",
+      "owner": "D3",
+      "startHour": 0,
+      "endHour": 0.75
+    },
+    {
+      "id": "I02",
+      "owner": "D3",
+      "startHour": 0.75,
+      "endHour": 1.5
+    },
+    {
+      "id": "S01",
+      "owner": "D4",
+      "startHour": 1,
+      "endHour": 2
+    },
+    {
+      "id": "B02",
+      "owner": "D2",
+      "startHour": 1,
+      "endHour": 2.75
+    },
+    {
+      "id": "F03",
+      "owner": "D1",
+      "startHour": 1.5,
+      "endHour": 3.5
+    },
+    {
+      "id": "I03",
+      "owner": "D3",
+      "startHour": 1.5,
+      "endHour": 3.0
+    },
+    {
+      "id": "S05",
+      "owner": "D4",
+      "startHour": 2,
+      "endHour": 3.5
+    },
+    {
+      "id": "B03",
+      "owner": "D2",
+      "startHour": 2.75,
+      "endHour": 4.0
+    },
+    {
+      "id": "I04",
+      "owner": "D3",
+      "startHour": 3.0,
+      "endHour": 4.0
+    },
+    {
+      "id": "S02",
+      "owner": "D4",
+      "startHour": 3.5,
+      "endHour": 4.25
+    },
+    {
+      "id": "F02",
+      "owner": "D1",
+      "startHour": 3.5,
+      "endHour": 6.0
+    },
+    {
+      "id": "B04",
+      "owner": "D2",
+      "startHour": 4.0,
+      "endHour": 5.5
+    },
+    {
+      "id": "I05",
+      "owner": "D3",
+      "startHour": 4.0,
+      "endHour": 7.0
+    },
+    {
+      "id": "S06",
+      "owner": "D4",
+      "startHour": 4.25,
+      "endHour": 6.25
+    },
+    {
+      "id": "B08",
+      "owner": "D2",
+      "startHour": 5.5,
+      "endHour": 6.5
+    },
+    {
+      "id": "F04",
+      "owner": "D1",
+      "startHour": 6.0,
+      "endHour": 8.0
+    },
+    {
+      "id": "S03",
+      "owner": "D4",
+      "startHour": 6.5,
+      "endHour": 8.0
+    },
+    {
+      "id": "B07",
+      "owner": "D2",
+      "startHour": 6.5,
+      "endHour": 9.0
+    },
+    {
+      "id": "I10",
+      "owner": "D3",
+      "startHour": 7.0,
+      "endHour": 7.75
+    },
+    {
+      "id": "F05",
+      "owner": "D1",
+      "startHour": 8.0,
+      "endHour": 10.5
+    },
+    {
+      "id": "I08",
+      "owner": "D3",
+      "startHour": 9.0,
+      "endHour": 11.0
+    },
+    {
+      "id": "S04",
+      "owner": "D4",
+      "startHour": 9.0,
+      "endHour": 10.0
+    },
+    {
+      "id": "B05",
+      "owner": "D2",
+      "startHour": 9.0,
+      "endHour": 11.25
+    },
+    {
+      "id": "S07",
+      "owner": "D4",
+      "startHour": 10.0,
+      "endHour": 11.75
+    },
+    {
+      "id": "F06",
+      "owner": "D1",
+      "startHour": 10.5,
+      "endHour": 12.25
+    },
+    {
+      "id": "I06",
+      "owner": "D3",
+      "startHour": 11.0,
+      "endHour": 12.75
+    },
+    {
+      "id": "B06",
+      "owner": "D2",
+      "startHour": 11.25,
+      "endHour": 12.25
+    },
+    {
+      "id": "S08",
+      "owner": "D4",
+      "startHour": 11.75,
+      "endHour": 12.75
+    },
+    {
+      "id": "F07",
+      "owner": "D1",
+      "startHour": 12.25,
+      "endHour": 13.25
+    },
+    {
+      "id": "B09",
+      "owner": "D2",
+      "startHour": 12.25,
+      "endHour": 12.75
+    },
+    {
+      "id": "I07",
+      "owner": "D3",
+      "startHour": 12.75,
+      "endHour": 14.0
+    },
+    {
+      "id": "B10",
+      "owner": "D2",
+      "startHour": 12.75,
+      "endHour": 14.5
+    },
+    {
+      "id": "S09",
+      "owner": "D4",
+      "startHour": 12.75,
+      "endHour": 14.5
+    },
+    {
+      "id": "F08P",
+      "owner": "D1",
+      "startHour": 13.25,
+      "endHour": 13.75
+    },
+    {
+      "id": "I09",
+      "owner": "D3",
+      "startHour": 14.0,
+      "endHour": 16.5
+    },
+    {
+      "id": "S12",
+      "owner": "D4",
+      "startHour": 14.5,
+      "endHour": 16.75
+    },
+    {
+      "id": "B11",
+      "owner": "D2",
+      "startHour": 15,
+      "endHour": 15.75
+    },
+    {
+      "id": "B12",
+      "owner": "D2",
+      "startHour": 15.75,
+      "endHour": 17.75
+    },
+    {
+      "id": "I12",
+      "owner": "D3",
+      "startHour": 16.5,
+      "endHour": 17.25
+    },
+    {
+      "id": "S10",
+      "owner": "D4",
+      "startHour": 16.75,
+      "endHour": 17.5
+    },
+    {
+      "id": "I11",
+      "owner": "D3",
+      "startHour": 17.25,
+      "endHour": 18.75
+    },
+    {
+      "id": "S11",
+      "owner": "D4",
+      "startHour": 17.5,
+      "endHour": 19.0
+    },
+    {
+      "id": "F08A",
+      "owner": "D1",
+      "startHour": 17.75,
+      "endHour": 18.5
+    },
+    {
+      "id": "F08B",
+      "owner": "D1",
+      "startHour": 18.75,
+      "endHour": 19.5
+    },
+    {
+      "id": "S13",
+      "owner": "D4",
+      "startHour": 19.0,
+      "endHour": 20.0
+    },
+    {
+      "id": "F08C",
+      "owner": "D1",
+      "startHour": 20.0,
+      "endHour": 20.75
+    },
+    {
+      "id": "F09",
+      "owner": "D1",
+      "startHour": 20.75,
+      "endHour": 21.75
+    }
+  ],
+  "scheduledFinishHour": 21.75,
+  "releaseTargetHour": 22.5,
+  "recoveryBufferHours": 1.5,
+  "gates": [
+    {
+      "id": "G1",
+      "hour": 1.5,
+      "tasks": [
+        "B01",
+        "I01"
+      ],
+      "meaning": "Contracts/schema and hardware choice, not completed domain software"
+    },
+    {
+      "id": "G2",
+      "hour": 6,
+      "tasks": [
+        "B02",
+        "B03",
+        "F03",
+        "F02",
+        "I03",
+        "S01"
+      ],
+      "meaning": "Intake and capability spike; field/upload endpoint proof follows later"
+    },
+    {
+      "id": "G3",
+      "hour": 12,
+      "tasks": [
+        "B05",
+        "B07",
+        "I05"
+      ],
+      "meaning": "Quote/finance/core allocation code ready on valid fixtures"
+    },
+    {
+      "id": "G4",
+      "hour": 13,
+      "tasks": [
+        "B06",
+        "B07",
+        "S01"
+      ],
+      "meaning": "Order/payment/job real handoff"
+    },
+    {
+      "id": "G5",
+      "hour": 15,
+      "tasks": [
+        "I07",
+        "B08",
+        "S03"
+      ],
+      "meaning": "Delivery/activation and field evidence endpoints"
+    },
+    {
+      "id": "G6",
+      "hour": 19,
+      "tasks": [
+        "B12",
+        "I11",
+        "I12",
+        "S11"
+      ],
+      "meaning": "Feature freeze and domain test/recovery evidence"
+    },
+    {
+      "id": "G7",
+      "hour": 20.75,
+      "tasks": [
+        "S13",
+        "F08A",
+        "F08B",
+        "F08C",
+        "F08P"
+      ],
+      "meaning": "All UI/domain joins and full evaluator path"
+    },
+    {
+      "id": "G8",
+      "hour": 22,
+      "tasks": [
+        "F09",
+        "S12"
+      ],
+      "meaning": "Three timed presentations/evidence"
+    },
+    {
+      "id": "G9",
+      "hour": 22.5,
+      "tasks": [
+        "F09",
+        "B11",
+        "I12"
+      ],
+      "meaning": "Release and artifact freeze"
+    }
+  ]
+}

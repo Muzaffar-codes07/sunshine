@@ -1,5 +1,7 @@
 # Release, submission and three-minute demonstration
 
+**Current operator script:** use [the expanded runbook](demo-runbook.md) and [complete build plan](demo-build-plan.md). They replace the earlier compressed single-new-customer timing below. The short pitch introduces multiple prepared records honestly; the full evaluator path proves a new enquiry through all required scenes. No timed rehearsal has been performed yet.
+
 ## Requirement provenance
 
 The [supplied video extraction](../requirements/organizer-video-deliverables.md) requires working project, own local relational DB, custom backend APIs, clean dynamic UI, whole-team Git contributions and presentation. It comes from a 2025 video. Specific current event fields/deadlines/hosting/video rules at `https://hackathon.odoo.com/hackathon/details/69159` could not be independently verified. Do not label assumptions as organizer rules. The user's latest direction is to ignore unverified wall-clock deadlines.
@@ -8,14 +10,14 @@ The [supplied video extraction](../requirements/organizer-video-deliverables.md)
 
 | Artifact | Owner | Target |
 |---|---|---|
-| Working connected project | All, D2 integrates | H18 |
+| Working connected project | All, D2 integrates | H20.75 |
 | Whole-team Git contributions | Each member | Throughout |
-| README/env/startup/release | D2 | H20 |
-| Migrations and explicit demo seed | D3 coordinates | H18 |
-| ERD / integrity explanation | D3 | H20 |
-| API contracts and domain tests | Each backend owner | H18 |
-| Timed whole-team demo | D4 coordinates; all speak | H21 |
-| Portal fields/evaluator access | D2 verifies | H0 and H21 |
+| README/env/startup/release | D2 | H22 |
+| Migrations and explicit demo seed | D3 coordinates | H20.75 |
+| ERD / integrity explanation | D3 | H22 |
+| API contracts and domain tests | Each backend owner | H20.75 |
+| Timed whole-team demo | D4 coordinates; all speak | H22 |
+| Portal fields/evaluator access | D2 verifies | H0 and H22 |
 | Cloud URL/video link, if required | D2 hosting, D4 video | Before actual submission |
 
 ## Deployment and fallback
@@ -24,19 +26,10 @@ Primary: local Compose app + PostgreSQL + persistent private files. Apply commit
 
 Maintain a second laptop with the release, locked dependencies or prebuilt image, DB backup and matching uploads. Verify restore. If Docker fails, document native PostgreSQL/Node startup. If cloud/internet fails, use the working local application. Local operation is not offline browser synchronization.
 
-## Demo data and accounts
+## Current presentation and completion evidence
 
-Future implementation: separate real role-restricted staff browser profiles; barcode and photograph; no fake role switcher. Current scaffold has no accounts yet. New workflow records use today's dates. The warranty story uses a separately seeded historical installation delivered 18 months ago, clearly labeled. Never change production time.
+Use [the runbook](demo-runbook.md): a staged three-minute presentation with explicit prepared records and real writes; a longer evaluator walkthrough starts from a fresh enquiry and proves R1–R25. The earlier single-customer timing sketch is superseded. No rehearsal or phone test is claimed by this document.
 
-| Time | Presenter / action | Visible persisted result |
-|---|---|---|
-| 0:00–0:15 | D1 public enquiry | Appears in sales queue |
-| 0:15–0:35 | D2 qualify/approve survey | Quote creation enabled |
-| 0:35–0:55 | D2 3 kW quote/order/advance | Frozen BOM, invoice balance, job/packing needs |
-| 0:55–1:20 | D3 allocate/scan/dispatch/deliver | Customer serial linkage, stock change, warranty activation |
-| 1:20–1:45 | D4 field form/photo/signature | Installation complete with evidence |
-| 1:45–2:15 | D4 historical inverter fault | Correct saved coverage decision |
-| 2:15–2:35 | D4 covered repair | Zero customer charge, actual internal cost |
-| 2:35–3:00 | Customer confirmation/reports | Closed ticket, job margin and pending-work changes |
+Current job oracle: fully paid D goes from 12,600 contribution to −2,000 after a 14,600 covered inverter replacement; E's fully paid original job adds a 4,000 chargeable repair invoice with 2,000 actual cost. See the machine-checked [oracle](demo-seed-oracle.json) for job/portfolio/period/pay/CSV scopes. Runtime reports must derive values from posted records.
 
-A retry uses idempotency; a prepared existing record is labeled as such. A recording is not a live recovery. API/stock/payment/evidence/report outcomes must persist and survive refresh. Test every critical command before presenting.
+Before claiming ready: every mandatory traceability row has real endpoint/UI/test evidence; the release survives cold start/restore; actual device/scanner and safe export work; all four have their own commits and presentation parts; actual organizer submission fields are checked by D2. Keep unknown requirements distinct from recommendations.

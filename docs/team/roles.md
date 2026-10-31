@@ -24,7 +24,7 @@
 | Deliverables | Connected screens, scan/upload/signature controls, loading/error/empty states |
 | Acceptance | Full lifecycle reads persisted APIs; refresh retains data; phone interactions tested |
 | Effort | 16–17 focused hours within 24 elapsed hours |
-| Checkpoints | H3 shell/intake; H8 sales; H12 fulfillment; H16 entire lifecycle |
+| Checkpoints | H6 shell/intake/device spike; H13 sales; H19 fulfillment; H20.75 whole lifecycle; H22 timed presentation |
 | Tests | Important form validation, error handling and UI states; support domain E2E scenarios |
 | Independent work | Build against typed fixtures; risky scan/signature/photo controls first |
 | Backup tasks | Finish reusable states and keyboard/mobile behavior while APIs are blocked |
@@ -45,7 +45,7 @@
 | Deliverables | Authenticated persisted enquiry; approved survey→frozen quote→order/invoice; deduplicated receipt; local release |
 | Acceptance | Unapproved survey cannot quote; retries do not duplicate invoices/payments; unauthorized access rejected |
 | Effort | 17–18 focused hours; platform is front-loaded; finance UI remains tables |
-| Checkpoints | H3 auth/intake; H8 order/payment; H16 integration; H20 clean startup |
+| Checkpoints | H6 auth/intake; H13 order/payment; H19 sales join; H22 release |
 | Tests | Validation, approval gate, invoice/payment idempotency, auth/files; initial E2E harness |
 | Independent work | Auth, validation, finance unit tests, contract fixtures before inventory exists |
 | Backup tasks | README, CI, release rehearsal and E2E harness; D3 can assist release operations |
@@ -66,7 +66,7 @@
 | Deliverables | Receipt→allocation→scanned dispatch→delivery→warranty with actual costs |
 | Acceptance | Concurrent allocations have one winner; no negative stock; warranty starts once; installed unit cannot be allocated again |
 | Effort | 16–17 focused hours; one warehouse, no purchasing ERP |
-| Checkpoints | H4 catalogue/receipts; H8 allocation; H12 delivery/warranty; H18 concurrency evidence |
+| Checkpoints | H6 catalogue/receipts; isolated allocation early; H15 delivery/warranty; H19 fulfillment/concurrency evidence |
 | Tests | Real PostgreSQL concurrency, insufficient-stock rollback, serial uniqueness, repeated dispatch/delivery, replacement history |
 | Independent work | Seed catalogue/stock and test locking before sales is complete |
 | Backup tasks | Integrity queries, migration replay, ER diagram, backup/restore evidence |
@@ -87,7 +87,7 @@
 | Deliverables | Evidence-gated completion; explained free/chargeable repair; confirmed closure; reconciled reports |
 | Acceptance | Cannot complete without evidence or close without confirmer/channel/time; repair costs affect correct job |
 | Effort | 16–17 focused hours; staff-recorded customer confirmation, no full portal/payroll |
-| Checkpoints | H4 job/ticket fixtures; H12 field backend; H16 lifecycle/reports; H21 rehearsal |
+| Checkpoints | H4 job/ticket fixtures; field backend in parallel; H20.75 lifecycle/reports; H22 rehearsal |
 | Tests | Evidence gates, date boundaries, unauthorized job access, confirmation gate, report reconciliation |
 | Independent work | Coverage function, seeded historic jobs, report fixtures |
 | Backup tasks | Demo script, acceptance checklist, historical seed scenarios and test evidence |
@@ -110,7 +110,7 @@
 
 ## Collaboration rules
 
-- Contracts and fixture payloads by H1.5, first persisted UI by H3; do not hand three incompatible APIs to D1 at once.
+- Contracts and fixture payloads by H1.5, first persisted intake UI by H6; do not hand three incompatible APIs to D1 at once.
 - At checkpoints: D2 sales slot, D3 fulfillment slot, D4 field/service slot. That backend owner stays available during integration.
 - Each owner writes their own business transactions and tests. D3 coordinates migrations; D3 does not become the author of everyone's schema changes.
 - D2's FinanceService is the single writer for invoices, receipts and costs. D3/D4 call it with the existing transaction.
