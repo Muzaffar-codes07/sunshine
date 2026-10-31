@@ -119,3 +119,19 @@ test('zero receipt cost requires an explicit reason rather than a silent default
   assert.equal(c.stockReceiptLineSchema.safeParse(line).success, false);
   assert.equal(c.stockReceiptLineSchema.safeParse({ ...line, zeroCostReason: 'Supplier-funded replacement' }).success, true);
 });
+
+test('transfer and count drafts reject duplicate products and a same-location move', () => {
+  const productId = id(1);
+  const fromLocationId = id(2);
+  const toLocationId = id(3);
+  const transfer = { reference: 'TR-1', fromLocationId, toLocationId, lines: [{ productId, quantity: '2' }] };
+  assert.equal(c.createStockTransferRequestSchema.safeParse(transfer).success, true);
+  assert.equal(c.createStockTransferRequestSchema.safeParse({ ...transfer, toLocationId: fromLocationId }).success, false);
+  assert.equal(c.createStockTransferRequestSchema.safeParse({ ...transfer, lines: [transfer.lines[0], transfer.lines[0]] }).success, false);
+  assert.equal(c.createStockTransferRequestSchema.safeParse({ ...transfer, lines: [{ productId, quantity: '2', serials: ['A'] }] }).success, false);
+  assert.equal(c.createStockTransferRequestSchema.safeParse({ ...transfer, lines: [{ productId, quantity: '2', serials: ['ab', ' AB '] }] }).success, false);
+  const count = { reference: 'CT-1', locationId: toLocationId, lines: [{ productId, countedQuantity: '0' }] };
+  assert.equal(c.createStockCountRequestSchema.safeParse(count).success, true);
+  assert.equal(c.createStockCountRequestSchema.safeParse({ ...count, lines: [count.lines[0], count.lines[0]] }).success, false);
+  assert.equal(c.stockDocumentCommandRequestSchema.safeParse({}).success, false);
+});

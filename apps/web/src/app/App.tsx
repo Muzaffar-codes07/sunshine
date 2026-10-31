@@ -1,10 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link, Route, Routes } from 'react-router-dom';
 import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
+import { PublicEnquiryPage } from '../features/sales/PublicEnquiryPage';
 import { apiGet } from '../lib/api';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
 export function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/enquire" element={<PublicEnquiryPage />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+function NotFound() {
+  return <main className="enquiry-page"><h1>Page not found</h1><p><Link to="/">Go to the Sunshine home page</Link></p></main>;
+}
+
+function Home() {
   const health = useQuery({ queryKey: ['health'], queryFn: ({ signal }) => apiGet('/health', healthResponseSchema, signal) });
   const database = useQuery({ queryKey: ['readiness'], queryFn: ({ signal }) => apiGet('/health/ready', readinessResponseSchema, signal) });
   return (
@@ -14,6 +30,7 @@ export function App() {
         <p className="eyebrow">ONE CUSTOMER. ONE CONNECTED LIFECYCLE.</p>
         <h1>From rooftop enquiry<br />to years of reliable service.</h1>
         <p className="intro">The foundation for SunPower Solutions. Business workflows are planned and have not been implemented yet.</p>
+        <p><Link to="/enquire">Make a solar enquiry</Link></p>
       </section>
       <section className="status-grid" aria-label="Live infrastructure status">
         <Status label="Application API" pending={health.isPending} error={health.error} ready={health.isSuccess} onRetry={() => void health.refetch()} />
