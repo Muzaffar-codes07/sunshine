@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { allocateOrderRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, releaseOrderAllocationsRequestSchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, unitLookupQuerySchema,
-  type AllocateOrderRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockLevelListQuery, type UnitLookupQuery } from '@sunshine/contracts';
+import { allocateOrderRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, releaseOrderAllocationsRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
+  type AllocateOrderRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -9,6 +9,7 @@ import { IdempotencyKey } from '../platform/idempotency';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { AllocationsService } from './allocations.service';
 import { StockDocumentsService } from './stock-documents.service';
+import { StockIntegrityService } from './stock-integrity.service';
 import { StockReadService } from './stock-read.service';
 import { StockReceiptsService } from './stock-receipts.service';
 
@@ -16,7 +17,7 @@ import { StockReceiptsService } from './stock-receipts.service';
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('WAREHOUSE', 'ADMIN')
 export class InventoryController {
-  constructor(private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService) {}
+  constructor(private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService, private readonly integrity: StockIntegrityService) {}
   @Post('stock/receipts')
   receive(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Body(new ZodValidationPipe(receiveStockRequestSchema)) body: ReceiveStockRequest) {
     return this.receipts.receive(request.user.id, key, body);
@@ -57,6 +58,14 @@ export class InventoryController {
   }
   @Get('stock/locations')
   locations() { return this.reads.listLocations(); }
+  @Get('stock/movements')
+  movements(@Query(new ZodValidationPipe(stockMovementListQuerySchema)) query: StockMovementListQuery) { return this.reads.listMovements(query); }
+  @Get('stock/as-of')
+  asOf(@Query(new ZodValidationPipe(stockAsOfQuerySchema)) query: StockAsOfQuery) { return this.reads.stockAsOf(query); }
+  @Get('stock/value')
+  value(@Query(new ZodValidationPipe(stockValueQuerySchema)) query: StockValueQuery) { return this.reads.stockValue(query); }
+  @Get('stock/integrity')
+  integrityReport() { return this.integrity.report(); }
   @Get('stock')
   levels(@Query(new ZodValidationPipe(stockLevelListQuerySchema)) query: StockLevelListQuery) { return this.reads.listLevels(query); }
   @Get('units')

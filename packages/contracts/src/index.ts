@@ -58,6 +58,7 @@ export * from './idempotency';
 export * from './orders';
 export * from './summary';
 
+export * from './files';
 // D3 operational transport contracts; no runtime stock or field behavior implied.
 export * from './inventory';
 export * from './field';
