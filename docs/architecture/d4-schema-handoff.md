@@ -26,6 +26,10 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
 - Subsidy stage remains a configurable label. Its stored workflow status is
   `PENDING`, `SUBMITTED`, `APPROVED`, `REJECTED`, or `RECEIVED`, within the shared
   projection's string status. These are application labels, not eligibility rules.
+- Task 4.1 adds `pendingDocuments` (text array, default empty) and optional
+  `responsibleOwnerId` with a named Restrict relation to User and owner/status
+  index. Include these in the queued migration; report buckets map PENDING to
+  PENDING_DOCS and RECEIVED to DISBURSED, retaining REJECTED separately.
 - Cost idempotency is the compound key `(uniqueSourceId, costType)`, as specified
   by Task 1.2. Callers must namespace the source by its source kind and ID.
 
