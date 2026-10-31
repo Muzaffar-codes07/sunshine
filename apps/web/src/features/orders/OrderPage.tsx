@@ -94,6 +94,6 @@ function FinancialOrder({ id, actor }: { id: string; actor: StaffIdentity }) {
     ]} rows={invoice.payments.map(payment => ({ id: payment.id, cells: {
       when: formatWhen(payment.receivedAt), method: humanize(payment.method), reference: payment.reference, kind: humanize(payment.kind), amount: `₹${payment.amount}`,
     } }))} />
-    {actor.role === 'ADMIN' ? <PaymentForm invoice={invoice} onRecorded={recorded} /> : <p>An administrator records payments received.</p>}
+    {actor.role === 'ADMIN' ? <PaymentForm key={invoice.id} invoice={invoice} onRecorded={recorded} /> : <p>An administrator records payments received.</p>}
   </>;
 }
