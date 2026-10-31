@@ -1,6 +1,6 @@
 # Inventory module
 
-Owner: **D3**. Status: **receipts, transfers, counts, order allocation and stock reads implemented**; dispatch, issues, returns, repair-part allocation, releasing a reservation, serialized counts and receipt drafts are planned.
+Owner: **D3**. Status: **receipts, transfers, counts, order allocation and release, and stock reads implemented**; dispatch, issues, returns, repair-part allocation, serialized counts and receipt drafts are planned.
 
 The rules are in the [data model](../../../../docs/architecture/data-model.md#stock-ledger-owner-decision-31-oct).
 
