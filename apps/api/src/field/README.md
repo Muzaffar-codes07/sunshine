@@ -1,6 +1,8 @@
 # Field module
 
-Owner: **D4**. Status: **planned, not implemented**.
+Owner: **D3**. Status: **job creation implemented**; scheduling, assignments, installation completion, evidence and time are planned.
+
+`JobsService.ensureJob(tx, facts)` creates one job per confirmed order, in the confirming transaction. The job holds no copy of the customer, capacity or system type; they stay on the order and its accepted quote. The database only lets an order point at its own job.
 
 Jobs, assignments, installation completion, evidence associations and time.
 

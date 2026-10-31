@@ -453,6 +453,13 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
+    },
+    {
+      "name": "jobs_version_positive",
+      "table": "jobs",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
     }
   ]
 }
