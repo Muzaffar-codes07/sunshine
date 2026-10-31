@@ -1345,6 +1345,27 @@
       "kind": "check",
       "owner": "D4",
       "definition": "CHECK (((btrim((\"policyName\")::text) <> ''::text) AND (btrim((revision)::text) <> ''::text) AND (btrim((scope)::text) <> ''::text) AND ((\"durationMonths\" >= 1) AND (\"durationMonths\" <= 1200))))"
+    },
+    {
+      "name": "files_preserve_evidence",
+      "table": "files_preserve_evidence",
+      "kind": "function",
+      "owner": "D2",
+      "definition": "CREATE OR REPLACE FUNCTION public.files_preserve_evidence()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP IN ('DELETE', 'TRUNCATE') THEN\n    RAISE EXCEPTION 'violates check constraint \"files_evidence_frozen\": persisted evidence cannot be removed'\n      USING ERRCODE = '23514', CONSTRAINT = 'files_evidence_frozen';\n  END IF;\n  IF (to_jsonb(NEW) - 'contextType' - 'contextId') IS DISTINCT FROM\n     (to_jsonb(OLD) - 'contextType' - 'contextId') THEN\n    RAISE EXCEPTION 'violates check constraint \"files_evidence_frozen\": persisted metadata cannot be changed'\n      USING ERRCODE = '23514', CONSTRAINT = 'files_evidence_frozen';\n  END IF;\n  IF OLD.\"contextType\" IS NOT NULL AND\n     (NEW.\"contextType\", NEW.\"contextId\") IS DISTINCT FROM (OLD.\"contextType\", OLD.\"contextId\") THEN\n    RAISE EXCEPTION 'violates check constraint \"files_evidence_frozen\": evidence cannot move to another record'\n      USING ERRCODE = '23514', CONSTRAINT = 'files_evidence_frozen';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "files_evidence_frozen",
+      "table": "files",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER files_evidence_frozen BEFORE DELETE OR UPDATE ON public.files FOR EACH ROW EXECUTE FUNCTION files_preserve_evidence()"
+    },
+    {
+      "name": "files_no_truncate",
+      "table": "files",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER files_no_truncate BEFORE TRUNCATE ON public.files FOR EACH STATEMENT EXECUTE FUNCTION files_preserve_evidence()"
     }
   ]
 }
