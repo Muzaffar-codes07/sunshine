@@ -20,8 +20,10 @@ No independent transaction, commit, receipt or network/file operation occurs in 
 
 ## Schema and verification
 
-A new nullable JSONB sourceSnapshot column is the only schema addition; existing invoices need no rewrite. Migration timestamp is pending D3 coordination. No applied migration is edited.
+A new nullable JSONB sourceSnapshot column is the only schema addition; existing invoices need no rewrite. Candidate migration 20261031810000_invoice_source_snapshot was generated with Prisma migrate dev --create-only and applied only to disposable PostgreSQL17.11. Its timestamp remains provisional pending D3 slot confirmation and SQL approval on issue#2. Keep the PR draft; no shared/demo database application or merge is authorized by this handoff. An upgrade fixture retained every pre-existing invoice field and received null sourceSnapshot. No applied migration is edited.
 
 The real PostgreSQL suite apps/api/test/repair-invoices.db.test.mjs covers exact rounding and source snapshot/privacy, canonical replay, concurrency and competing facts, changed identity/description/prices, invalid/missing/covered work, zero charges, receipts, preceding caller-write rollback, damaged records and D4 billing/cost/invoice/ticket composition. The approved repair-source reader is explicitly synthetic; D2 and D4 writers and PostgreSQL transactions are real. A late caller failure must remove cost, invoice, lines and billing snapshot together.
 
 This adapter does not enable production ticket commands or prove delivery/service completion. Those still require actual domain authorization/source adapters, actor-scoped command replay and frontend acceptance.
+
+Candidate verification: full check99API/89contracts/13seed/4invariants and builds pass; fresh PostgreSQL269DBtests (including9newrepaircases),190exactrules,26checker regressions and smoke pass. Both owned test databases were removed. Results apply to this provisional candidate, not a shared deployment.
