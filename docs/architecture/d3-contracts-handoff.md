@@ -1,6 +1,6 @@
 # D3 inventory and field contract handoff
 
-Status: transport contracts and development fixtures only. No stock/field database migration, domain service, HTTP route or hardware validation is implemented by this slice. It does not select a stock-state design or implement a readiness preview. D1 owns all production UI; Tuhin owns D3, with Claude reviewing each slice.
+Status: transport contracts and development fixtures only. They work with the owner-selected [stock ledger rules](data-model.md#stock-ledger-owner-decision-31-oct); runtime implementation is pending. No stock/field database migration, domain service, HTTP route, readiness preview or hardware validation is implemented by this slice. D1 owns all production UI; Tuhin owns D3, with Claude reviewing each slice.
 
 ## Dependencies and scope
 
