@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { allocateOrderRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
-  type AllocateOrderRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
+import { allocateOrderRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, releaseOrderAllocationsRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
+  type AllocateOrderRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -50,6 +50,12 @@ export class InventoryController {
   }
   @Get('orders/:id/allocations')
   orderAllocations(@Param('id', ParseUUIDPipe) id: string) { return this.allocations.listForOrder(id); }
+  @Post('orders/:id/allocations/release')
+  @HttpCode(200)
+  release(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(releaseOrderAllocationsRequestSchema)) body: ReleaseOrderAllocationsRequest) {
+    return this.allocations.releaseOrder(request.user.id, key, id, body);
+  }
   @Get('stock/locations')
   locations() { return this.reads.listLocations(); }
   @Get('stock/movements')
