@@ -4,7 +4,7 @@ Status: transport contracts and development fixtures only. They work with the ow
 
 ## Dependencies and scope
 
-This branch is explicitly stacked on [D2 catalogue PR #19](https://github.com/Muzaffar-codes07/sunshine/pull/19) for the canonical catalogue and shared exact numeric schemas. Its `shared.ts` is byte-identical to the original D4 shared helpers. D3's earlier dependency on PR #8 has been removed: no D4 models, repositories or preparatory schema are inherited. Do not merge before #19 lands; retarget to main afterwards and verify the combined tree.
+This branch is based directly on main after [D2 catalogue PR #19](https://github.com/Muzaffar-codes07/sunshine/pull/19) landed. It replaces PR #22, whose catalogue branch was squash-merged. Only D3 files and appended exports differ from main; no catalogue commits or D4 preparatory models are included. Shared exact numeric schemas come from the merged catalogue. D3's earlier PR #8 dependency is removed.
 
 D3 adds `inventory.ts`, `field.ts`, their exported inferred TypeScript types, and the examples in `packages/contracts/test/fixtures/d3.cjs`. Examples are for development/tests only; the application does not import them. The existing health, error, sales, auth and catalogue contracts remain available. D4 retains its own contracts in its separate PR.
 
