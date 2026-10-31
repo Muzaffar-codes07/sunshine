@@ -29,6 +29,9 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   ownedEnquiries Enquiry[]
+  commands       Command[]
+  surveysAssigned Survey[] @relation("SurveyTechnician")
+  surveysDecided  Survey[] @relation("SurveyDecision")
 
   @@map("users")
 }
@@ -101,12 +104,66 @@ model Enquiry {
   // SetNull, not Restrict: the owner is only a work assignment. Removing a staff user must neither be blocked
   // by their open enquiries nor delete them; the enquiry returns to the unassigned queue.
   owner    User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  surveys  Survey[]
 
   @@index([status, nextFollowUpAt])
   @@index([ownerId, status])
   @@index([customerId])
   @@index([createdAt])
   @@map("enquiries")
+}
+
+enum SurveyStatus {
+  SCHEDULED
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum RoofDirection {
+  N
+  NE
+  E
+  SE
+  S
+  SW
+  W
+  NW
+}
+
+// One row per survey revision (R3–R4). A decided revision is never edited: changing the facts later means a new
+// revision, so the earlier approval stays as evidence. At most one open revision per enquiry (partial unique index
+// surveys_one_open_per_enquiry); a quote needs the latest revision to be APPROVED.
+model Survey {
+  id                String         @id @default(uuid()) @db.Uuid
+  enquiryId         String         @db.Uuid
+  revision          Int
+  status            SurveyStatus   @default(SCHEDULED)
+  technicianId      String         @db.Uuid
+  scheduledFor      DateTime       @db.Timestamptz(3)
+  // Site measurements, required once submitted (CHECK surveys_submitted_has_measurements).
+  roofDirection     RoofDirection?
+  roofTiltDeg       Decimal?       @db.Decimal(4, 1)
+  cableDistanceM    Decimal?       @db.Decimal(7, 2)
+  usableRoofAreaSqm Decimal?       @db.Decimal(8, 2)
+  notes             String?
+  submittedAt       DateTime?      @db.Timestamptz(3)
+  decidedById       String?        @db.Uuid
+  decidedAt         DateTime?      @db.Timestamptz(3)
+  decisionReason    String?
+  version           Int            @default(1)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  enquiry    Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
+  // Restrict: who measured and who approved are evidence, so those users cannot be deleted from under it.
+  technician User    @relation("SurveyTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  decidedBy  User?   @relation("SurveyDecision", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@unique([enquiryId, revision])
+  @@index([technicianId, status, scheduledFor])
+  @@index([decidedById])
+  @@map("surveys")
 }
 
 // Shared staff sessions; User is rechecked on every protected request.
@@ -206,4 +263,25 @@ model PackageItem {
   @@unique([packageId, position])
   @@index([productId])
   @@map("package_items")
+}
+
+// Idempotent command results (TRD decision M6). One row per actor and Idempotency-Key, claimed at the start of the
+// business transaction and committed with its result, so a retry replays the recorded result instead of acting twice.
+model Command {
+  id             String   @id @default(uuid()) @db.Uuid
+  actorId        String   @db.Uuid
+  idempotencyKey String
+  // UPPER_SNAKE_CASE business action, such as ORDER_CONFIRM; a key reused for another action is refused.
+  action         String
+  // SHA-256 of the canonical JSON request body; a key reused with another body is refused.
+  payloadHash    String
+  // The response body returned to the first request; set before the transaction commits.
+  result         Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  // Restrict: the record of who issued a money or stock command is evidence.
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([actorId, idempotencyKey])
+  @@map("commands")
 }
