@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { allocationListResponseSchema, deliverDispatchRequestSchema, dispatchResponseSchema, recordScanRequestSchema, type AllocationView, type OrderFulfilment } from '@sunshine/contracts';
 import { DetailPattern, ListPattern, TimelinePattern } from '../../components/shared/patterns';
+import { ScanInput } from '../../components/device/ScanInput';
+import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
 import { describeProblem, formatWhen, humanize, localToIso } from '../sales/queries';
-import { CommandFeedback } from './CommandFeedback';
 import { checkInput, useAllocations, useDispatch, useFulfilment, useJob, useStockCommand, useUnit } from './queries';
 
 type Dispatch = z.infer<typeof dispatchResponseSchema>['data'];
@@ -79,23 +80,17 @@ function Delivered({ dispatch }: { dispatch: Dispatch }) {
 }
 
 function ScanForm({ dispatch }: { dispatch: Dispatch }) {
-  const input = useRef<HTMLInputElement>(null);
+  const [manualMethod, setManualMethod] = useState<'SCANNER' | 'TYPED'>('TYPED');
   const [saved, setSaved] = useState('');
   const command = useStockCommand(dispatchResponseSchema, (result) => {
     const [last] = result.data.scans.slice(-1);
     setSaved(last ? `Recorded ${last.normalizedSerial}.` : 'Recorded.');
-    if (input.current) input.current.value = '';
   });
-  // A handheld scanner types wherever the focus is, so focus must come back once the form is enabled again. A refused
-  // value stays selected, so the next scan replaces it.
-  useEffect(() => { if (!command.busy && !command.uncertain) { input.current?.focus(); input.current?.select(); } }, [command.busy, command.uncertain]);
   const { required, done } = { required: dispatch.scanReadiness.requiredUnitIds.length, done: dispatch.scanReadiness.requiredUnitIds.length - dispatch.scanReadiness.missingUnitIds.length };
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  function record(rawValue: string, source: 'manual' | 'camera') {
     setSaved('');
-    const checked = checkInput(recordScanRequestSchema, { rawValue: form.get('rawValue'), method: form.get('method') }, { rawValue: 'Scan or enter the serial number.' });
+    const checked = checkInput(recordScanRequestSchema, { rawValue, method: source === 'camera' ? 'CAMERA' : manualMethod });
     if ('problem' in checked) { command.setProblem(checked.problem); return; }
     command.run(`/dispatches/${dispatch.id}/scans`, checked.data);
   }
@@ -106,14 +101,13 @@ function ScanForm({ dispatch }: { dispatch: Dispatch }) {
     {!dispatch.scanReadiness.reservationValid && <p role="alert">The reservation has changed. Check the stock before scanning.</p>}
     {dispatch.scanReadiness.complete
       ? <PostDispatch dispatch={dispatch} />
-      : <form onSubmit={submit} noValidate aria-busy={command.busy}>
-        <fieldset disabled={command.busy || command.uncertain}>
-          <legend>Next unit</legend>
-          <Field label="Serial number" hint="Scan with the handheld scanner, which submits by itself." error={command.problem.fields.rawValue}>{(control) => <input {...control} ref={input} name="rawValue" maxLength={512} autoComplete="off" autoFocus required />}</Field>
-          <Field label="How it was entered" hint="Typed entries are recorded but never count as a scan." error={command.problem.fields.method}>{(control) => <select {...control} name="method" defaultValue="SCANNER"><option value="SCANNER">Scanner</option><option value="TYPED">Typed</option></select>}</Field>
-          <button type="submit">{command.busy ? 'Recording…' : 'Record scan'}</button>
-        </fieldset>
-      </form>}
+      : <>
+        <Field label="Input source" hint="Choose Scanner only for a USB or Bluetooth device. Typed entries never satisfy dispatch scanning.">
+          {(control) => <select {...control} value={manualMethod} disabled={command.busy || command.uncertain} onChange={(event) => setManualMethod(event.target.value as 'SCANNER' | 'TYPED')}><option value="TYPED">Typed</option><option value="SCANNER">USB / Bluetooth scanner</option></select>}
+        </Field>
+        <ScanInput label="Serial number" error={command.problem.fields.rawValue} onScan={record} disabled={command.busy || command.uncertain} autoFocus />
+      </>}
+
     {saved && <p role="status">{saved}</p>}
     <CommandFeedback problem={command.problem} uncertain={command.uncertain} busy={command.busy} onRetry={command.retry} />
     <TimelinePattern title="Scan history" events={dispatch.scans.map((scan) => ({

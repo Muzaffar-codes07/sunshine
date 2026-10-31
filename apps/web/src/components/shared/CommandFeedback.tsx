@@ -1,4 +1,4 @@
-import type { Problem } from './queries';
+import type { Problem } from '../../lib/command';
 
 /** The refusal reasons, and a retry of the same request when the result wasn't confirmed. */
 export function CommandFeedback({ problem, uncertain, busy, onRetry }: { problem: Problem; uncertain: boolean; busy: boolean; onRetry: () => void }) {

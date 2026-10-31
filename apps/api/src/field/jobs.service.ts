@@ -8,8 +8,11 @@ import type { Prisma } from '../generated/prisma/client';
 import type { ConfirmedOrderFacts, OrderJobCreator } from '../orders/order-job.port';
 
 export const jobInclude = {
-  order: { select: { customerId: true, number: true } },
-  assignments: { where: { removedAt: null }, select: { technicianId: true }, orderBy: { technicianId: 'asc' } },
+  order: { select: {
+    customerId: true, number: true, quote: { select: { packageSnapshot: true } },
+    enquiry: { select: { contactName: true, siteAddressLine: true, siteCity: true, sitePincode: true } },
+  } },
+  assignments: { where: { removedAt: null }, select: { technicianId: true, technician: { select: { displayName: true } } }, orderBy: { technicianId: 'asc' } },
   photos: { select: { fileId: true }, orderBy: { position: 'asc' } },
   timeRecords: { select: { id: true, technicianId: true, startedAt: true, finishedAt: true }, orderBy: [{ startedAt: 'asc' }, { id: 'asc' }] },
 } satisfies Prisma.JobInclude;
@@ -99,7 +102,12 @@ function notFound() {
 }
 
 export function jobView(row: JobRow): z.infer<typeof jobViewSchema> {
+  const sold = row.order.quote.packageSnapshot as { capacityKw?: unknown; systemType?: unknown };
+  const site = row.order.enquiry;
   return jobViewSchema.parse({
+    contactName: site.contactName, siteAddress: `${site.siteAddressLine}, ${site.siteCity} ${site.sitePincode}`,
+    soldCapacityKw: sold.capacityKw, systemType: sold.systemType,
+    crew: row.assignments.map((assignment) => ({ id: assignment.technicianId, displayName: assignment.technician.displayName })),
     id: row.id, orderId: row.orderId, orderDisplayNumber: `ORD-${String(row.order.number).padStart(6, '0')}`, customerId: row.order.customerId, status: row.status, version: row.version,
     scheduledStart: row.scheduledStart?.toISOString() ?? null, scheduledFinish: row.scheduledFinish?.toISOString() ?? null,
     technicianIds: row.assignments.map((assignment) => assignment.technicianId),

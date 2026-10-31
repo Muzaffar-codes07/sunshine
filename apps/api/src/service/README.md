@@ -7,6 +7,22 @@ Replacement orchestration preserves equipment lineage and the original warranty 
 
 ## Commands
 
+## Saved ticket reads
+
+`GET /api/v1/tickets/:id` and `GET /api/v1/tickets` use the existing staff
+session guard and allow ADMIN/SUPPORT only. They return saved ticket facts,
+including version, assessment snapshot, replacement links and confirmation;
+neither route re-evaluates coverage. Detail returns the existing
+`{ data: ServiceTicket }` contract and 404 `TICKET_NOT_FOUND` for an unknown ID.
+
+The list returns `{ data: { items, page, pageSize, total } }`. It accepts
+`page` (1–10000, default 1), `pageSize` (1–50, default 20), optional `unitId`
+and optional `status`. Results order by newest `createdAt`, then UUID ascending.
+Both reads set `Cache-Control: no-store`; a missing D4 migration returns 503.
+This read surface does not enable the POST commands below. Their existing
+fail-closed `ServiceTicketAccess` remains until server-side actor-scoped replay
+and production installation/authorization integration are complete.
+
 All routes return `{ data: ServiceTicket }`. Create returns 201; actions return 200.
 All bodies are strict shared contracts; unknown fields are rejected with 400.
 

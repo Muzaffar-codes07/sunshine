@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   allocationListResponseSchema, dispatchResponseSchema, jobListResponseSchema, jobResponseSchema, orderFulfilmentResponseSchema,
   productListResponseSchema, stockLevelListResponseSchema, stockLocationListResponseSchema, unitDetailResponseSchema,
 } from '@sunshine/contracts';
 import type { ZodType } from 'zod';
-import { apiGet, apiPost, ApiRequestError, newIdempotencyKey } from '../../lib/api';
+import { apiGet, ApiRequestError } from '../../lib/api';
+import { useRetrySafeCommand } from '../../lib/command';
 
 const root = ['warehouse'] as const;
 export const warehouseKeys = {
@@ -37,64 +37,7 @@ export const useDispatch = (id: string) => useQuery({
   },
 });
 
-export type Problem = { messages: string[]; fields: Record<string, string> };
-export const noProblem: Problem = { messages: [], fields: {} };
+export { checkInput, describeFailure, noProblem, type Problem } from '../../lib/command';
 
-/** Lists every reason a command was refused, so the warehouse can fix them all in one go. */
-export function describeFailure(error: unknown): Problem {
-  if (!(error instanceof ApiRequestError)) return { messages: [error instanceof Error ? error.message : 'Something went wrong. Try again.'], fields: {} };
-  if (error.reasons.length) return { messages: error.reasons.map((reason) => `${reason.reason} ${reason.nextAction}`), fields: {} };
-  const fields = Object.fromEntries(Object.entries(error.fieldErrors).map(([name, messages]) => [name.split('.').pop()!, messages[0] ?? 'Check this field']));
-  return { messages: [Object.keys(fields).length ? 'Check the highlighted fields and try again.' : error.message], fields };
-}
-
-/** Checks input against the shared contract. Errors land on the field they name, in plain words where `messages` has them. */
-export function checkInput<T>(schema: ZodType<T>, input: unknown, messages: Record<string, string> = {}): { data: T } | { problem: Problem } {
-  const parsed = schema.safeParse(input);
-  if (parsed.success) return { data: parsed.data };
-  const fields: Record<string, string> = {};
-  for (const issue of parsed.error.issues) {
-    const name = [...issue.path].reverse().find((part) => typeof part === 'string');
-    const field = String(name ?? 'form');
-    fields[field] ??= messages[field] ?? issue.message;
-  }
-  return { problem: { messages: ['Check the highlighted fields and try again.'], fields } };
-}
-
-type Intent = { path: string; body: unknown; key: string };
-
-/**
- * Posts a stock command. If the response is lost, the same key and body are kept for the retry,
- * so the warehouse can never receive, reserve or scan the same thing twice.
- */
-export function useStockCommand<T>(schema: ZodType<T>, onDone?: (result: T) => void) {
-  const client = useQueryClient();
-  const intent = useRef<Intent | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [uncertain, setUncertain] = useState(false);
-  const [problem, setProblem] = useState<Problem>(noProblem);
-
-  async function send(saved: Intent) {
-    setBusy(true); setProblem(noProblem);
-    try {
-      const result = await apiPost(saved.path, schema, saved.body, { idempotencyKey: saved.key });
-      intent.current = null; setUncertain(false);
-      onDone?.(result);
-      await client.invalidateQueries({ queryKey: root });
-    } catch (error) {
-      const definitive = error instanceof ApiRequestError && error.status >= 400 && error.status < 500;
-      if (definitive) intent.current = null;
-      setUncertain(!definitive); setProblem(describeFailure(error));
-    } finally { setBusy(false); }
-  }
-
-  return {
-    busy, uncertain, problem, setProblem,
-    run(path: string, body: unknown) {
-      if (busy || uncertain) return;
-      const saved = { path, body, key: newIdempotencyKey() };
-      intent.current = saved; void send(saved);
-    },
-    retry() { if (intent.current && !busy) void send(intent.current); },
-  };
-}
+/** A stock command: retry-safe, and refreshes everything the warehouse shows. */
+export const useStockCommand = <T,>(schema: ZodType<T>, onDone?: (result: T) => void) => useRetrySafeCommand(schema, root, onDone);

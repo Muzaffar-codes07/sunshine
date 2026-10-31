@@ -84,10 +84,13 @@ test('scheduling saves the times and crew, and a new job has neither', async () 
   const fresh = await ok(get(`/jobs/${jobId}`));
   assert.equal(fresh.version, 1); assert.equal(fresh.scheduledStart, null); assert.deepEqual(fresh.technicianIds, []);
   assert.equal(fresh.orderDisplayNumber, order.displayNumber);
+  assert.equal(fresh.soldCapacityKw, 1); assert.equal(fresh.systemType, 'ON_GRID'); assert.equal(fresh.contactName, 'Crew Customer'); assert.match(fresh.siteAddress, /6 Crew Road, Nagpur 440001/);
+  assert.deepEqual(fresh.crew, []);
   assert.equal(fresh.orderId, order.id); assert.equal(fresh.customerId, customerId); assert.equal(fresh.status, 'SCHEDULED');
   const done = await ok(schedule(jobId, { technicianIds: [staff.TECH_A.id, staff.TECH_B.id] }));
   assert.equal(done.version, 2); assert.equal(done.scheduledStart, start); assert.equal(done.scheduledFinish, finish);
   assert.deepEqual(done.technicianIds, [staff.TECH_A.id, staff.TECH_B.id].sort());
+  assert.deepEqual(done.crew.map((member) => member.displayName).sort(), [staff.TECH_A.displayName, staff.TECH_B.displayName].sort());
   assert.deepEqual(await ok(get(`/jobs/${jobId}`, 'WAREHOUSE')), done);
   const saved = await dbJob(jobId);
   assert.ok(saved.assignments.every((row) => row.assignedById === staff.SALES.id && row.removedAt === null));
