@@ -159,3 +159,50 @@ export type StockLevelView = z.infer<typeof stockLevelViewSchema>;
 export type StockReceiptView = z.infer<typeof stockReceiptViewSchema>;
 export type UnitLookupQuery = z.infer<typeof unitLookupQuerySchema>;
 export type UnitLocationView = z.infer<typeof unitLocationViewSchema>;
+
+// One line per product, so each document line posts one movement and a shortage names one product.
+const uniqueProducts = (lines: { productId: string }[], ctx: z.RefinementCtx) => {
+  const seen = new Set<string>();
+  lines.forEach((line, i) => {
+    if (seen.has(line.productId)) ctx.addIssue({ code: 'custom', path: ['lines', i, 'productId'], message: 'List each product once' });
+    seen.add(line.productId);
+  });
+};
+export const stockTransferLineSchema = z.object({
+  productId: canonicalId, quantity: positiveQuantitySchema, serials: z.array(equipmentSerialSchema).max(200).default([]),
+}).strict().superRefine((line, ctx) => {
+  if (line.serials.length && (!/^(0|[1-9]\d*)(?:\.0{1,3})?$/.test(line.quantity)
+    || BigInt(line.quantity.split('.')[0]!) !== BigInt(line.serials.length))) {
+    ctx.addIssue({ code: 'custom', path: ['serials'], message: 'When serials are supplied, their count must equal a whole-number quantity' });
+  }
+  if (new Set(line.serials.map(normalizeEquipmentSerial)).size !== line.serials.length) {
+    ctx.addIssue({ code: 'custom', path: ['serials'], message: 'Duplicate normalized serial for this product' });
+  }
+});
+export const createStockTransferRequestSchema = z.object({
+  reference, fromLocationId: canonicalId, toLocationId: canonicalId, lines: z.array(stockTransferLineSchema).min(1).max(100),
+}).strict().superRefine((transfer, ctx) => {
+  if (transfer.fromLocationId === transfer.toLocationId) ctx.addIssue({ code: 'custom', path: ['toLocationId'], message: 'Choose a different destination' });
+  uniqueProducts(transfer.lines, ctx);
+});
+export const createStockCountRequestSchema = z.object({
+  reference, locationId: canonicalId, lines: z.array(z.object({ productId: canonicalId, countedQuantity: quantitySchema }).strict()).min(1).max(100),
+}).strict().superRefine((count, ctx) => uniqueProducts(count.lines, ctx));
+export const stockDocumentCommandRequestSchema = z.object({ expectedVersion: version }).strict();
+export const stockDocumentKindSchema = z.enum(['RECEIPT', 'ISSUE', 'TRANSFER', 'ADJUSTMENT']);
+export const stockDocumentStatusSchema = z.enum(['DRAFT', 'WAITING', 'READY', 'DONE', 'CANCELED']);
+// A count's location is toLocationId. Until it is validated, its quantity is zero and measuredQuantity is null.
+export const stockDocumentViewSchema = z.object({
+  id: z.uuid(), kind: stockDocumentKindSchema, reference: z.string().min(1), status: stockDocumentStatusSchema, version,
+  fromLocationId: z.uuid().nullable(), toLocationId: z.uuid().nullable(), actorId: z.uuid(), validatedById: z.uuid().nullable(),
+  occurredAt: z.iso.datetime({ offset: true }), recordedAt: z.iso.datetime({ offset: true }), validatedAt: z.iso.datetime({ offset: true }).nullable(),
+  lines: z.array(z.object({
+    id: z.uuid(), lineNumber: z.number().int().positive(), productId: z.uuid(), quantity: quantitySchema,
+    countedQuantity: quantitySchema.nullable(), measuredQuantity: quantitySchema.nullable(), movementId: z.uuid().nullable(), unitIds: z.array(z.uuid()),
+  })),
+});
+export const stockDocumentResponseSchema = z.object({ data: stockDocumentViewSchema });
+export type CreateStockTransferRequest = z.infer<typeof createStockTransferRequestSchema>;
+export type CreateStockCountRequest = z.infer<typeof createStockCountRequestSchema>;
+export type StockDocumentCommandRequest = z.infer<typeof stockDocumentCommandRequestSchema>;
+export type StockDocumentView = z.infer<typeof stockDocumentViewSchema>;
