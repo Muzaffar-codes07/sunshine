@@ -36,3 +36,7 @@ Migration 20261031255000_files was generated with Prisma migrate dev --create-on
 Real PostgreSQL/disk tests cover bytes/metadata, cross-user denial, missing/forged/oversize requests, disk/metadata failures, fail-closed adapters, exact associations, rollback and concurrent binding, missing/altered bytes, SQL backstops, multipart origin/login/limits, attachment headers and static non-disclosure. No GPS, certified signature or photo-authenticity claim is made.
 
 The appended Files evidence guard migration retains applied255000 SQL unchanged. Its function and two triggers are registered with exact PostgreSQL17.11 definitions. Real database regressions cover Prisma/raw metadata mutations, first/same association, rollback, rebind/unbind and DELETE/TRUNCATE; byte-integrity and current job-access checks remain in place.
+
+Candidate migration 20261031800000_files_freeze_guard was generated with Prisma migrate dev --create-only and applied only to disposable PostgreSQL17.11. Its timestamp remains provisional pending D3 slot confirmation and SQL approval on issue#2. Keep the PR draft; do not mark ready, merge or apply it to shared/demo databases before that review. A changed slot requires renaming and repeating the migration tests.
+
+Candidate verification: full check99API/89contracts/13seed/4invariants and builds pass; fresh PostgreSQL264DBtests (including4newguardcases),193exactrules,26checker regressions and smoke pass. Both owned test databases were removed. Results apply to this provisional candidate, not a shared deployment.
