@@ -8,7 +8,7 @@ import type { Prisma } from '../generated/prisma/client';
 import type { ConfirmedOrderFacts, OrderJobCreator } from '../orders/order-job.port';
 
 export const jobInclude = {
-  order: { select: { customerId: true } },
+  order: { select: { customerId: true, number: true } },
   assignments: { where: { removedAt: null }, select: { technicianId: true }, orderBy: { technicianId: 'asc' } },
   photos: { select: { fileId: true }, orderBy: { position: 'asc' } },
   timeRecords: { select: { id: true, technicianId: true, startedAt: true, finishedAt: true }, orderBy: [{ startedAt: 'asc' }, { id: 'asc' }] },
@@ -100,7 +100,7 @@ function notFound() {
 
 export function jobView(row: JobRow): z.infer<typeof jobViewSchema> {
   return jobViewSchema.parse({
-    id: row.id, orderId: row.orderId, customerId: row.order.customerId, status: row.status, version: row.version,
+    id: row.id, orderId: row.orderId, orderDisplayNumber: `ORD-${String(row.order.number).padStart(6, '0')}`, customerId: row.order.customerId, status: row.status, version: row.version,
     scheduledStart: row.scheduledStart?.toISOString() ?? null, scheduledFinish: row.scheduledFinish?.toISOString() ?? null,
     technicianIds: row.assignments.map((assignment) => assignment.technicianId),
     startedAt: row.startedAt?.toISOString() ?? null, finishedAt: row.finishedAt?.toISOString() ?? null, installedCapacityKw: row.installedCapacityKw,

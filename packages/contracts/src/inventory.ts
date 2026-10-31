@@ -172,6 +172,7 @@ export const unitLookupResponseSchema = z.object({ data: z.array(unitLocationVie
 // Assignment is derived from Allocation -> Job -> Order, rather than copying customer identity onto a unit.
 export const unitDetailViewSchema = unitLocationViewSchema.extend({
   receiptId: z.uuid(),
+  replacesUnitId: z.uuid().nullable(),
   activeAssignment: z.object({
     allocationId: z.uuid(), status: allocationStatusSchema.exclude(['RELEASED']),
     jobId: z.uuid(), orderId: z.uuid(), customerId: z.uuid(),

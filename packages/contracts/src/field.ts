@@ -55,7 +55,7 @@ export const completeInstallationRequestSchema = z.object({
 // persisted private files, required checks and authorized actors inside its transaction.
 // Clock/date policy is not evaluated by a transport schema at module import time.
 export const jobViewSchema = z.object({
-  id: z.uuid(), orderId: z.uuid(), customerId: z.uuid(), status: installationStatusSchema, version,
+  id: z.uuid(), orderId: z.uuid(), orderDisplayNumber: z.string().min(1), customerId: z.uuid(), status: installationStatusSchema, version,
   scheduledStart: timestamp.nullable(), scheduledFinish: timestamp.nullable(),
   technicianIds: uniqueIds, startedAt: timestamp.nullable(), finishedAt: timestamp.nullable(),
   installedCapacityKw: z.number().int().min(1).max(5).nullable(),

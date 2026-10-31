@@ -31,7 +31,7 @@ Stated foreign-key exceptions (keep the reason next to the relation in `schema.p
 
 The D3 release-audit follow-up uses `20261031250000_allocation_release`, after job scheduling (`240000`). It adds audit fields and a guarded release transition to the existing Allocation model; it does not add placeholder ticket relations.
 
-`20261031260000_d4` remains reserved for D4’s coordinated migration; it is not included in this branch. `20261031270000_dispatch_scans` follows release audit and adds the actual Dispatch draft and DispatchScan evidence models. Posting status, issue/cost linkage and delivery are not implemented by this migration. New scans reference real allocations, retain immutable source identity and require their order's reserved unit.
+`20261031260000_d4` is active after Files 255000, with real Unit/Job/File relations and canonical integrity rules. D3 approved it subject to refreshing this branch onto main (PR #8, comment 6547800820). `20261031270000_dispatch_scans` follows release audit and adds the actual Dispatch draft and DispatchScan evidence models. Posting status, issue/cost linkage and delivery are not implemented by this migration. New scans reference real allocations, retain immutable source identity and require their order's reserved unit.
 
 One shared `prisma/schema.prisma`, with each owner's models kept in their own section. Migrations land in foreign-key order, so a later table can reference an earlier one. Two items with no link between them can swap.
 
@@ -49,9 +49,9 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
 | 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `20261031240000_job_scheduling` adds its schedule and `JobAssignment`; `20261031280000_installation_evidence` adds field evidence and time records |
-| 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
+| 6 | `CostEntry` | D4 | `20261031260000_d4`, after merged Files `20261031255000`; occurrence/reversal integrity and real Job FK; active in PR #8; D3 review approved subject to main refresh |
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `20261031230000_allocations` adds `Allocation`; `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
-| 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
+| 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Same D4 migration at 260000 with real Unit/Job/File evidence FKs; D3 allocation ticket-line/XOR follows by coordination |
 
 **To land a migration:**
 
@@ -134,3 +134,7 @@ Compose currently uses a floating PostgreSQL 17 image. Before generating or refr
 ## Migration source line endings
 
 Migration SQL uses LF on every platform, enforced by .gitattributes. PostgreSQL retains source line endings inside function bodies, so a CRLF checkout changes pg_get_functiondef and fails the exact canonical manifest check even when the SQL statements read the same. Existing clean Windows worktrees must re-check out their migration files after this attribute change before replaying migrations; keep the exact checker and committed SQL contents unchanged.
+
+### Unit predecessor history
+
+`20261031290000_unit_replacement_lineage` adds nullable native UUID `Unit.replacesUnitId` with an indexed restrictive self-FK. Existing units retain null; original receipt identity/cost/status/movements are preserved. Canonical `units_lineage_not_self`, `units_guard_lineage` and `units_lineage_guarded` definitions travel with the migration. New predecessor edges are append-only history, must be acyclic and use the caller's default READ COMMITTED transaction; a graph advisory mutex serializes edge additions. Higher-isolation mutations refuse rather than inspect a stale snapshot. This guard does not replace ticket/customer/product checks or implement actual replacement orchestration.
