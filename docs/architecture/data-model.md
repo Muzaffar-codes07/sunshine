@@ -9,17 +9,18 @@ One company and one warehouse. UUID PKs, explicit FKs/statuses, UTC timestamps, 
 | Session | D2 | Persistent staff session; expires and revokes |
 | Customer, Enquiry | D2 | Contact, address, source, follow-up owner/date |
 | Survey | D2 | Approved revision immutable; records technician/measurements/approval |
-| Product, Package, PackageItem | D3 | SKU unique; capacity/type/revision; reusable BOM components |
+| Product, Package, PackageItem | D2 | SKU unique; capacity/type/revision; reusable BOM components |
 | Quote, QuoteLine, Order | D2 | Quote references approved survey; accepted quote immutable; unique order per quote |
-| Job, JobAssignment | D4 | One job per order; assigned technicians and schedule |
+| Job, JobAssignment | D3 | One job per order; assigned technicians and schedule |
 | StockMovement, Unit, stock documents | D3 | Quantity/physical serial distinct; actual receipt cost; on-hand derived from immutable movements (see Stock ledger) |
 | Allocation, Dispatch | D3 | Quote-line XOR ticket-line source; actual selected equipment and dispatch |
-| Warranty | D3 | Unique unit; delivery start; stored expiry and policy snapshot |
+| Warranty | D4 | Unique unit; delivery start; stored expiry and policy snapshot |
 | File | D2 | Private key/type/size/uploader and authorized job/ticket association |
-| TimeEntry | D4 | Job/ticket, technician, time and frozen pay/cost rates |
+| TimeEntry | D3 for installation records; D4 for service records, rates and pay | Job/ticket, technician, time and frozen pay/cost rates |
 | ServiceTicket, TicketLine | D4 | Unit/job, fault, saved coverage reasoning, parts/labour, customer confirmation |
-| Invoice, InvoiceLine, Payment, CostEntry | D2 | Unique posting sources; posted records corrected through reversal |
-| SubsidyMilestone | D2 | Job/stage/owner/status/dates/evidence; queryable unfinished work |
+| Invoice, InvoiceLine, Payment | D2 | Unique posting sources; posted records corrected through reversal |
+| CostEntry | D4 | Single writer; unique typed sources; posted records corrected through reversal |
+| SubsidyMilestone | D4 | Job/stage/owner/status/dates/evidence; queryable unfinished work |
 | AuditEntry, Command | D2 | Actor/change/reason; actor-scoped idempotency keys and result |
 
 ## BOM and price snapshots
@@ -43,23 +44,23 @@ Stock is a derived ledger: on-hand is never stored, only calculated from movemen
 
 **Core rules**
 
-- **Append-only movements.** Each `StockMovement` has a positive quantity and a from-location, a to-location or both, which set its direction. CHECKs enforce both rules, and a trigger refuses UPDATE and DELETE. A correction is a new movement.
+- **Append-only movements.** Each `StockMovement` has a positive quantity and a from-location, a to-location or both, which must differ. A missing location means stock crossing the company boundary: in from a supplier or out to a customer. CHECKs enforce these rules, and a trigger refuses UPDATE and DELETE. A correction is a new movement.
 - **One writer.** A single function posts movements, using the caller's transaction. Nothing else writes that table.
 - **Derived on-hand.** On-hand per product and location is movements in minus movements out, read from one database view with exact decimals.
-- **Never negative.** An outgoing movement locks its (product, location) for the rest of the transaction, reads on-hand inside it, and refuses with 409 `INSUFFICIENT_STOCK` if there isn't enough.
-- **Documents post once.** Receipts, deliveries, transfers and adjustments have a header and lines, with statuses DRAFT, WAITING, READY, DONE and CANCELED. Validation first claims the document with a conditional update, so one caller wins, then posts all its lines or none. DONE is reachable only through validation. A DONE document can't be edited or cancelled.
-- **Counts.** An adjustment measures on-hand under the lock at validation, not when drafted, and posts the difference.
-- **Stock reads.** On-hand, reserved, free, incoming, forecast, OK/LOW/OUT status, reorder suggestion, per-location breakdown, stock value, paged and filtered movement history, and stock as of a past time.
-- **Integrity report.** A read-only check over one snapshot: the view matches the movements, no balance is negative, each DONE document posted exactly once, no movement sits on a document that isn't DONE, and every movement is well formed.
+- **Never negative.** No company location can go below zero; supplier and customer sides aren't balances. A movement leaving a location locks its (product, location) for the rest of the transaction, reads on-hand inside it, and refuses with 409 `INSUFFICIENT_STOCK` if there isn't enough.
+- **Documents post once.** Receipts, issues, transfers and adjustments have a header and lines, with statuses DRAFT, WAITING, READY, DONE and CANCELED. An issue is the outgoing stock document, which Dispatch creates. Validation first claims the document with a conditional update, so one caller wins, then posts all its lines or none. DONE is reachable only through validation, and means only that the ledger posting committed. It is separate from `Dispatch` DISPATCHED or DELIVERED and installation COMPLETED. A DONE document can't be edited or cancelled.
+- **Counts.** An adjustment measures on-hand under the lock at validation, not when drafted, and posts the difference. A count that matches on-hand completes with no movement.
+- **Stock reads.** On-hand, reserved, free, incoming, forecast, OK/LOW/OUT status, reorder suggestion, per-location breakdown, stock value, paged and filtered movement history, and stock as of a past time. As-of uses the movement's `occurredAt`; the recorded time is kept separately. Stock value counts usable stock, with quarantine as a separately labelled figure. These reads are owner-requested and add to R9–R15; they don't replace that acceptance.
+- **Integrity report.** A read-only check over one snapshot: the view matches the movements, no balance is negative, each DONE document posted its expected movements exactly once (a matching count expects none), no movement sits on a document that isn't DONE, and every movement is well formed.
 
 **Sunshine's additions**
 
-- **Global lock order.** Product rows by ID, then (product, location) locks sorted, then Unit rows by ID, in every command. Test opposite-order documents and a receipt racing a dispatch.
+- **Global lock order.** Every command takes locks in this order: Product rows by ID, then (product, location) locks sorted, then Unit rows by ID. Test opposite-order documents and a receipt racing a dispatch.
 - **Reservations.** Allocation checks free stock under the same lock. Free is usable on-hand minus RESERVED allocations. Only RESERVED reduces free stock, because dispatched goods have already left the ledger. RESERVED, DISPATCHED, DELIVERED and INSTALLED all hold the one-active-per-unit index. Transfers refuse to take a location below its RESERVED quantity. A count below RESERVED is recorded truthfully, flagged by the integrity report, and blocks readiness.
 - **Which commands move stock.** Receipts, dispatch, returns, transfers and adjustments post movements. Delivery and installation only change status, so stock is never deducted twice.
 - **Serial units.** `Unit` holds identity and a link table ties it to its movements. The integrity report also checks that serial counts per location match the view.
 - **Quarantine.** Quarantine locations count in the physical view but not in usable on-hand, and can't be a dispatch source.
-- **Cost.** Receipt lines store actual cost. Weighted average updates under a row lock on the Product, because receipts take no stock lock and the average spans locations. Dispatch freezes the cost and posts it through D4's single writer with source `STOCK_MOVEMENT:<id>`. Later price changes never alter posted cost.
+- **Cost.** Receipt lines store actual cost. Receipts take the Product row lock to update weighted average, because it spans locations. They need no (product, location) lock, since adding stock can't make it negative. Dispatch freezes the cost and posts it through D4's single writer with source `STOCK_MOVEMENT:<id>`. Later price or catalogue changes never alter a receipt's cost or a posted cost.
 - **Retries.** Critical commands use the shared idempotency table, so a retry returns the saved result instead of a second document.
 
 ## Coverage and field invariants
