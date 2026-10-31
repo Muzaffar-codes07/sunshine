@@ -27,6 +27,7 @@ const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
 const { hashPassword } = require('../dist/auth/passwords');
 const { Client } = require('pg');
+const { Prisma } = require('../dist/generated/prisma/client');
 
 const origin = 'http://127.0.0.1:3001';
 const password = 'dispatch-posting-test-password-2026';
@@ -335,4 +336,131 @@ test('the database keeps a dispatch moving forward and its facts final', async (
   await assert.rejects(sql.query('UPDATE stock_documents SET reference = $1 WHERE id = $2', ['x', issue.issueDocumentId]), /closed stock document/);
   const [row] = await serialRows(posted.order);
   await assert.rejects(sql.query(`INSERT INTO dispatch_scans (id, "dispatchId", "allocationId", "rawValue", "normalizedSerial", method, "actorId") VALUES (gen_random_uuid(), $1, $2, 'x', $3, 'CAMERA', $4)`, [delivered.id, row.id, row.unit.normalizedSerial, staff.WAREHOUSE.id]), /must match its reserved equipment/);
+});
+
+// Independent D3 acceptance: actual writer boundaries, rather than contract-only simulations.
+test('an unrepresentable bulk dispatch cost refuses safely and the same key can retry after correction', async () => {
+  const { order, products } = await reservedOrder();
+  const bulk = products.find((product) => product.trackingMode === 'BULK');
+  const basis = await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } });
+  const ready = await scanAll(order, await prepare(order)); const key = randomUUID();
+  const hand = await onHand(bulk.id);
+  await prisma.productCostBasis.update({ where: { productId: bulk.id }, data: { averageCost: '999999999999.999999' } });
+  try {
+    await refused(post(ready, 'WAREHOUSE', key), 409, 'DISPATCH_COST_OUT_OF_RANGE');
+    await untouched(order);
+    assert.ok((await onHand(bulk.id)).equals(hand));
+    assert.equal(await prisma.command.count({ where: { actorId: staff.WAREHOUSE.id, idempotencyKey: key } }), 0);
+  } finally { await prisma.productCostBasis.update({ where: { productId: bulk.id }, data: { averageCost: basis.averageCost } }); }
+  assert.equal((await ok(post(ready, 'WAREHOUSE', key))).status, 'DISPATCHED');
+});
+
+test('concurrent same-key dispatch requests replay one stock and cost result', async () => {
+  const { order } = await reservedOrder(); const ready = await scanAll(order, await prepare(order));
+  const key = randomUUID();
+  const replies = await Promise.all([post(ready, 'WAREHOUSE', key), post(ready, 'WAREHOUSE', key)]);
+  const first = await ok(replies[0]); assert.deepEqual(await ok(replies[1]), first);
+  const rows = await prisma.allocation.findMany({ where: { jobId: order.jobId } });
+  assert.equal((await effects(order)).documents, 1);
+  assert.equal((await effects(order)).costs, rows.length);
+  await refused(send(`/dispatches/${ready.id}/dispatch`, { expectedVersion: ready.version + 1 }, 'WAREHOUSE', key), 409, 'IDEMPOTENCY_CONFLICT');
+});
+
+test('overlapping multi-product dispatches finish without deadlock and reconcile physical and reserved stock', async () => {
+  const one = await reservedOrder(), two = await reservedOrder();
+  const drafts = [await scanAll(one.order, await prepare(one.order)), await scanAll(two.order, await prepare(two.order))];
+  const product = one.products.find((row) => row.trackingMode === 'BULK');
+  const before = { hand: await onHand(product.id), held: await reserved(product.id) };
+  const quantity = await prisma.allocation.aggregate({ where: { jobId: { in: [one.order.jobId, two.order.jobId] }, productId: product.id }, _sum: { quantity: true } });
+  const results = await Promise.all(drafts.map((draft) => post(draft)));
+  for (const result of results) assert.equal((await ok(result)).status, 'DISPATCHED');
+  assert.ok((await onHand(product.id)).equals(before.hand.minus(quantity._sum.quantity)));
+  assert.ok((await reserved(product.id)).equals(before.held.minus(quantity._sum.quantity)));
+  for (const { order } of [one, two]) {
+    const rows = await prisma.allocation.findMany({ where: { jobId: order.jobId } });
+    assert.equal((await effects(order)).documents, 1); assert.equal((await effects(order)).costs, rows.length);
+  }
+});
+
+test('a receipt committed before a waiting dispatch supplies its exact new average cost', async () => {
+  const { order, products } = await reservedOrder(); const ready = await scanAll(order, await prepare(order));
+  const bulk = products.find((row) => row.trackingMode === 'BULK');
+  const oldHand = await onHand(bulk.id), basis = await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } });
+  const receivedQuantity = '7.000', receivedCost = '831.29';
+  const { StockReceiptsService } = require('../dist/inventory/stock-receipts.service');
+  let entered, resume;
+  const waiting = new Promise((resolve) => { entered = resolve; });
+  const gate = new Promise((resolve) => { resume = resolve; });
+  const pausedLedger = Object.create(ledger);
+  pausedLedger.lockProducts = async (tx, ids) => { const result = await ledger.lockProducts(tx, ids); entered(); await gate; return result; };
+  const pausedReceipt = new StockReceiptsService(idempotency, pausedLedger, prisma);
+  const receiving = pausedReceipt.receive(staff.WAREHOUSE.id, randomUUID(), {
+    reference: 'RACE-' + randomUUID(), locationId: main.id, receivedAt: new Date().toISOString(),
+    lines: [{ productId: bulk.id, quantity: receivedQuantity, unitCost: receivedCost, serials: [] }],
+  });
+  await waiting; const posting = post(ready);
+  try { await new Promise((resolve) => setTimeout(resolve, 80)); } finally { resume(); }
+  await receiving; const done = await ok(posting);
+  const expectedBasis = oldHand.times(basis.averageCost).plus(new Prisma.Decimal(receivedQuantity).times(receivedCost)).dividedBy(oldHand.plus(receivedQuantity)).toDecimalPlaces(6);
+  const header = await prisma.dispatch.findUniqueOrThrow({ where: { id: done.id }, include: { issueDocument: { include: { lines: { include: { movement: true } } } } } });
+  const line = header.issueDocument.lines.find((row) => row.productId === bulk.id);
+  const entry = await prisma.costEntry.findFirstOrThrow({ where: { uniqueSourceId: `STOCK_MOVEMENT:${line.movement.id}` } });
+  assert.ok(entry.amount.equals(line.quantity.times(expectedBasis).toDecimalPlaces(2)));
+  assert.ok((await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } })).averageCost.equals(expectedBasis));
+});
+
+test('a receipt waiting behind dispatch uses the remaining stock and never rewrites dispatched cost', async () => {
+  const { order, products } = await reservedOrder(); const ready = await scanAll(order, await prepare(order));
+  const bulk = products.find((row) => row.trackingMode === 'BULK');
+  const oldHand = await onHand(bulk.id), basis = await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } });
+  const allocated = await prisma.allocation.aggregate({ where: { jobId: order.jobId, productId: bulk.id }, _sum: { quantity: true } });
+  let entered, resume, paused = false;
+  const waiting = new Promise((resolve) => { entered = resolve; }), gate = new Promise((resolve) => { resume = resolve; });
+  const original = costs.postCost.bind(costs);
+  costs.postCost = async (tx, input) => { const value = await original(tx, input); if (input.jobId === order.jobId && !paused) { paused = true; entered(); await gate; } return value; };
+  let receiving, done;
+  try {
+    const posting = post(ready); await waiting;
+    receiving = send('/stock/receipts', { reference: 'RACE-' + randomUUID(), locationId: main.id, receivedAt: new Date().toISOString(),
+      lines: [{ productId: bulk.id, quantity: '7.000', unitCost: '831.29', serials: [] }] });
+    try { await new Promise((resolve) => setTimeout(resolve, 80)); } finally { resume(); }
+    done = await ok(posting); await ok(receiving, 201);
+  } finally { resume(); costs.postCost = original; }
+  const header = await prisma.dispatch.findUniqueOrThrow({ where: { id: done.id }, include: { issueDocument: { include: { lines: { include: { movement: true } } } } } });
+  const line = header.issueDocument.lines.find((row) => row.productId === bulk.id);
+  const entry = await prisma.costEntry.findFirstOrThrow({ where: { uniqueSourceId: `STOCK_MOVEMENT:${line.movement.id}` } });
+  assert.ok(entry.amount.equals(line.quantity.times(basis.averageCost).toDecimalPlaces(2)));
+  const remaining = oldHand.minus(allocated._sum.quantity);
+  const expected = remaining.greaterThan(0) ? remaining.times(basis.averageCost).plus('5819.03').dividedBy(remaining.plus(7)).toDecimalPlaces(6) : new Prisma.Decimal('831.29');
+  assert.ok((await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } })).averageCost.equals(expected));
+});
+
+test('a failure after delivery and warranty effects rolls back all facts and permits the same key retry', async () => {
+  const { order } = await reservedOrder({ policies: { getWarrantyPolicySnapshot: async () => POLICY } });
+  const done = await ok(post(await scanAll(order, await prepare(order))));
+  const { DispatchPostingService } = require('../dist/inventory/dispatch-posting.service');
+  const { DispatchScansService } = require('../dist/inventory/dispatch-scans.service');
+  const broken = new DispatchPostingService({ run: (command, work) => idempotency.run(command, async (tx) => { await work(tx); throw Error('late delivery failure'); }) }, app.get(DispatchScansService), ledger, costs);
+  const before = await prisma.dispatch.findUniqueOrThrow({ where: { id: done.id } });
+  const held = await prisma.allocation.findMany({ where: { jobId: order.jobId }, include: { unit: true }, orderBy: { id: 'asc' } });
+  const movements = await prisma.stockMovement.count(), costCount = await prisma.costEntry.count({ where: { jobId: order.jobId } });
+  const key = randomUUID(), when = new Date().toISOString();
+  await assert.rejects(broken.deliver(staff.WAREHOUSE.id, key, done.id, { expectedVersion: done.version, deliveredAt: when }), /late delivery failure/);
+  assert.deepEqual(await prisma.dispatch.findUniqueOrThrow({ where: { id: done.id } }), before);
+  assert.deepEqual(await prisma.allocation.findMany({ where: { jobId: order.jobId }, include: { unit: true }, orderBy: { id: 'asc' } }), held);
+  assert.equal(await prisma.warranty.count({ where: { unitId: { in: held.flatMap((row) => row.unitId ? [row.unitId] : []) } } }), 0);
+  assert.equal(await prisma.command.count({ where: { actorId: staff.WAREHOUSE.id, idempotencyKey: key } }), 0);
+  const delivered = await ok(deliver(done, when, 'WAREHOUSE', key)); assert.equal(delivered.status, 'DELIVERED');
+  assert.ok(delivered.coverage.every((row) => row.status === 'ACTIVE'));
+  assert.equal(await prisma.stockMovement.count(), movements); assert.equal(await prisma.costEntry.count({ where: { jobId: order.jobId } }), costCount);
+});
+
+test('concurrent same-key delivery requests activate one coverage set and replay the same result', async () => {
+  const { order } = await reservedOrder({ policies: { getWarrantyPolicySnapshot: async () => POLICY } });
+  const done = await ok(post(await scanAll(order, await prepare(order))));
+  const when = new Date().toISOString(), key = randomUUID();
+  const replies = await Promise.all([deliver(done, when, 'WAREHOUSE', key), deliver(done, when, 'WAREHOUSE', key)]);
+  const first = await ok(replies[0]); assert.deepEqual(await ok(replies[1]), first);
+  const count = await prisma.warranty.count({ where: { unitId: { in: first.coverage.map((row) => row.unitId) } } });
+  assert.equal(count, first.coverage.length);
 });

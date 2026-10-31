@@ -46,6 +46,9 @@ export class DispatchPostingService {
         // Actual cost for a serial unit; the moving average, frozen now, for bulk. Later price changes never touch this.
         const amount = row.unit ? row.unit.acquisitionCost : product.costBasis ? row.quantity.times(product.costBasis.averageCost).toDecimalPlaces(2) : null;
         if (amount === null) throw blocked('DISPATCH_COST_UNKNOWN', `${product.name} has no recorded cost.`, 'Receive it with its actual cost, then dispatch.');
+        if (!amount.isFinite() || amount.lessThan(0) || amount.greaterThan('999999999999.99')) {
+          throw blocked('DISPATCH_COST_OUT_OF_RANGE', `${product.name}'s actual dispatch cost exceeds the supported money range.`, 'Review the recorded acquisition cost and quantity before dispatching.');
+        }
         return { row, product, amount };
       });
       const now = new Date();
