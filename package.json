@@ -15,6 +15,8 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:check": "node scripts/check-db-constraints.mjs",
+    "test:constraints": "node --test --test-concurrency=1 scripts/test-db-constraints.mjs",
     "start": "npm run start -w @sunshine/api",
     "check:docs": "node scripts/check-docs.mjs && npm run check:plan",
     "check:plan": "node scripts/check-plan.mjs",
