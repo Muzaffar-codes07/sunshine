@@ -37,6 +37,8 @@ model User {
   quotesCreated Quote[] @relation("QuoteCreator")
   quotesSent Quote[] @relation("QuoteSender")
   quotesDecided Quote[] @relation("QuoteDecider")
+  ordersConfirmed Order[] @relation("OrderConfirmer")
+  paymentsRecorded Payment[] @relation("PaymentRecorder")
 
   @@map("users")
 }
@@ -77,6 +79,8 @@ model Customer {
   enquiries Enquiry[]
 
   quotes Quote[]
+  orders Order[]
+  invoices Invoice[]
   @@map("customers")
 }
 
@@ -111,6 +115,7 @@ model Enquiry {
   // by their open enquiries nor delete them; the enquiry returns to the unassigned queue.
   owner    User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   surveys  Survey[]
+  order    Order?
 
   @@index([status, nextFollowUpAt])
   @@index([ownerId, status])
@@ -244,6 +249,7 @@ model Product {
   installationPackages Package[] @relation("PackageInstallationService")
   @@index([active, kind])
   quoteLines QuoteLine[]
+  packingRequirements PackingRequirement[]
   @@map("products")
 }
 model Package {
@@ -491,6 +497,7 @@ model Quote {
   supersedes   Quote? @relation("QuoteRevision", fields: [supersedesQuoteId], references: [id], onDelete: Restrict)
   supersededBy Quote? @relation("QuoteRevision")
   lines        QuoteLine[]
+  order        Order?
 
   @@unique([enquiryId, revision])
   @@index([customerId, status])
@@ -518,6 +525,8 @@ model QuoteLine {
 
   quote   Quote @relation(fields: [quoteId], references: [id], onDelete: Restrict)
   product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packingRequirement PackingRequirement?
+  invoiceLines InvoiceLine[]
 
   @@unique([quoteId, position])
   @@index([productId])
@@ -543,4 +552,154 @@ model Command {
 
   @@unique([actorId, idempotencyKey])
   @@map("commands")
+}
+
+// Orders and invoicing (D2, C5: R7, R8, R21). Confirmation turns the latest accepted quote into one order, its
+// packing requirements (one per COMPONENT quote line) and one sales invoice, in one idempotent transaction.
+// One order per enquiry as well as per quote, so a later quote revision can never become a second sale.
+model Order {
+  id            String   @id @default(uuid()) @db.Uuid
+  number        Int      @unique @default(autoincrement())
+  quoteId       String   @unique @db.Uuid
+  enquiryId     String   @unique @db.Uuid
+  customerId    String   @db.Uuid
+  // Set by D3's job helper when it is wired; null means the job is still to be created by D3.
+  jobId         String?  @unique @db.Uuid
+  confirmedById String   @db.Uuid
+  confirmedAt   DateTime @default(now()) @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  // Restrict throughout: an order is a sale record and its sources are evidence.
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  enquiry     Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  confirmedBy User     @relation("OrderConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  packing     PackingRequirement[]
+  invoices    Invoice[]
+
+  @@index([customerId])
+  @@index([confirmedById])
+  @@map("orders")
+}
+
+// What the warehouse must pack: the accepted quote's COMPONENT lines, frozen at confirmation. D3 allocates stock
+// against quoteLineId; component prices are zero because the package line already charges the hardware.
+model PackingRequirement {
+  id          String  @id @default(uuid()) @db.Uuid
+  orderId     String  @db.Uuid
+  quoteLineId String  @unique @db.Uuid
+  productId   String  @db.Uuid
+  quantity    Decimal @db.Decimal(12, 3)
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("packing_requirements")
+}
+
+enum InvoiceSourceType {
+  ORDER
+  TICKET
+}
+
+enum InvoiceKind {
+  SALE
+  REPAIR
+}
+
+enum InvoiceStatus {
+  POSTED
+  PART_PAID
+  PAID
+}
+
+// Posted invoices are never edited except for the paid amount, which only the receipt helper changes.
+// Unique (sourceType, sourceId, kind) makes posting idempotent: one sales invoice per order (TRD section 5).
+model Invoice {
+  id          String            @id @default(uuid()) @db.Uuid
+  number      Int               @unique @default(autoincrement())
+  sourceType  InvoiceSourceType
+  sourceId    String            @db.Uuid
+  kind        InvoiceKind
+  orderId     String?           @db.Uuid
+  customerId  String            @db.Uuid
+  status      InvoiceStatus     @default(POSTED)
+  subtotal    Decimal           @db.Decimal(14, 2)
+  // Pre-tax management example: tax is not configured, so it is zero with an explicit note (TRD money rules).
+  taxAmount   Decimal           @default(0) @db.Decimal(14, 2)
+  taxNote     String            @db.VarChar(200)
+  total       Decimal           @db.Decimal(14, 2)
+  paidAmount  Decimal           @default(0) @db.Decimal(14, 2)
+  version     Int               @default(1)
+  postedAt    DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+
+  order    Order?        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines    InvoiceLine[]
+  payments Payment[]
+
+  @@unique([sourceType, sourceId, kind])
+  @@index([orderId])
+  @@index([customerId, status])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  invoiceId   String  @db.Uuid
+  position    Int
+  description String  @db.VarChar(200)
+  quantity    Decimal @db.Decimal(12, 3)
+  unitPrice   Decimal @db.Decimal(14, 2)
+  lineTotal   Decimal @db.Decimal(14, 2)
+  quoteLineId String? @db.Uuid
+
+  invoice   Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, position])
+  @@index([quoteLineId])
+  @@map("invoice_lines")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  OTHER
+}
+
+enum PaymentKind {
+  ADVANCE
+  PARTIAL
+  FINAL
+}
+
+// A receipt staff record after money arrives outside the app (no gateway). The external reference is unique per
+// method, so the same bank or UPI reference cannot be counted twice (TRD: Payment, external reference, RECEIPT).
+model Payment {
+  id           String        @id @default(uuid()) @db.Uuid
+  invoiceId    String        @db.Uuid
+  amount       Decimal       @db.Decimal(14, 2)
+  method       PaymentMethod
+  reference    String        @db.VarChar(120)
+  kind         PaymentKind
+  receivedAt   DateTime      @db.Timestamptz(3)
+  recordedById String        @db.Uuid
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy User    @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@unique([method, reference])
+  @@index([invoiceId])
+  @@index([recordedById])
+  @@map("payments")
 }
