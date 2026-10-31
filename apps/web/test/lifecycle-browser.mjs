@@ -40,13 +40,14 @@ try {
   app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api/v1'); app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCsrfProtection({ trustedOrigins: app.get(AuthRuntime).origins });
-  await app.listen(0, '127.0.0.1');
+  const useVite = process.env.BROWSER_VITE === 'true';
+  await app.listen(useVite ? 0 : 5145, '127.0.0.1');
   const prisma = app.get(PrismaService);
   await seedCatalogue(prisma);
-  vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), cacheDir: resolve(root, 'var/issue44-browser-vite-cache'), server: {
+  if (useVite) vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), cacheDir: resolve(root, 'apps/web/node_modules/.vite-browser'), server: {
     host: '127.0.0.1', port: 5145, strictPort: true, proxy: { '/api': await app.getUrl() },
   } });
-  await vite.listen();
+  await vite?.listen();
   browser = process.env.BROWSER_WS_FILE
     ? await chromium.connect(readFileSync(process.env.BROWSER_WS_FILE, 'utf8').trim())
     : await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true });
@@ -105,6 +106,7 @@ try {
       await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocation.unit.rawSerial);
       await page.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
       await page.getByText(`${index + 1} of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
+      if (index + 1 < allocated.length) await page.waitForFunction(() => document.activeElement?.id.startsWith('scan-'));
     }
     // Commit response loss: real server commits; browser retries the exact key and body.
     const commands = [];
@@ -210,7 +212,7 @@ try {
   await page.getByRole('link', { name: 'Overview', exact: true }).click();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ results, browserErrors: errors, scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; D4 unavailable gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; D4 unavailable gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
 } catch (error) {
   console.error('FAIL', error);
   if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));

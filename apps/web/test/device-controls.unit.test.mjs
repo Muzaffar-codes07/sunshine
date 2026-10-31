@@ -31,6 +31,7 @@ test('Device controls and CapabilitySpikePage tests via Vite SSR', async () => {
           label: 'Serial number scan',
           hint: 'Type or scan barcode and hit enter',
           onScan: () => {},
+          error: 'Invalid equipment serial',
         })
       );
 
@@ -39,6 +40,7 @@ test('Device controls and CapabilitySpikePage tests via Vite SSR', async () => {
       assert.ok(html.includes('type="text"'), 'ScanInput renders manual text input for desktop / USB / Bluetooth scanner');
       assert.ok(html.includes('Scan with camera'), 'ScanInput renders scan with camera button');
       assert.ok(html.includes('Submit code'), 'ScanInput renders manual submit button');
+      assert.ok(html.includes('aria-invalid="true"') && html.includes('Invalid equipment serial'), 'scan field exposes validation accessibly');
       assert.ok(html.includes('<video'), 'ScanInput renders video element for camera preview');
     }
 

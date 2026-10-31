@@ -56,7 +56,7 @@ WEB_BASE_URL=http://127.0.0.1:5173 node apps/web/test/device-browser.mjs
 TEST_DATABASE_URL=postgresql://.../sunshine_browser_test node apps/web/test/lifecycle-browser.mjs
 ```
 
-The lifecycle harness requires port 5145, creates its own API/Vite servers and synthetic staff/sales/stock records, and closes those servers. It never resets the database. Each run uses real approval, quote, order, payment and receipt services for setup; browser actions then reserve, scan, dispatch, deliver, upload and complete. It deliberately drops a committed dispatch response and retries the exact command. Saved tickets are explicitly synthetic persisted fixtures for read/refresh/authorization checks, not simulated repairs or warranty outcomes. All timestamps use the real clock.
+The lifecycle harness requires port 5145, serves the built production application from its own API server (set `BROWSER_VITE=true` for an isolated development-server run) and synthetic staff/sales/stock records, and closes its servers. It never resets the database. Each run uses real approval, quote, order, payment and receipt services for setup; browser actions then reserve, scan, dispatch, deliver, upload and complete. It deliberately drops a committed dispatch response and retries the exact command. Saved tickets are explicitly synthetic persisted fixtures for read/refresh/authorization checks, not simulated repairs or warranty outcomes. All timestamps use the real clock.
 
 Verification results and persisted run IDs are recorded in the PR. The harness is an automated warehouse-to-installation acceptance run, not a three-minute narrated end-to-end hackathon rehearsal.
 

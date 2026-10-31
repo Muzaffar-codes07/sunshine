@@ -105,7 +105,7 @@ function ScanForm({ dispatch }: { dispatch: Dispatch }) {
         <Field label="Input source" hint="Choose Scanner only for a USB or Bluetooth device. Typed entries never satisfy dispatch scanning.">
           {(control) => <select {...control} value={manualMethod} disabled={command.busy || command.uncertain} onChange={(event) => setManualMethod(event.target.value as 'SCANNER' | 'TYPED')}><option value="TYPED">Typed</option><option value="SCANNER">USB / Bluetooth scanner</option></select>}
         </Field>
-        <ScanInput label="Serial number" onScan={record} disabled={command.busy || command.uncertain} autoFocus />
+        <ScanInput label="Serial number" error={command.problem.fields.rawValue} onScan={record} disabled={command.busy || command.uncertain} autoFocus />
       </>}
 
     {saved && <p role="status">{saved}</p>}

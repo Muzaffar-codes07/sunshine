@@ -10,6 +10,7 @@ export interface ScanInputProps {
   onScan: (value: string, source: ScanSource) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  error?: string;
 }
 
 type CameraState =
@@ -57,10 +58,13 @@ export function ScanInput({
   onScan,
   disabled = false,
   autoFocus = false,
+  error,
 }: ScanInputProps) {
   const generatedId = useId();
   const inputId = propId || `scan-${generatedId}`;
   const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [manualText, setManualText] = useState('');
   const [cameraState, setCameraState] = useState<CameraState>({ status: 'idle' });
@@ -94,6 +98,10 @@ export function ScanInput({
   useEffect(() => {
     if (disabled) { stopCamera(); setCameraState({ status: 'idle' }); }
   }, [disabled, stopCamera]);
+
+  useEffect(() => {
+    if (autoFocus && !disabled) { inputRef.current?.focus(); inputRef.current?.select(); }
+  }, [autoFocus, disabled]);
 
   const handleStopCamera = () => {
     stopCamera();
@@ -191,7 +199,9 @@ export function ScanInput({
           <label htmlFor={inputId}>{label}</label>
           <div className="scan-input-group">
             <input
+              ref={inputRef}
               id={inputId}
+              maxLength={512}
               type="text"
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
@@ -199,13 +209,15 @@ export function ScanInput({
               disabled={disabled}
               autoFocus={autoFocus}
               autoComplete="off"
-              aria-describedby={hint ? hintId : undefined}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={[hint ? hintId : '', error ? errorId : ''].filter(Boolean).join(' ') || undefined}
             />
             <button type="submit" disabled={disabled || !manualText.trim()}>
               Submit code
             </button>
           </div>
           {hint && <p id={hintId} className="field-hint">{hint}</p>}
+          {error && <p id={errorId} className="form-error" role="alert">{error}</p>}
         </div>
       </form>
 
