@@ -20,6 +20,12 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
 - `TicketLine.type` maps to `lineType`; decimal values serialize as strings.
 - Confirmation `confirmerName` maps to `confirmedBy` (a name, not a staff ID),
   `channel` to `confirmationChannel`, and `notes` to `confirmationNotes`.
+- Task 2.2 adds nullable `resolutionDetails` text and `resolvedAt` timestamptz(3)
+  to ServiceTicket. Include both in the queued migration. AWAITING_CUSTOMER_CONFIRMATION
+  and CLOSED require nonblank resolution and a resolution time. Confirmation
+  cannot precede resolution; CLOSED also requires the existing confirmation facts.
+  The application stores the complete warranty decision plus `requestedScope`
+  and `assessedAt` in assessmentSnapshot, with status/version CAS on each action.
 - Warranty stores policy name, revision, scope and calendar duration. Its
   `active` flag disables/voids coverage; expiry is evaluated from the exclusive
   calendar boundary. A separate stored ACTIVE/EXPIRED status would become stale.
@@ -57,5 +63,7 @@ time and a closure time no earlier than confirmation). Register hand-written
 constraints in D3's required-constraints manifest when PR #4 lands, replay the
 migration on disposable PostgreSQL, and verify the actual constraints. Do not
 treat this task's `prisma validate`/client generation as database or lifecycle
-acceptance evidence. Domain services, policy evaluation, posting and migration
-enforcement remain later tasks.
+acceptance evidence. The Task 2.1 warranty engine and Task 2.2 lifecycle are now
+implemented against these definitions; migration enforcement and upstream
+integration remain outstanding. Add CHECKs for the Task 2.2 resolution and
+confirmation ordering alongside the existing closure checks.

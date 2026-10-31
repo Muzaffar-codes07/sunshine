@@ -7,6 +7,7 @@ import { SalesModule } from './sales/sales.module';
 import { WarrantyModule } from './warranty/warranty.module';
 import { FinanceModule } from './finance/finance.module';
 import { ReportingModule } from './reporting/reporting.module';
+import { ServiceModule } from './service/service.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ReportingModule } from './reporting/reporting.module';
     WarrantyModule,
     FinanceModule,
     ReportingModule,
+    ServiceModule,
   ],
   controllers: [HealthController],
 })
