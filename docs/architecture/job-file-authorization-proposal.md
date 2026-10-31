@@ -1,38 +1,38 @@
-# Proposal: authorize files attached to a job
+# Job file authorization policy
 
-Status: draft for D3 decision. Proposer: D2. Depends on [private Files transport, PR32](https://github.com/Muzaffar-codes07/sunshine/pull/32) and D3's assignment design. This document grants no access and registers no runtime provider.
+Status: accepted by D3 for S03 implementation. [Recorded decision](https://github.com/Muzaffar-codes07/sunshine/pull/39#issuecomment-6547084464). Depends on [private Files transport, PR32](https://github.com/Muzaffar-codes07/sunshine/pull/32). This policy document registers no runtime provider and enables no access.
 
 ## Existing facts
 
-Main at a64fee9 has a real Job linked to one Order, with status/version/timestamps and allocation relations. It has no technician assignment field or assignment table. SCHEDULED is the initial job status; it is not proof that a technician is assigned.
+Main after scheduling PR40 (60994e8) has a real Job linked to one Order and a JobAssignment table. A current assignment is a job_assignments row for the job and technician with removedAt null. Removed rows preserve history and grant no access. SCHEDULED is the initial job status; it is not assignment proof.
 
 The Order and accepted Quote provide customer, enquiry and sold-system facts. The job helper verifies those facts and creates the job inside confirmation's transaction.
 
 Files exposes FILE_RECORD_AUTHORIZER.assertAccess(tx, actor, {contextType, contextId}, action), where action is UPLOAD, DOWNLOAD or ATTACH. Its production default refuses bound access when the adapter is absent. Unbound uploads belong to their uploader and are not completion evidence. See [TRD ownership and evidence rules](../TRD.md).
 
-## Proposed permission matrix for D3 to accept or change
+## Accepted permission matrix
 
 | Actor | Download JOB file | Upload or attach JOB file |
 |---|---|---|
-| ADMIN | Allow for an existing consistent job | Allow, subject to D3's job-stage rule |
+| ADMIN | Allow for an existing consistent job | Allow unless COMPLETED |
 | SALES | Allow for an existing consistent job | Deny |
-| TECHNICIAN with a current D3-authorized assignment | Allow | Allow, subject to D3's job-stage rule |
+| TECHNICIAN with a current D3-authorized assignment | Allow | Allow unless COMPLETED |
 | TECHNICIAN without that assignment | Deny | Deny |
 | WAREHOUSE or SUPPORT | Deny | Deny |
 
-The matrix is a proposed product permission, not an implication of signing in. D3 must confirm it before enabling a provider. Staff identity comes from AuthGuard, never the upload body.
+D3 accepted this matrix for S03 implementation. Staff identity comes from AuthGuard, never the upload body. Signing in alone grants no record access.
 
-D3 supplies the authoritative current-assignment predicate in the caller transaction. This proposal chooses neither a schema nor a one-technician limit. Until that predicate and the role decision exist, technician access remains closed. A missing dependency is unavailable access, not an implicit assignment.
+D3 queries current assignment in the caller transaction: jobId and technicianId must match an active job_assignments row (removedAt null). Multiple active crew members may qualify. Removing an assignment revokes access immediately, including for the original uploader. A missing authorization dependency continues to fail closed.
 
-D3 must also decide whether completed jobs accept additional evidence. That stage decision belongs to the job workflow and must be checked for upload/attach if adopted.
+No upload or attach is allowed on a COMPLETED job. Those actions stay open in SCHEDULED, IN_PROGRESS and AWAITING_ACCEPTANCE subject to the matrix. Download continues to follow the matrix. Correcting completed evidence needs a separate decision; it does not silently unfreeze the job.
 
 ## Record checks inside the caller transaction
 
 1. Require JOB context and load the actual job by contextId. Route TICKET context to D4's own adapter; a missing adapter continues to fail closed.
 2. Resolve the order through Job.orderId and require its jobId to point back to this job.
 3. Resolve the accepted quote and enquiry through the order. Require the order, quote and enquiry to agree on customer/enquiry identity. Derive those facts; do not copy them into Job or trust client-supplied customer IDs.
-4. Apply the approved role/assignment rule for this action, using current database facts.
-5. Apply D3's adopted stage rule for mutation actions.
+4. Apply the role/assignment rule for this action, using current database facts.
+5. Refuse upload or attach when the job is COMPLETED.
 
 Use the shared safe error envelope: forbidden actor 403, unavailable record 404, unconfigured authorization dependency 503. A broken internal relationship refuses access with a safe error and a request ID. Never return a server storage key or filesystem path.
 
@@ -52,7 +52,7 @@ flowchart LR
 
 The FieldModule-to-FilesModule edge is for the later completion workflow. Files imports only the low-level access module, so a completion command can use Files without creating a module cycle. The access adapter performs database reads only; no file/network I/O or independent commit.
 
-Keep provider registration disabled until D3 accepts the matrix, supplies assignment authority and owns the implementation. A later implementation PR can import the approved access provider into FilesModule and exercise the real routes.
+D3 owns the S03 adapter implementation after Files lands on main. Keep provider registration disabled until that implementation and its integration proof are reviewed. The accepted policy and this documentation update do not register the provider.
 
 ## Evidence use by a completion command
 
@@ -69,6 +69,6 @@ A successful upload is not a completed installation or an authenticated customer
 - Verify rejected upload/attachment writes leave no usable metadata; caller rollback preserves the unbound state.
 - Preserve immutable association under concurrent attempts to attach one file to different jobs.
 - Prove missing/altered bytes fail preflight and that completion uses persisted, correctly bound metadata inside its transaction.
-- Prove the approved completed-job mutation rule once D3 chooses it.
+- Prove COMPLETED refuses upload/attach while other statuses follow the matrix; downloads still require current role/assignment.
 
-D3 review should resolve the role matrix, assignment authority and job-stage rule. After those decisions, implementation can be reviewed separately with the existing Files transport tests.
+The role matrix, assignment authority, job-stage rule and module placement are accepted in the linked D3 decision. Remaining work is the D3-owned S03 implementation and the integration proof above, reviewed with the existing Files transport tests.
