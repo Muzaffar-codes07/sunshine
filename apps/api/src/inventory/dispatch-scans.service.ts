@@ -33,6 +33,15 @@ export class DispatchScansService {
     return this.prisma.$transaction((tx) => this.view(tx, id), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
+  /** An order has at most one draft, so a screen can find it again after a refresh. */
+  async getForOrder(orderId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const draft = await tx.dispatch.findUnique({ where: { orderId: orderId.toLowerCase() }, select: { id: true } });
+      if (!draft) throw notFound();
+      return this.view(tx, draft.id);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+
   async record(actorId: string, key: string, id: string, input: RecordScanRequest) {
     id = id.toLowerCase();
     return this.idempotency.run({ actorId, key, action: 'DISPATCH_SCAN', payload: { id, ...input } }, async (tx) => {
