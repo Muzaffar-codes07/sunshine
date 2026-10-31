@@ -28,7 +28,8 @@ model User {
   createdAt    DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
-  ownedEnquiries Enquiry[]
+  ownedEnquiries        Enquiry[]
+  ownedSubsidyMilestones SubsidyMilestone[] @relation("SubsidyResponsibleOwner")
 
   @@map("users")
 }
@@ -340,6 +341,9 @@ model SubsidyMilestone {
   approvalDate   DateTime?              @db.Timestamptz(3)
   amount         Decimal                @db.Decimal(14, 2)
   evidenceFileId String?                @db.Uuid
+  pendingDocuments   String[]           @default([])
+  responsibleOwnerId String?             @db.Uuid
+  responsibleOwner   User?               @relation("SubsidyResponsibleOwner", fields: [responsibleOwnerId], references: [id], onDelete: Restrict)
   version        Int                    @default(1)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime               @updatedAt @db.Timestamptz(3)
@@ -347,5 +351,6 @@ model SubsidyMilestone {
   @@index([jobId, status])
   @@index([status, stage])
   @@index([evidenceFileId])
+  @@index([responsibleOwnerId, status])
   @@map("subsidy_milestones")
 }

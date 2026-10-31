@@ -7,6 +7,7 @@ const {
   createCostEntryInputSchema, dateRangeFilterSchema,
   jobProfitabilitySchema, paySummarySchema,
   warrantyPolicySchema, subsidyMilestoneSchema, signedMoneySchema,
+  jobProfitabilityReportSchema, periodSummarySchema, subsidyReportSchema,
 } = require('../dist');
 
 const id = 'b3f02476-10ba-43dd-aa92-b3129796c148';
@@ -173,4 +174,68 @@ test('signed money preserves losses and rejects negative zero spellings', () => 
   for (const amount of ['0', '0.00', '-0.01', '-2000.00']) {
     assert.equal(signedMoneySchema.parse(amount), amount);
   }
+});
+
+const reportBreakdown = {
+  material: '40000.00', installationLabour: '2400.00', serviceLabour: '600.00', repairParts: '14000.00',
+};
+
+test('extended job reports preserve aggregate precision and require complete typed breakdowns', () => {
+  const profitability = {
+    jobId: id, asOf: '2026-10-31T12:00:00.000Z', isCompleted: true, isProvisional: false, unfinishedSteps: [],
+    invoicedRevenue: '1999999999999.97', cashReceived: '1999999999999.97', outstanding: '0.00',
+    actualCost: '57000.00', contribution: '1999999942999.97', completedProfit: '1999999942999.97',
+    marginPercentage: '100.00', costBreakdown: reportBreakdown,
+  };
+  assert.deepEqual(jobProfitabilityReportSchema.parse(profitability), profitability);
+  assert.equal(jobProfitabilityReportSchema.safeParse({ ...profitability,
+    isCompleted: false, isProvisional: true, unfinishedSteps: ['Signature'], completedProfit: '0.00', marginPercentage: null,
+  }).success, true);
+  assert.equal(jobProfitabilityReportSchema.safeParse({ ...profitability,
+    contribution: '-2000.00', completedProfit: '-2000.00', marginPercentage: '-3.64',
+  }).success, true);
+  for (const change of [
+    { marginPercentage: '-0.00' }, { contribution: 10 }, { actualCost: '1.001' },
+    { costBreakdown: { ...reportBreakdown, repairParts: undefined } },
+    { costBreakdown: { ...reportBreakdown, serviceLabour: 600 } },
+  ]) assert.equal(jobProfitabilityReportSchema.safeParse({ ...profitability, ...change }).success, false);
+});
+
+test('period contracts retain IST metadata, decimal strings and supported period labels', () => {
+  const overview = {
+    period: 'today', timezone: 'Asia/Kolkata', startDate: '2026-10-31', endDate: '2026-11-01',
+    startUtc: '2026-10-30T18:30:00.000Z', endUtc: '2026-10-31T18:30:00.000Z', asOf: '2026-10-31T12:00:00.000Z',
+    invoicedRevenue: '1999999999999.97', cashReceived: '20000.00', actualCost: '57000.00', costBreakdown: reportBreakdown,
+  };
+  assert.deepEqual(periodSummarySchema.parse(overview), overview);
+  for (const period of ['week', 'month']) assert.equal(periodSummarySchema.safeParse({ ...overview, period }).success, true);
+  for (const change of [
+    { timezone: 'UTC' }, { period: 'year' }, { startDate: '2025-02-29' }, { endUtc: '2026-11-01T00:00:00' },
+    { cashReceived: 20000 }, { costBreakdown: { ...reportBreakdown, material: '-0.00' } },
+  ]) assert.equal(periodSummarySchema.safeParse({ ...overview, ...change }).success, false);
+});
+
+test('subsidy report contracts preserve all status buckets, documents and nullable owners', () => {
+  const milestone = {
+    id, jobId: id, stage: 'Application', status: 'PENDING_DOCS', submissionDate: null, approvalDate: null,
+    amount: '100.10', evidenceFileId: null, pendingDocuments: ['Identity proof'], responsibleOwner: { id, name: 'Officer' },
+  };
+  const report = {
+    asOf: '2026-10-31T12:00:00.000Z',
+    groups: ['PENDING_DOCS', 'SUBMITTED', 'APPROVED', 'DISBURSED', 'REJECTED'].map((status) => ({
+      status, count: 1, totalAmount: '100.10', milestones: [{ ...milestone, status }],
+    })),
+  };
+  assert.deepEqual(subsidyReportSchema.parse(report), report);
+  function groupWith(change) {
+    return { ...report, groups: [{ ...report.groups[0], milestones: [{ ...milestone, ...change }] }] };
+  }
+  assert.equal(subsidyReportSchema.safeParse(groupWith({ responsibleOwner: null })).success, true);
+  assert.equal(subsidyReportSchema.safeParse({ ...report,
+    groups: report.groups.map(({ status }) => ({ status, count: 0, totalAmount: '0.00', milestones: [] })),
+  }).success, true);
+  for (const change of [
+    { status: 'UNKNOWN' }, { pendingDocuments: [' '] }, { responsibleOwner: { id: 'bad', name: 'Officer' } },
+    { submissionDate: '2026-10-31T12:00:00Z', approvalDate: '2026-10-31T11:00:00Z' },
+  ]) assert.equal(subsidyReportSchema.safeParse(groupWith(change)).success, false);
 });

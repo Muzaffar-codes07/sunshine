@@ -4,9 +4,11 @@ Health/readiness, public enquiries, staff authentication, the staff enquiry queu
 and catalogue/package reads are implemented. Warranty assessment and
 `GET /api/v1/warranties/lookup` are implemented with injected interfaces;
 production lookup returns 503 until staff authorization, Unit/Job reads and the
-coordinated warranty migration are integrated. Other routes below remain planned
-and need shared schemas and tests before use. The readiness endpoint checks DB
-connectivity, not completion of migrations or business workflows.
+coordinated warranty migration are integrated. Task 4.1 report calculations and
+routes are implemented with the integration gates described below. Other routes
+below remain planned and need shared schemas and tests before use. The readiness
+endpoint checks DB connectivity, not completion of migrations or business
+workflows.
 
 ## Response convention
 
@@ -67,3 +69,36 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
 - Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
 - `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
 - `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.
+
+## Task 4.1 director reports
+
+Report routes and calculations are implemented with injectable upstream readers;
+production routes return 503 `REPORTING_AUTH_UNAVAILABLE` until verified ADMIN
+authorization is integrated. Job/Invoice/Payment models are absent and their
+default reader returns `REPORTING_SOURCE_UNAVAILABLE`. Pending migrations return
+`REPORTING_SCHEMA_UNAVAILABLE`. See the [reporting handoff](../../apps/api/src/reporting/README.md).
+
+- `GET /api/v1/reports/profitability?jobId=<uuid>` returns `JobProfitabilityReport`:
+  the lifetime profitability fields plus server `asOf`, `costBreakdown` (material,
+  installationLabour, serviceLabour, repairParts), `isProvisional`,
+  `unfinishedSteps`, `completedProfit` and nullable `marginPercentage`. Unfinished
+  work has zero completed profit but retains provisional contribution. Outstanding
+  is floored at zero. Margin percentage is contribution / invoiced revenue * 100,
+  rounded half away from zero to two places; nonpositive revenue yields null.
+- `GET /api/v1/reports/overview?period=today|week|month` returns `PeriodSummary`:
+  selected period (default today), `timezone: Asia/Kolkata`, half-open calendar
+  `startDate`/`endDate`, UTC `startUtc`/`endUtc`, server `asOf`, distinct
+  `invoicedRevenue`/`cashReceived`/`actualCost` and `costBreakdown`. Weeks start
+  Monday. Include only activity up to `asOf` within the calendar window. These
+  totals do not represent completed profit or lifetime contribution.
+- `GET /api/v1/reports/subsidies` returns `SubsidyReport`: `asOf` and status
+  `groups`, each with `status`, `count`, `totalAmount`, and `milestones`.
+  `SubsidyReportMilestone` extends the base projection with `pendingDocuments`
+  and nullable `responsibleOwner: { id, name }`. Status buckets are PENDING_DOCS,
+  SUBMITTED, APPROVED, DISBURSED and REJECTED (including empty groups).
+
+All three return `{ data: ... }`; query parameters are strict. Cutoffs are
+server controlled. Report aggregate amounts are signed, exact two-place decimal
+strings without a per-row numeric(14,2) cap; old base contracts retain that cap.
+Include posted corrections/refunds once. Cash, pending claims and subsidy awards
+do not create invoiced revenue. Task 4.2 pay summary and CSV are still pending.

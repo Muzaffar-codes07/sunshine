@@ -52,3 +52,66 @@ export const subsidyMilestoneSchema = z.object({
   message: 'Approval date cannot precede submission date',
 });
 export type SubsidyMilestone = z.infer<typeof subsidyMilestoneSchema>;
+
+// Aggregates may exceed a single numeric(14,2) row and include reversals.
+export const reportAmountSchema = z.string().regex(/^-?(0|[1-9]\d*)\.\d{2}$/)
+  .refine((value) => value !== '-0.00');
+export const reportPeriodSchema = z.enum(['today', 'week', 'month']);
+export type ReportPeriod = z.infer<typeof reportPeriodSchema>;
+export const profitabilityQuerySchema = z.strictObject({ jobId: z.uuid() });
+export const overviewQuerySchema = z.strictObject({ period: reportPeriodSchema.default('today') });
+export const emptyReportQuerySchema = z.strictObject({});
+
+export const reportCostBreakdownSchema = z.object({
+  material: reportAmountSchema,
+  installationLabour: reportAmountSchema,
+  serviceLabour: reportAmountSchema,
+  repairParts: reportAmountSchema,
+});
+export const jobProfitabilityReportSchema = jobProfitabilitySchema.extend({
+  asOf: z.iso.datetime(),
+  invoicedRevenue: reportAmountSchema,
+  cashReceived: reportAmountSchema,
+  outstanding: reportAmountSchema,
+  actualCost: reportAmountSchema,
+  contribution: reportAmountSchema,
+  costBreakdown: reportCostBreakdownSchema,
+  isProvisional: z.boolean(),
+  unfinishedSteps: z.array(z.string().trim().min(1)),
+  completedProfit: reportAmountSchema,
+  marginPercentage: reportAmountSchema.nullable(),
+});
+export type JobProfitabilityReport = z.infer<typeof jobProfitabilityReportSchema>;
+
+export const periodSummarySchema = z.object({
+  period: reportPeriodSchema,
+  timezone: z.literal('Asia/Kolkata'),
+  startDate: z.iso.date(),
+  endDate: z.iso.date(),
+  startUtc: z.iso.datetime(),
+  endUtc: z.iso.datetime(),
+  asOf: z.iso.datetime(),
+  invoicedRevenue: reportAmountSchema,
+  cashReceived: reportAmountSchema,
+  actualCost: reportAmountSchema,
+  costBreakdown: reportCostBreakdownSchema,
+});
+export type PeriodSummary = z.infer<typeof periodSummarySchema>;
+
+export const subsidyReportStatusSchema = z.enum(['PENDING_DOCS', 'SUBMITTED', 'APPROVED', 'DISBURSED', 'REJECTED']);
+export const subsidyReportMilestoneSchema = subsidyMilestoneSchema.safeExtend({
+  status: subsidyReportStatusSchema,
+  pendingDocuments: z.array(z.string().trim().min(1)),
+  responsibleOwner: z.object({ id: z.uuid(), name: z.string().trim().min(1) }).nullable(),
+});
+export type SubsidyReportMilestone = z.infer<typeof subsidyReportMilestoneSchema>;
+export const subsidyReportSchema = z.object({
+  asOf: z.iso.datetime(),
+  groups: z.array(z.object({
+    status: subsidyReportStatusSchema,
+    count: z.number().int().nonnegative(),
+    totalAmount: reportAmountSchema,
+    milestones: z.array(subsidyReportMilestoneSchema),
+  })),
+});
+export type SubsidyReport = z.infer<typeof subsidyReportSchema>;
