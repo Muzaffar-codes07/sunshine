@@ -23,7 +23,7 @@ const descriptions: Record<string, string> = {
   sales: 'Enquiries, assigned surveys and quotations.', orders: 'Confirmed orders, invoices, receipts and crew scheduling.',
   warehouse: 'Receive stock, inspect the ledger and fulfil orders.', 'field-service': 'Assigned jobs, installation photos and customer acceptance.',
   service: 'Equipment coverage and repair records. Some actions await backend integration.',
-  reports: 'Posted revenue, costs, pay and subsidy records. Source integration is pending.',
+  reports: 'Posted revenue, costs and operational queues. Pay and subsidy actions await integration.',
 };
 
 export function Workspace() {
@@ -35,7 +35,7 @@ export function Workspace() {
   const [error, setError] = useState('');
   const from = location.pathname + location.search;
   const content = useRef<HTMLElement>(null);
-  useEffect(() => { content.current?.focus(); }, [location.pathname, session.data?.id]);
+  useEffect(() => { content.current?.focus(); }, [location.pathname, location.search, session.data?.id]);
   const area = location.pathname.split('/')[2];
   const allowed = !area || !workspaceRoles[area] || (session.data && workspaceRoles[area].includes(session.data.role));
 

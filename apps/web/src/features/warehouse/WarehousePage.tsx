@@ -19,6 +19,10 @@ import {
 } from './view-queries';
 
 type Tab = 'orders' | 'levels' | 'movements' | 'integrity' | 'valuation' | 'unit-lookup';
+const sectionNames: Record<Tab, string> = {
+  orders: 'Orders to fulfil', levels: 'Stock balances', movements: 'Movement ledger',
+  integrity: 'Integrity and audit', valuation: 'Valuation', 'unit-lookup': 'Unit and serial scan',
+};
 
 export function WarehousePage() {
   const session = useStaffSession();
@@ -62,10 +66,11 @@ export function WarehousePage() {
         </div>
       </header>
 
-      <nav className="warehouse-tabs" aria-label="Warehouse sections">
-        <button type="button" aria-pressed={activeTab === 'orders'} onClick={() => setActiveTab('orders')}>Orders to fulfil</button>
+      <div className="warehouse-tabs" role="group" aria-label="Warehouse sections">
+        <button type="button" aria-controls="warehouse-content" aria-pressed={activeTab === 'orders'} onClick={() => setActiveTab('orders')}>Orders to fulfil</button>
         <button
           type="button"
+          aria-controls="warehouse-content"
           aria-pressed={activeTab === 'levels'}
           className={activeTab === 'levels' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('levels')}
@@ -74,6 +79,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-controls="warehouse-content"
           aria-pressed={activeTab === 'movements'}
           className={activeTab === 'movements' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('movements')}
@@ -82,6 +88,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-controls="warehouse-content"
           aria-pressed={activeTab === 'integrity'}
           className={activeTab === 'integrity' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('integrity')}
@@ -90,6 +97,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-controls="warehouse-content"
           aria-pressed={activeTab === 'valuation'}
           className={activeTab === 'valuation' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('valuation')}
@@ -98,15 +106,16 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-controls="warehouse-content"
           aria-pressed={activeTab === 'unit-lookup'}
           className={activeTab === 'unit-lookup' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('unit-lookup')}
         >
           Unit & Serial Scan
         </button>
-      </nav>
+      </div>
 
-      <section className="warehouse-content">
+      <section className="warehouse-content" id="warehouse-content" aria-label={sectionNames[activeTab]}>
         {activeTab === 'orders' && <FulfilmentOrders />}
         {activeTab === 'levels' && <StockLevelsSection />}
         {activeTab === 'movements' && <StockMovementsSection />}
