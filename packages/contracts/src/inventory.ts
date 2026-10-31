@@ -169,7 +169,7 @@ const uniqueProducts = (lines: { productId: string }[], ctx: z.RefinementCtx) =>
   });
 };
 export const stockTransferLineSchema = z.object({
-  productId: z.uuid(), quantity: positiveQuantitySchema, serials: z.array(equipmentSerialSchema).max(200).default([]),
+  productId: canonicalId, quantity: positiveQuantitySchema, serials: z.array(equipmentSerialSchema).max(200).default([]),
 }).strict().superRefine((line, ctx) => {
   if (line.serials.length && (!/^(0|[1-9]\d*)(?:\.0{1,3})?$/.test(line.quantity)
     || BigInt(line.quantity.split('.')[0]!) !== BigInt(line.serials.length))) {
@@ -180,13 +180,13 @@ export const stockTransferLineSchema = z.object({
   }
 });
 export const createStockTransferRequestSchema = z.object({
-  reference, fromLocationId: z.uuid(), toLocationId: z.uuid(), lines: z.array(stockTransferLineSchema).min(1).max(100),
+  reference, fromLocationId: canonicalId, toLocationId: canonicalId, lines: z.array(stockTransferLineSchema).min(1).max(100),
 }).strict().superRefine((transfer, ctx) => {
   if (transfer.fromLocationId === transfer.toLocationId) ctx.addIssue({ code: 'custom', path: ['toLocationId'], message: 'Choose a different destination' });
   uniqueProducts(transfer.lines, ctx);
 });
 export const createStockCountRequestSchema = z.object({
-  reference, locationId: z.uuid(), lines: z.array(z.object({ productId: z.uuid(), countedQuantity: quantitySchema }).strict()).min(1).max(100),
+  reference, locationId: canonicalId, lines: z.array(z.object({ productId: canonicalId, countedQuantity: quantitySchema }).strict()).min(1).max(100),
 }).strict().superRefine((count, ctx) => uniqueProducts(count.lines, ctx));
 export const stockDocumentCommandRequestSchema = z.object({ expectedVersion: version }).strict();
 export const stockDocumentKindSchema = z.enum(['RECEIPT', 'ISSUE', 'TRANSFER', 'ADJUSTMENT']);

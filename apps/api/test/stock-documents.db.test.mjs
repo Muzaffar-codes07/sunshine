@@ -122,6 +122,18 @@ test('a retry with the same key returns the saved result; a stale version is ref
   assert.equal((await movements(draft.id)).length, 1);
 });
 
+test('an upper-case ID is the same ID: the checks that compare IDs still apply', async () => {
+  const [product] = bulks;
+  const draft = await ok(transfer([{ productId: product.id.toUpperCase(), quantity: '1' }], main.id.toUpperCase()), 201);
+  assert.equal(draft.lines[0].productId, product.id); assert.equal(draft.fromLocationId, main.id);
+  await ok(cancel(draft));
+  await expectError(await transfer([{ productId: product.id, quantity: '1' }], main.id, main.id.toUpperCase()), 400, 'INVALID_INPUT');
+  await expectError(await transfer([{ productId: product.id, quantity: '1' }], quarantine.id.toUpperCase(), main.id), 409, 'NOT_MOVABLE');
+  await expectError(await send('/stock/transfers', { reference: ref(), fromLocationId: main.id, toLocationId: quarantine.id, lines: [
+    { productId: product.id, quantity: '1' }, { productId: product.id.toUpperCase(), quantity: '1' },
+  ] }), 400, 'INVALID_INPUT');
+});
+
 test('the reference guards a draft: same body replays, different body conflicts', async () => {
   const [product] = bulks;
   const body = { reference: ref(), fromLocationId: main.id, toLocationId: quarantine.id, lines: [{ productId: product.id, quantity: '1' }] };
