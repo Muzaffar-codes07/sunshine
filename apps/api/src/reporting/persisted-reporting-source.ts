@@ -23,8 +23,7 @@ export class PersistedReportingSource extends ReportingSourceReader {
   async readJob(tx: Prisma.TransactionClient, jobId: string, asOf: Date) {
     jobId = jobId.toLowerCase();
     const job = await tx.job.findFirst({ where: { id: jobId, createdAt: { lte: asOf } },
-      select: { id: true, orderId: true, status: true, completedAt: true, finishedAt: true,
-        timeRecords: { select: { id: true } } } });
+      select: { id: true, orderId: true, status: true, completedAt: true, finishedAt: true } });
     if (!job) return null;
     const tickets = await tx.serviceTicket.findMany({ where: { jobId, createdAt: { lte: asOf } }, select: { id: true, closedAt: true } });
     const invoices = await tx.invoice.findMany({ where: { createdAt: { lte: asOf }, postedAt: { lte: asOf }, OR: [
@@ -38,7 +37,7 @@ export class PersistedReportingSource extends ReportingSourceReader {
     if (tickets.some(ticket => !ticket.closedAt || ticket.closedAt > asOf)) unfinishedSteps.push('Open service repairs at cutoff');
     if (tickets.length) unfinishedSteps.push('Service billing and cost finalization await production activation');
     // Time has no persisted approved rate yet. Do not turn an absent labour posting into zero-cost final profit.
-    if (job.timeRecords.length) unfinishedSteps.push('Installation labour costing awaits approved frozen rates');
+    if (job.status === 'COMPLETED') unfinishedSteps.push('Installation labour costing awaits approved frozen rates');
     return { jobId, isCompleted: unfinishedSteps.length === 0, unfinishedSteps,
       invoices: invoices.map(row => ({ amount: row.total.toFixed(2) })), payments: payments.map(row => ({ amount: row.amount.toFixed(2) })) };
   }

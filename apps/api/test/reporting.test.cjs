@@ -274,3 +274,14 @@ test('production reports are registered and reject forged admin headers without 
     }
   } finally { await app.close(); }
 });
+
+test('completed installations without approved labour provenance remain provisional, including legacy rows', async () => {
+  const { PersistedReportingSource } = require('../dist/reporting/persisted-reporting-source');
+  const empty = async () => [];
+  const tx = { job: { findFirst: async () => ({ id: jobId, orderId: ownerId, status: 'COMPLETED',
+    completedAt: new Date('2026-01-01T00:00:00Z'), finishedAt: new Date('2026-01-01T00:00:00Z') }), findMany: empty },
+    order: { findMany: empty }, serviceTicket: { findMany: empty }, invoice: { findMany: empty }, payment: { findMany: empty } };
+  const result = await new PersistedReportingSource().readJob(tx, jobId, asOf);
+  assert.equal(result.isCompleted, false);
+  assert.ok(result.unfinishedSteps.some(step => step.includes('approved frozen rates')));
+});
