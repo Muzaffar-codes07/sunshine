@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Field } from '../../components/ui/Field';
 
 // F02 spike: find out what THIS device and browser can really do before building scan/photo/signature screens.
 // Nothing here talks to the API; it only reports what works.
@@ -109,9 +108,9 @@ function ScanTest() {
     <section className="spike-section" aria-label="Scan test">
       <h2>2. Scan a serial</h2>
       <form onSubmit={(e) => { e.preventDefault(); const v = manual.trim(); if (v) { addScan(v, 'keyboard'); setManual(''); } }}>
-        <Field label="Scanner / keyboard entry" hint="A USB or Bluetooth scanner types the code and presses Enter. Click here, then scan.">
-          {(c) => <input {...c} type="text" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" />}
-        </Field>
+        <label htmlFor="spike-scanner">Scanner / keyboard entry</label>
+        <p id="spike-scanner-hint">A USB or Bluetooth scanner types the code and presses Enter. Click here, then scan.</p>
+        <input id="spike-scanner" aria-describedby="spike-scanner-hint" type="text" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" />
       </form>
       <div>
         {state.kind === 'scanning' ? <button type="button" onClick={() => { stop(); setState({ kind: 'idle' }); }}>Stop camera</button>
@@ -134,14 +133,12 @@ function PhotoTest() {
   return (
     <section className="spike-section" aria-label="Photo test">
       <h2>3. Take or choose a photo</h2>
-      <Field label="Photo" hint="On a phone this opens the camera. On a laptop it opens a file picker.">
-        {(c) => (
-          <input {...c} type="file" accept="image/*" capture="environment" onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) setPhoto({ url: URL.createObjectURL(file), name: file.name, size: file.size, type: file.type });
-          }} />
-        )}
-      </Field>
+      <label htmlFor="spike-photo">Photo</label>
+      <p id="spike-photo-hint">On a phone this opens the camera. On a laptop it opens a file picker.</p>
+      <input id="spike-photo" aria-describedby="spike-photo-hint" type="file" accept="image/*" capture="environment" onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) setPhoto({ url: URL.createObjectURL(file), name: file.name, size: file.size, type: file.type });
+      }} />
       {photo && (
         <>
           <img className="spike-img" src={photo.url} alt="Chosen photo preview" />
