@@ -170,3 +170,16 @@ test('allocation requests lowercase unit IDs, so both spellings count as one uni
   assert.equal(c.allocateOrderRequestSchema.safeParse({ expectedVersion: 1, unitIds: [unit, unit.toUpperCase()] }).success, false);
   assert.equal(c.allocateOrderRequestSchema.safeParse({}).success, false);
 });
+
+test('stock read queries are bounded, and a movement window must run forwards', () => {
+  const at = '2026-10-30T10:00:00.000Z';
+  assert.equal(c.stockMovementListQuerySchema.parse({}).pageSize, 25);
+  assert.equal(c.stockMovementListQuerySchema.safeParse({ pageSize: '101' }).success, false);
+  assert.equal(c.stockMovementListQuerySchema.safeParse({ page: '10001' }).success, false);
+  assert.equal(c.stockMovementListQuerySchema.safeParse({ kind: 'SOMETHING' }).success, false);
+  assert.equal(c.stockMovementListQuerySchema.safeParse({ from: at, to: at }).success, false);
+  assert.equal(c.stockAsOfQuerySchema.safeParse({}).success, false);
+  assert.equal(c.stockAsOfQuerySchema.safeParse({ at }).success, true);
+  assert.equal(c.stockAsOfQuerySchema.safeParse({ at, extra: '1' }).success, false);
+  assert.equal(c.stockValueQuerySchema.parse({ productId: id(1).toUpperCase() }).productId, id(1).toLowerCase());
+});

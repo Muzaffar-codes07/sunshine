@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { allocateOrderRequestSchema, createDispatchRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, recordScanRequestSchema, releaseOrderAllocationsRequestSchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, unitLookupQuerySchema,
-  type AllocateOrderRequest, type CreateDispatchRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type RecordScanRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockLevelListQuery, type UnitLookupQuery } from '@sunshine/contracts';
+import { allocateOrderRequestSchema, createDispatchRequestSchema, createStockCountRequestSchema, createStockTransferRequestSchema, receiveStockRequestSchema, recordScanRequestSchema, releaseOrderAllocationsRequestSchema, stockAsOfQuerySchema, stockDocumentCommandRequestSchema, stockLevelListQuerySchema, stockMovementListQuerySchema, stockValueQuerySchema, unitLookupQuerySchema,
+  type AllocateOrderRequest, type CreateDispatchRequest, type CreateStockCountRequest, type CreateStockTransferRequest, type ReceiveStockRequest, type RecordScanRequest, type ReleaseOrderAllocationsRequest, type StockDocumentCommandRequest, type StockAsOfQuery, type StockLevelListQuery, type StockMovementListQuery, type StockValueQuery, type UnitLookupQuery } from '@sunshine/contracts';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -10,6 +10,7 @@ import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { AllocationsService } from './allocations.service';
 import { DispatchScansService } from './dispatch-scans.service';
 import { StockDocumentsService } from './stock-documents.service';
+import { StockIntegrityService } from './stock-integrity.service';
 import { StockReadService } from './stock-read.service';
 import { StockReceiptsService } from './stock-receipts.service';
 
@@ -17,7 +18,7 @@ import { StockReceiptsService } from './stock-receipts.service';
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('WAREHOUSE', 'ADMIN')
 export class InventoryController {
-  constructor(private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService, private readonly dispatchScans: DispatchScansService) {}
+  constructor(private readonly receipts: StockReceiptsService, private readonly documents: StockDocumentsService, private readonly reads: StockReadService, private readonly allocations: AllocationsService, private readonly dispatchScans: DispatchScansService, private readonly integrity: StockIntegrityService) {}
   @Post('orders/:id/dispatches')
   createDispatch(@Req() request: AuthenticatedStaffRequest, @IdempotencyKey() key: string, @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(createDispatchRequestSchema)) body: CreateDispatchRequest) { return this.dispatchScans.create(request.user.id, key, id, body); }
@@ -66,6 +67,14 @@ export class InventoryController {
   }
   @Get('stock/locations')
   locations() { return this.reads.listLocations(); }
+  @Get('stock/movements')
+  movements(@Query(new ZodValidationPipe(stockMovementListQuerySchema)) query: StockMovementListQuery) { return this.reads.listMovements(query); }
+  @Get('stock/as-of')
+  asOf(@Query(new ZodValidationPipe(stockAsOfQuerySchema)) query: StockAsOfQuery) { return this.reads.stockAsOf(query); }
+  @Get('stock/value')
+  value(@Query(new ZodValidationPipe(stockValueQuerySchema)) query: StockValueQuery) { return this.reads.stockValue(query); }
+  @Get('stock/integrity')
+  integrityReport() { return this.integrity.report(); }
   @Get('stock')
   levels(@Query(new ZodValidationPipe(stockLevelListQuerySchema)) query: StockLevelListQuery) { return this.reads.listLevels(query); }
   @Get('units')

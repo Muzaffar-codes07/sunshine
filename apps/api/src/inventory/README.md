@@ -1,6 +1,6 @@
 # Inventory module
 
-Owner: **D3**. Status: **receipts, transfers, counts, order allocation and stock reads implemented**; dispatch, issues, returns, repair-part allocation, releasing a reservation, serialized counts and receipt drafts are planned.
+Owner: **D3**. Status: **receipts, transfers, counts, order allocation and release, and stock reads implemented**; dispatch, issues, returns, repair-part allocation, serialized counts and receipt drafts are planned.
 
 The rules are in the [data model](../../../../docs/architecture/data-model.md#stock-ledger-owner-decision-31-oct).
 
@@ -13,6 +13,11 @@ The rules are in the [data model](../../../../docs/architecture/data-model.md#st
 - A serial transfer names its units on the draft. Validation locks them and checks product, location and status. A unit moved into quarantine becomes `QUARANTINED`. Nothing leaves quarantine by transfer yet: that needs the inspection and release step, and for bulk the quarantine value carried back into the average. Serialized stock can't be counted by quantity yet.
 - `POST /api/v1/orders/:id/allocations` reserves every requirement on a paid order, or none. It takes `expectedVersion` (the job's version), an `Idempotency-Key` and optional `unitIds`. Without `unitIds`, it picks the oldest available units. A shortage names every line that's short. `GET /orders/:id/allocations` reads them.
 - Free stock is usable on-hand minus RESERVED allocations, and `GET /stock` shows both. A bulk transfer can't leave a location below what's reserved there. A reserved unit can't be transferred at all.
+- `GET /api/v1/stock/movements` is paged history, filtered by product, location (either end), document kind and time. `from` is inclusive and `to` exclusive.
+- `GET /api/v1/stock/as-of?at=` is on-hand at a past time, by `occurredAt`. A receipt recorded late with an earlier date changes past answers, on purpose.
+- `GET /api/v1/stock/value` keeps usable and quarantine apart. Serial units count at actual cost, bulk at today's moving average, because bulk in quarantine has no cost of its own yet. A bulk product with stock but no cost counts as zero and is flagged.
+- `GET /api/v1/stock/integrity` is a read-only check over one snapshot. It reports each check's count and up to 20 samples, and `ok` is false if any check finds something. Nothing acts on it yet: the readiness gate that a count below RESERVED should block comes with dispatch.
+- Incoming, forecast, OK/LOW/OUT status and reorder suggestions aren't built: they need purchase orders and reorder levels, which don't exist.
 - One warehouse (ADR-06): allocation refuses if there isn't exactly one active usable location.
 - `GET /api/v1/stock`, `/stock/locations` and `/units?serial=` are the other reads. All routes need WAREHOUSE or ADMIN.
 - `GET /api/v1/units/:id` traces a stable unit UUID to its receipt and current allocation/job/order/customer IDs. Identity, ledger-derived location and assignment are read in one REPEATABLE READ snapshot. Active assignments include RESERVED, DISPATCHED, DELIVERED and INSTALLED; RELEASED history is retained but excluded from the current assignment. This read does not implement dispatch or installation commands.
