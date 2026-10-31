@@ -121,6 +121,10 @@ export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
   enquiries_bill_nonnegative: { field: 'monthlyBillInr', message: 'The monthly bill cannot be negative' },
   enquiries_version_positive: { field: 'version', message: 'Version must be at least 1' },
   enquiries_closed_has_reason: { field: 'reason', message: 'Give a reason when closing an enquiry' },
+  units_identity_key: { refusal: {
+    code: 'SERIAL_ALREADY_RECEIVED', reason: 'A unit with this manufacturer, product and serial already exists.', source: 'INVENTORY',
+    nextAction: 'Check the serial, or open the existing unit.',
+  } },
   users_email_key: { refusal: {
     code: 'STAFF_EMAIL_TAKEN', reason: 'A staff account with this email already exists.', source: 'AUTH',
     nextAction: 'Use a different email or reactivate the existing account.',

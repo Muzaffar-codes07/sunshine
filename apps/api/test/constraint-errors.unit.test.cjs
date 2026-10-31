@@ -97,7 +97,9 @@ test('the filter renders mapped refusals in the shared envelope without the fail
 test('every D2 rule in the constraint manifest has a mapping, and every mapping names a real rule or key', () => {
   const manifest = JSON.parse(readFileSync(join(__dirname, '../../../prisma/required-constraints.json'), 'utf8'));
   const listed = new Set(manifest.required.map((rule) => rule.name));
-  for (const rule of manifest.required.filter((item) => item.owner === 'D2')) {
+  // Triggers, views and functions aren't constraint names. What a trigger raises gets RULE_VIOLATION unless it's mapped.
+  const named = new Set(['check', 'exclusion', 'unique_partial_index']);
+  for (const rule of manifest.required.filter((item) => item.owner === 'D2' && named.has(item.kind))) {
     assert.ok(CONSTRAINT_RULES[rule.name], `${rule.name} needs an entry in CONSTRAINT_RULES`);
   }
   for (const name of Object.keys(CONSTRAINT_RULES)) {
