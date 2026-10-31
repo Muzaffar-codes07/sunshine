@@ -22,7 +22,10 @@ const { QuotesService } = require('../dist/quotes/quotes.service');
 const { SurveysService } = require('../dist/sales/surveys.service');
 const { OrdersService } = require('../dist/orders/orders.service');
 const { InvoicesService } = require('../dist/finance/invoices.service');
+<<<<<<< HEAD
 const { JobsService } = require('../dist/field/jobs.service');
+=======
+>>>>>>> origin/main
 const { constraintError } = require('../dist/platform/constraint-errors');
 const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
@@ -97,7 +100,11 @@ test('confirmation creates one order, its packing requirements and one invoice f
   const order = (await orders.confirm({ quoteId: quote.id }, key(), staff(sales))).data;
   assert.ok(orderSchema.safeParse(order).success);
   assert.match(order.displayNumber, /^ORD-\d{6}$/);
+<<<<<<< HEAD
   assert.ok(order.jobId, 'the job is created with the order');
+=======
+  assert.equal(order.jobId, null, 'D3 job helper is not wired in this build');
+>>>>>>> origin/main
   const components = quote.lines.filter((line) => line.kind === 'COMPONENT');
   assert.equal(order.packing.length, components.length);
   assert.deepEqual(order.packing.map((item) => item.quoteLineId), components.map((line) => line.id));
@@ -226,7 +233,11 @@ test("D3's job helper runs inside the confirming transaction, and its failure le
   const jobs = { async ensureJob(tx, facts) {
     calls.push(facts);
     assert.equal(await tx.order.count({ where: { id: facts.orderId } }), 1, 'sees the uncommitted order');
+<<<<<<< HEAD
     return app.get(JobsService).ensureJob(tx, facts);
+=======
+    return { jobId: randomUUID() };
+>>>>>>> origin/main
   } };
   const withJobs = new OrdersService(prisma, idempotency, quotes, invoices, jobs);
   const { quote } = await acceptedQuote();

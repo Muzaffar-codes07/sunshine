@@ -43,7 +43,11 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
 | 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
 | 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
+<<<<<<< HEAD
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `JobAssignment` and time records follow |
+=======
+| 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
+>>>>>>> origin/main
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
@@ -87,7 +91,9 @@ Row locks work inside `$transaction` through the driver adapter. Two concurrent 
 | `SELECT ... FOR UPDATE`, then check and update | 20 of 20 | The app's own `INSUFFICIENT_STOCK` |
 | No lock, CHECK constraint only | 20 of 20 | A raw database error, `P2010` |
 
-So use both: the lock gives a clean refusal, and the constraint is the backstop. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
+So use both: the lock gives a clean refusal, and the constraint is the backstop.
+
+**Isolation levels need the callback form.** With `@prisma/adapter-pg`, the array form `$transaction([...], { isolationLevel })` silently runs at READ COMMITTED; only `$transaction(async (tx) => ..., { isolationLevel })` reaches PostgreSQL. `summary.db.test.mjs` asserts both, so it fails if Prisma changes this. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
 
 Two concurrent active allocations of one unit also had one winner in 20 of 20 rounds, and the unit could be allocated again after release.
 

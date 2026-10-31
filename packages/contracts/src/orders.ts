@@ -90,7 +90,11 @@ export const orderSchema = z.object({
   quoteId: z.uuid(),
   enquiryId: z.uuid(),
   customerId: z.uuid(),
+<<<<<<< HEAD
   /** Set by D3's job helper in the confirming transaction. */
+=======
+  /** Null until D3's job helper is wired; then set in the confirming transaction. */
+>>>>>>> origin/main
   jobId: z.uuid().nullable(),
   confirmedById: z.uuid(),
   confirmedAt: z.iso.datetime(),
