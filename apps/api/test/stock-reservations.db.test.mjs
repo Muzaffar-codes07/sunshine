@@ -607,6 +607,28 @@ test('late scan failure rolls back evidence, version and key claim and permits s
   assert.equal((await ok(send(`/dispatches/${draft.id}/scans`, input, 'WAREHOUSE', key))).scans.length, 1);
 });
 
+test('a scan transaction started before reallocation records its acceptance time after the new source exists', async () => {
+  const { order, draft, units } = await preparedDispatch();
+  await ok(release(order), 200);
+  let entered, resume;
+  const waiting = new Promise((resolve) => { entered = resolve; });
+  const gate = new Promise((resolve) => { resume = resolve; });
+  const paused = new DispatchScansService(prisma, { run: (command, work) => idempotency.run(command, async (tx) => {
+    entered(); await gate; return work(tx);
+  }) }, ledger, invoices);
+  const pending = paused.record(staff.WAREHOUSE.id, randomUUID(), draft.id,
+    { rawValue: units[0].rawSerial, method: 'SCANNER', unitId: units[0].id }).then((value) => ({ value }), (error) => ({ error }));
+  await waiting;
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    await ok(allocate(order, { unitIds: units.map((u) => u.id) }));
+  } finally { resume(); }
+  const result = await pending;
+  assert.ifError(result.error);
+  const scan = await prisma.dispatchScan.findUniqueOrThrow({ where: { id: result.value.data.scans[0].id }, include: { allocation: true } });
+  assert.ok(scan.recordedAt >= scan.allocation.createdAt);
+});
+
 test('scans racing a reservation release leave no usable evidence for the released allocation', async () => {
   const { order, draft, units } = await preparedDispatch();
   await sql.query('BEGIN'); await sql.query('SELECT id FROM jobs WHERE id=$1 FOR NO KEY UPDATE', [order.jobId]);
