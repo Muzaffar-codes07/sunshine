@@ -6,6 +6,7 @@ import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { FinanceModule } from './finance/finance.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CatalogModule } from './catalog/catalog.module';
     AuthModule,
     SalesModule,
     CatalogModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
 })

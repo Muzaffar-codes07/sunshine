@@ -8,7 +8,7 @@
     "dev": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/api && concurrently -k -n api,web \"npm run dev -w @sunshine/api\" \"npm run dev -w @sunshine/web\"",
     "build": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/web && npm run build -w @sunshine/api",
     "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present",
-    "test": "npm run build -w @sunshine/contracts && npm run test --workspaces --if-present",
+    "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose stop db",
     "db:generate": "prisma generate",
