@@ -210,6 +210,7 @@ try {
   await page.getByRole('alert').filter({ hasText: /unavailable|integration/i }).waitFor();
   // Keyboard navigation focuses content after a client-side route change.
   await page.getByRole('link', { name: 'Overview', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.id === 'workspace-content');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; D4 unavailable gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
