@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { normalizeEquipmentSerial, stockReceiptViewSchema, type RefusalReason, type StockReceiptView } from '@sunshine/contracts';
 import { ApiError, refusal } from '../platform/api-error';
 import { IdempotencyService } from '../platform/idempotency';
+import { PrismaService } from '../platform/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { StockLedgerService, type LockedProduct } from './stock-ledger.service';
 
@@ -17,7 +18,12 @@ const notReceivable = (reason: string, nextAction: string): RefusalReason => ({ 
 
 @Injectable()
 export class StockReceiptsService {
-  constructor(private readonly idempotency: IdempotencyService, private readonly ledger: StockLedgerService) {}
+  constructor(private readonly idempotency: IdempotencyService, private readonly ledger: StockLedgerService, private readonly prisma: PrismaService) {}
+
+  /** Reload immutable receipt facts, including their original costs rather than today's average. */
+  async get(id: string): Promise<{ data: StockReceiptView }> {
+    return { data: await this.view(this.prisma, id) };
+  }
 
   /**
    * Records a receipt once. The Idempotency-Key makes a retry return the saved response. The reference and payload
@@ -116,9 +122,10 @@ export class StockReceiptsService {
   }
 
   private async view(tx: Prisma.TransactionClient, id: string): Promise<StockReceiptView> {
-    const document = await tx.stockDocument.findUniqueOrThrow({ where: { id }, include: { lines: {
+    const document = await tx.stockDocument.findFirst({ where: { id, kind: 'RECEIPT', status: 'DONE' }, include: { lines: {
       orderBy: { lineNumber: 'asc' }, include: { movement: { select: { id: true } }, units: { select: { id: true }, orderBy: { normalizedSerial: 'asc' } } },
     } } });
+    if (!document) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Stock receipt not found');
     return stockReceiptViewSchema.parse({
       id: document.id, reference: document.reference, status: document.status, locationId: document.toLocationId, actorId: document.actorId,
       receivedAt: document.occurredAt.toISOString(), recordedAt: document.recordedAt.toISOString(),
