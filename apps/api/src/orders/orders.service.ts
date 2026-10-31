@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
-import { orderSchema, type ConfirmOrder, type Order, type StaffIdentity } from '@sunshine/contracts';
+import { orderFulfilmentSchema, orderSchema, type ConfirmOrder, type Order, type StaffIdentity } from '@sunshine/contracts';
 import { InvoicesService, invoiceView } from '../finance/invoices.service';
 import { ApiError, refusal } from '../platform/api-error';
 import { constraintError, ORDER_ALREADY_CONFIRMED } from '../platform/constraint-errors';
@@ -49,6 +49,13 @@ export class OrdersService {
     const row = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!row) throw notFound();
     return { data: orderView(row) };
+  }
+
+  /** The warehouse view: packing and release only, so no money or payment reference leaves the sales side. */
+  async getFulfilment(id: string) {
+    const row = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    if (!row) throw notFound();
+    return { data: orderFulfilmentSchema.parse(orderView(row)) };
   }
 
   async getForEnquiry(enquiryId: string) {

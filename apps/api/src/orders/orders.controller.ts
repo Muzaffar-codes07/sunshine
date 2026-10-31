@@ -13,7 +13,7 @@ const uuid = new ParseUUIDPipe({ version: '4' });
 
 /**
  * Orders and money. Sales confirms orders; only admin records receipts, because the PRD requires an explicit finance
- * permission and viewing an order must not authorize posting money. Warehouse reads orders for packing.
+ * permission and viewing an order must not authorize posting money. Warehouse reads only the fulfilment view.
  */
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -34,9 +34,14 @@ export class OrdersController {
   }
 
   @Get('orders/:id')
-  @Roles('SALES', 'ADMIN', 'WAREHOUSE')
   get(@Param('id', uuid) id: string) {
     return this.orders.get(id);
+  }
+
+  @Get('orders/:id/fulfilment')
+  @Roles('SALES', 'ADMIN', 'WAREHOUSE')
+  fulfilment(@Param('id', uuid) id: string) {
+    return this.orders.getFulfilment(id);
   }
 
   @Get('enquiries/:id/order')
