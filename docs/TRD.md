@@ -210,7 +210,7 @@ Invoice, receipt and cost-entry cores use Prisma and posting inputs; they do not
 | Contract detail | Decision |
 |---|---|
 | Idempotency scope | Confirmation, receipt, dispatch, delivery, repair/replacement: staff actor + command type/target + key; hash payload; replay original committed result. Other money/stock effects: durable unique business source (section 5) |
-| Refusal reason | 409 errors carry `{code, reason, source, nextAction}`; safe text only, no internal details |
+| Refusal reason | 409 errors carry `error.reasons: [{code, reason, source, nextAction}]` (C6); safe text only, no internal details. Constraint refusals map through one registry; the failing row is never returned or logged |
 | Retention | At least the demonstration/event window; no eviction while retries could double-post. Permanent unique business sources protect money/stock beyond replay retention |
 | Version conflict | Request includes current version; stale write is 409 `STALE_VERSION`, preserve form input, refetch |
 | Representative errors | 400 `INVALID_INPUT`; 403 `FORBIDDEN`; 409 `SURVEY_NOT_APPROVED`, `INSUFFICIENT_STOCK`, `UNIT_ALREADY_ASSIGNED`, `REQUIRED_SCAN_MISSING`, `EVIDENCE_REQUIRED`, `CUSTOMER_CONFIRMATION_REQUIRED`, `IDEMPOTENCY_CONFLICT`; 503 `SERVICE_UNAVAILABLE` |
