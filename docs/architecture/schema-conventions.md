@@ -35,11 +35,14 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 |---:|---|---|---|
 | 0 | `platform`: `User` | - | Merged |
 | 1 | `Customer`, `Enquiry` (`20261031100000_sales_enquiry`) | D2 | Merged in #6 (`854b96e`); nine CHECKs registered here |
-| 1b | `enquiries.monthlyBillInr` to `Decimal(14,2)` (`20261031120000_enquiry_bill_money`) | D2 | Follow-up C1c; widening only |
+| 1b | `enquiries.monthlyBillInr` to `Decimal(14,2)` (`20261031120000_enquiry_bill_money`) | D2 | Merged in #12 |
 | 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Merged in #9 |
-| 2b | `Survey`, then `AuditEntry`, `Command`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
+| 2b | `Survey` (`20261031140000_survey`) | D2 | C4; eight CHECKs and `surveys_one_open_per_enquiry` registered here |
+| 2c | `AuditEntry`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
+| 2d | `Command` (`20261031150000_commands`) | D2 | C7, idempotent command results; three CHECKs registered here |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
-| 4 | `Quote`, `QuoteLine`, `Order`, `Invoice`, `InvoiceLine`, `Payment` | D2 | Queued |
+| 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
+| 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |
@@ -84,7 +87,9 @@ Row locks work inside `$transaction` through the driver adapter. Two concurrent 
 | `SELECT ... FOR UPDATE`, then check and update | 20 of 20 | The app's own `INSUFFICIENT_STOCK` |
 | No lock, CHECK constraint only | 20 of 20 | A raw database error, `P2010` |
 
-So use both: the lock gives a clean refusal, and the constraint is the backstop. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
+So use both: the lock gives a clean refusal, and the constraint is the backstop.
+
+**Isolation levels need the callback form.** With `@prisma/adapter-pg`, the array form `$transaction([...], { isolationLevel })` silently runs at READ COMMITTED; only `$transaction(async (tx) => ..., { isolationLevel })` reaches PostgreSQL. `summary.db.test.mjs` asserts both, so it fails if Prisma changes this. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
 
 Two concurrent active allocations of one unit also had one winner in 20 of 20 rounds, and the unit could be allocated again after release.
 

@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 
@@ -22,6 +22,7 @@ const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
 const { PrismaService } = require('../dist/platform/prisma.service');
 const { EnquiryQueueService } = require('../dist/sales/enquiry-queue.service');
 const { hashPassword } = require('../dist/auth/passwords');
+const { constraintError } = require('../dist/platform/constraint-errors');
 
 let app;
 let base;
@@ -32,7 +33,8 @@ let warehouseUser;
 const password = 'queue-test-password-2026';
 const origin = 'http://127.0.0.1:3001';
 
-const phone = () => `8${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
+// Random, not time-based: two customers made in the same millisecond must not collide on the unique phone.
+const phone = () => `8${String(randomInt(1e9)).padStart(9, '0')}`;
 const user = async (role) => prisma.user.create({ data: {
   email: `${randomUUID()}@test.local`, displayName: `${role} tester`, passwordHash: await hashPassword(password), role,
 } });
@@ -185,4 +187,20 @@ test('HTTP: the queue needs a staff session, and only sales or admin may use it'
   assert.equal(after.status, 'CONTACTED');
   assert.equal(after.version, 2);
   assert.equal(after.shadowFreeRoofAreaSqm, null);
+});
+
+test('the database refuses NaN roof area or bill and maps each to its field', async () => {
+  // PostgreSQL numeric NaN sorts above every number, so a bare ">= 0" CHECK would accept it (C1d).
+  const row = await enquiry();
+  for (const column of ['shadowFreeRoofAreaSqm', 'monthlyBillInr']) {
+    const error = await prisma.$executeRawUnsafe(`UPDATE enquiries SET "${column}" = 'NaN' WHERE id = $1::uuid`, row.id).then(
+      () => assert.fail(`${column} accepted NaN`), (refused) => refused,
+    );
+    const mapped = constraintError(error);
+    assert.equal(mapped?.getStatus(), 400, column);
+    assert.ok(mapped.fieldErrors[column]?.length, column);
+  }
+  const unchanged = await prisma.enquiry.findUniqueOrThrow({ where: { id: row.id } });
+  assert.equal(unchanged.shadowFreeRoofAreaSqm, null);
+  assert.equal(unchanged.monthlyBillInr, null);
 });

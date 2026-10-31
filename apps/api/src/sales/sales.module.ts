@@ -5,11 +5,13 @@ import { EnquiriesController } from './enquiries.controller';
 import { EnquiriesService } from './enquiries.service';
 import { EnquiryQueueController } from './enquiry-queue.controller';
 import { EnquiryQueueService } from './enquiry-queue.service';
+import { SurveysController } from './surveys.controller';
+import { SurveysService } from './surveys.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [EnquiriesController, EnquiryQueueController],
-  providers: [EnquiriesService, EnquiryQueueService, PublicFormRateLimitGuard],
-  exports: [EnquiryQueueService],
+  controllers: [EnquiriesController, EnquiryQueueController, SurveysController],
+  providers: [EnquiriesService, EnquiryQueueService, SurveysService, PublicFormRateLimitGuard],
+  exports: [EnquiryQueueService, SurveysService],
 })
 export class SalesModule {}

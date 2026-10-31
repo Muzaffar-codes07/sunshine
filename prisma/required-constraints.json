@@ -32,7 +32,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR (\"monthlyBillInr\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR ((\"monthlyBillInr\" >= (0)::numeric) AND (\"monthlyBillInr\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_capacity_range",
@@ -53,7 +53,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR (\"shadowFreeRoofAreaSqm\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR ((\"shadowFreeRoofAreaSqm\" >= (0)::numeric) AND (\"shadowFreeRoofAreaSqm\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_site_pincode_format",
@@ -159,6 +159,300 @@
       "kind": "unique_partial_index",
       "owner": "D2",
       "definition": "CREATE UNIQUE INDEX packages_one_active_revision ON public.packages USING btree (\"capacityKw\", \"systemType\") WHERE active"
+    },
+    {
+      "name": "commands_action_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((action ~ '^[A-Z][A-Z0-9_]*$'::text))"
+    },
+    {
+      "name": "commands_key_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"idempotencyKey\" ~ '^[A-Za-z0-9_-]{8,128}$'::text))"
+    },
+    {
+      "name": "commands_payload_hash_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"payloadHash\" ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "name": "surveys_cable_distance_nonnegative",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"cableDistanceM\" IS NULL) OR ((\"cableDistanceM\" >= (0)::numeric) AND (\"cableDistanceM\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_decision_recorded",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status = ANY (ARRAY['APPROVED'::\"SurveyStatus\", 'REJECTED'::\"SurveyStatus\"])) = ((\"decidedById\" IS NOT NULL) AND (\"decidedAt\" IS NOT NULL))))"
+    },
+    {
+      "name": "surveys_one_open_per_enquiry",
+      "table": "surveys",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX surveys_one_open_per_enquiry ON public.surveys USING btree (\"enquiryId\") WHERE (status = ANY (ARRAY['SCHEDULED'::\"SurveyStatus\", 'SUBMITTED'::\"SurveyStatus\"]))"
+    },
+    {
+      "name": "surveys_rejected_has_reason",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status <> 'REJECTED'::\"SurveyStatus\") OR ((\"decisionReason\" IS NOT NULL) AND (length(btrim(\"decisionReason\")) > 0))))"
+    },
+    {
+      "name": "surveys_revision_positive",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "surveys_roof_area_nonnegative",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"usableRoofAreaSqm\" IS NULL) OR ((\"usableRoofAreaSqm\" >= (0)::numeric) AND (\"usableRoofAreaSqm\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_submitted_has_measurements",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status = 'SCHEDULED'::\"SurveyStatus\") OR ((\"roofDirection\" IS NOT NULL) AND (\"roofTiltDeg\" IS NOT NULL) AND (\"cableDistanceM\" IS NOT NULL) AND (\"usableRoofAreaSqm\" IS NOT NULL) AND (\"submittedAt\" IS NOT NULL))))"
+    },
+    {
+      "name": "surveys_tilt_range",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"roofTiltDeg\" IS NULL) OR ((\"roofTiltDeg\" >= (0)::numeric) AND (\"roofTiltDeg\" <= (90)::numeric) AND (\"roofTiltDeg\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_version_positive",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_charging_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'COMPONENT'::\"QuoteLineKind\") AND (\"unitPrice\" = (0)::numeric) AND (\"lineTotal\" = (0)::numeric)) OR ((kind = ANY (ARRAY['PACKAGE'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (quantity = (1)::numeric) AND (\"unitPrice\" = \"lineTotal\"))))"
+    },
+    {
+      "name": "quote_lines_description_not_blank",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((description)::text)) > 0))"
+    },
+    {
+      "name": "quote_lines_position_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "quote_lines_prices_nonnegative",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"unitPrice\" >= (0)::numeric) AND (\"lineTotal\" >= (0)::numeric) AND (\"unitPrice\" <> 'NaN'::numeric) AND (\"lineTotal\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_product_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'PACKAGE'::\"QuoteLineKind\") AND (\"productId\" IS NULL) AND (\"productSnapshot\" IS NULL) AND (\"policyStatus\" = 'NOT_APPLICABLE'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL)) OR ((kind = ANY (ARRAY['COMPONENT'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (\"productId\" IS NOT NULL) AND (\"productSnapshot\" IS NOT NULL) AND (jsonb_typeof(\"productSnapshot\") = 'object'::text) AND (\"productSnapshot\" ?& ARRAY['id'::text, 'kind'::text, 'trackingMode'::text]) AND (jsonb_typeof((\"productSnapshot\" -> 'id'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'kind'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'trackingMode'::text)) = 'string'::text) AND ((\"productSnapshot\" ->> 'id'::text) = (\"productId\")::text) AND ((\"productSnapshot\" ->> 'kind'::text) =\nCASE\n    WHEN (kind = 'COMPONENT'::\"QuoteLineKind\") THEN 'HARDWARE'::text\n    ELSE 'SERVICE'::text\nEND) AND (((\"policyStatus\" = 'CONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NOT NULL) AND (jsonb_typeof(\"warrantyPolicySnapshot\") = 'object'::text)) OR ((\"policyStatus\" = 'UNCONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL))))))"
+    },
+    {
+      "name": "quote_lines_quantity_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_serialized_whole",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"productSnapshot\" IS NULL) OR ((\"productSnapshot\" ->> 'trackingMode'::text) <> 'SERIALIZED'::text) OR (quantity = trunc(quantity))))"
+    },
+    {
+      "name": "quotes_accepted_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NOT NULL) AND (length(btrim((\"acceptedByName\")::text)) >= 2) AND (\"decisionChannel\" IS NOT NULL) AND (\"decisionReason\" IS NULL)) OR ((status <> 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NULL) AND (\"decisionChannel\" IS NULL) AND (\"decisionReference\" IS NULL))))"
+    },
+    {
+      "name": "quotes_decision_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = ANY (ARRAY['ACCEPTED'::\"QuoteStatus\", 'REJECTED'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NOT NULL) AND (\"decidedById\" IS NOT NULL)) OR ((status = ANY (ARRAY['DRAFT'::\"QuoteStatus\", 'SENT'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NULL) AND (\"decidedById\" IS NULL))))"
+    },
+    {
+      "name": "quotes_prices_reconcile",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"hardwarePrice\" >= (0)::numeric) AND (\"installationPrice\" >= (0)::numeric) AND (\"totalPrice\" >= (0)::numeric) AND (\"hardwarePrice\" <> 'NaN'::numeric) AND (\"installationPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" = (\"hardwarePrice\" + \"installationPrice\"))))"
+    },
+    {
+      "name": "quotes_rejected_reason",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NOT NULL) AND (length(btrim(\"decisionReason\")) >= 3)) OR ((status <> 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NULL))))"
+    },
+    {
+      "name": "quotes_revision_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "quotes_revision_source",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((revision = 1) AND (\"supersedesQuoteId\" IS NULL) AND (\"revisionReason\" IS NULL)) OR ((revision > 1) AND (\"supersedesQuoteId\" IS NOT NULL) AND (\"revisionReason\" IS NOT NULL) AND (length(btrim(\"revisionReason\")) >= 3))))"
+    },
+    {
+      "name": "quotes_sent_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NULL) AND (\"sentById\" IS NULL) AND (\"sentChannel\" IS NULL)) OR ((status <> 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NOT NULL) AND (\"sentById\" IS NOT NULL) AND (\"sentChannel\" IS NOT NULL))))"
+    },
+    {
+      "name": "quotes_snapshots_objects",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((jsonb_typeof(\"customerSnapshot\") = 'object'::text) AND (jsonb_typeof(\"packageSnapshot\") = 'object'::text)))"
+    },
+    {
+      "name": "quotes_version_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_one_package_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_package_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'PACKAGE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_service_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_service_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'SERVICE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_component_product",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_component_product ON public.quote_lines USING btree (\"quoteId\", \"productId\") WHERE (kind = 'COMPONENT'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "invoice_lines_amounts_valid",
+      "table": "invoice_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (\"unitPrice\" >= (0)::numeric) AND (quantity <> 'NaN'::numeric) AND (\"unitPrice\" <> 'NaN'::numeric) AND (\"lineTotal\" = round((quantity * \"unitPrice\"), 2))))"
+    },
+    {
+      "name": "invoice_lines_position_positive",
+      "table": "invoice_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "invoices_amounts_valid",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((subtotal >= (0)::numeric) AND (\"taxAmount\" >= (0)::numeric) AND (subtotal <> 'NaN'::numeric) AND (\"taxAmount\" <> 'NaN'::numeric) AND (total = (subtotal + \"taxAmount\"))))"
+    },
+    {
+      "name": "invoices_paid_within_total",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"paidAmount\" >= (0)::numeric) AND (\"paidAmount\" <> 'NaN'::numeric) AND (\"paidAmount\" <= total)))"
+    },
+    {
+      "name": "invoices_source_matches_kind",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((\"sourceType\" = 'ORDER'::\"InvoiceSourceType\") AND (kind = 'SALE'::\"InvoiceKind\") AND (\"orderId\" IS NOT NULL) AND (\"orderId\" = \"sourceId\")) OR ((\"sourceType\" = 'TICKET'::\"InvoiceSourceType\") AND (kind = 'REPAIR'::\"InvoiceKind\") AND (\"orderId\" IS NULL))))"
+    },
+    {
+      "name": "invoices_status_matches_paid",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'POSTED'::\"InvoiceStatus\") AND (\"paidAmount\" = (0)::numeric)) OR ((status = 'PART_PAID'::\"InvoiceStatus\") AND (\"paidAmount\" > (0)::numeric) AND (\"paidAmount\" < total)) OR ((status = 'PAID'::\"InvoiceStatus\") AND (\"paidAmount\" = total))))"
+    },
+    {
+      "name": "invoices_tax_note_present",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((\"taxNote\")::text)) > 0))"
+    },
+    {
+      "name": "invoices_version_positive",
+      "table": "invoices",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "packing_requirements_quantity_positive",
+      "table": "packing_requirements",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "payments_amount_positive",
+      "table": "payments",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((amount > (0)::numeric) AND (amount <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "payments_reference_not_blank",
+      "table": "payments",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
     }
   ]
 }

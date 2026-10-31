@@ -1,11 +1,9 @@
 import { z } from 'zod';
+import { decimalString, reasonSchema, versionSchema } from './commands';
 import { enquirySourceSchema, enquiryStatusSchema, systemTypeSchema } from './sales';
 
 // Staff enquiry queue (D2, R1–R2). All commands carry the version the user last saw;
 // a stale version is refused with 409 STALE_VERSION instead of silently overwriting.
-
-const versionSchema = z.coerce.number<string | number>({ error: 'Version is required' })
-  .int('Version must be a whole number').min(1, 'Version must be at least 1');
 
 const optionalUuid = (label: string) => z.uuid({ error: `${label} must be a valid ID` });
 
@@ -13,27 +11,6 @@ const pageNumber = (label: string, max: number, fallback: number) =>
   z.coerce.number<string | number>({ error: `${label} must be a number` })
     .int(`${label} must be a whole number`).min(1, `${label} must be at least 1`).max(max, `${label} must be at most ${max}`)
     .default(fallback);
-
-/** Non-negative decimal with at most 2 places, sent to the database as a string. */
-const decimalString = (label: string, max: number) => {
-  const Label = label.charAt(0).toUpperCase() + label.slice(1);
-  // Number('') and Number('  ') are 0, so a blank field would silently become 0.00. Reject it first;
-  // an explicit 0 is still accepted.
-  const present = z.union([
-    z.string({ error: `Enter ${label}` }).trim().min(1, `Enter ${label}`),
-    z.number({ error: `Enter ${label}` }),
-  ], { error: `Enter ${label}` });
-  return present
-    .pipe(z.coerce.number<string | number>({ error: `Enter ${label} as a number` })
-      .refine(Number.isFinite, `Enter ${label} as a number`)
-      .refine((value) => value >= 0, `${Label} cannot be negative`)
-      .refine((value) => value <= max, `${Label} must be at most ${max}`)
-      .refine((value) => Number(value.toFixed(2)) === value, `Use at most 2 decimal places for ${label}`))
-    .transform((value) => value.toFixed(2));
-};
-
-const reasonSchema = z.string({ error: 'Enter a reason' }).trim()
-  .min(3, 'Reason must contain at least 3 characters').max(500, 'Reason must be at most 500 characters');
 
 export const enquiryListQuerySchema = z.object({
   status: enquiryStatusSchema.optional(),

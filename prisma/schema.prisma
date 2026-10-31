@@ -29,6 +29,14 @@ model User {
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
   ownedEnquiries Enquiry[]
+  commands       Command[]
+  surveysAssigned Survey[] @relation("SurveyTechnician")
+  surveysDecided  Survey[] @relation("SurveyDecision")
+  quotesCreated Quote[] @relation("QuoteCreator")
+  quotesSent Quote[] @relation("QuoteSender")
+  quotesDecided Quote[] @relation("QuoteDecider")
+  ordersConfirmed Order[] @relation("OrderConfirmer")
+  paymentsRecorded Payment[] @relation("PaymentRecorder")
 
   @@map("users")
 }
@@ -68,6 +76,9 @@ model Customer {
 
   enquiries Enquiry[]
 
+  quotes Quote[]
+  orders Order[]
+  invoices Invoice[]
   @@map("customers")
 }
 
@@ -101,12 +112,69 @@ model Enquiry {
   // SetNull, not Restrict: the owner is only a work assignment. Removing a staff user must neither be blocked
   // by their open enquiries nor delete them; the enquiry returns to the unassigned queue.
   owner    User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  surveys  Survey[]
+  order    Order?
 
   @@index([status, nextFollowUpAt])
   @@index([ownerId, status])
   @@index([customerId])
   @@index([createdAt])
+  quotes Quote[]
   @@map("enquiries")
+}
+
+enum SurveyStatus {
+  SCHEDULED
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum RoofDirection {
+  N
+  NE
+  E
+  SE
+  S
+  SW
+  W
+  NW
+}
+
+// One row per survey revision (R3–R4). A decided revision is never edited: changing the facts later means a new
+// revision, so the earlier approval stays as evidence. At most one open revision per enquiry (partial unique index
+// surveys_one_open_per_enquiry); a quote needs the latest revision to be APPROVED.
+model Survey {
+  id                String         @id @default(uuid()) @db.Uuid
+  enquiryId         String         @db.Uuid
+  revision          Int
+  status            SurveyStatus   @default(SCHEDULED)
+  technicianId      String         @db.Uuid
+  scheduledFor      DateTime       @db.Timestamptz(3)
+  // Site measurements, required once submitted (CHECK surveys_submitted_has_measurements).
+  roofDirection     RoofDirection?
+  roofTiltDeg       Decimal?       @db.Decimal(4, 1)
+  cableDistanceM    Decimal?       @db.Decimal(7, 2)
+  usableRoofAreaSqm Decimal?       @db.Decimal(8, 2)
+  notes             String?
+  submittedAt       DateTime?      @db.Timestamptz(3)
+  decidedById       String?        @db.Uuid
+  decidedAt         DateTime?      @db.Timestamptz(3)
+  decisionReason    String?
+  version           Int            @default(1)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  enquiry    Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
+  // Restrict: who measured and who approved are evidence, so those users cannot be deleted from under it.
+  technician User    @relation("SurveyTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  decidedBy  User?   @relation("SurveyDecision", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@unique([enquiryId, revision])
+  @@index([technicianId, status, scheduledFor])
+  @@index([decidedById])
+  quotes Quote[]
+  @@map("surveys")
 }
 
 // Shared staff sessions; User is rechecked on every protected request.
@@ -173,6 +241,8 @@ model Product {
   packageItems PackageItem[]
   installationPackages Package[] @relation("PackageInstallationService")
   @@index([active, kind])
+  quoteLines QuoteLine[]
+  packingRequirements PackingRequirement[]
   @@map("products")
 }
 model Package {
@@ -192,6 +262,7 @@ model Package {
   items PackageItem[]
   @@unique([capacityKw, systemType, revision])
   @@index([active, capacityKw, systemType])
+  quotes Quote[]
   @@map("packages")
 }
 model PackageItem {
@@ -206,4 +277,280 @@ model PackageItem {
   @@unique([packageId, position])
   @@index([productId])
   @@map("package_items")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+}
+enum QuoteLineKind {
+  PACKAGE
+  COMPONENT
+  SERVICE
+}
+enum QuoteSentChannel {
+  EMAIL
+  WHATSAPP
+  PRINT
+  OTHER
+}
+enum QuoteDecisionChannel {
+  IN_PERSON
+  PHONE
+  EMAIL
+  WHATSAPP
+}
+enum QuotePolicyStatus {
+  CONFIGURED
+  UNCONFIGURED
+  NOT_APPLICABLE
+}
+
+// Content is frozen at creation. Edits create a successor; only status/evidence changes in place.
+model Quote {
+  id                 String @id @default(uuid()) @db.Uuid
+  enquiryId          String @db.Uuid
+  surveyId           String @db.Uuid
+  packageId          String @db.Uuid
+  customerId         String @db.Uuid
+  revision           Int
+  version            Int @default(1)
+  status             QuoteStatus @default(DRAFT)
+  supersedesQuoteId  String? @unique @db.Uuid
+  revisionReason     String?
+  customerSnapshot   Json
+  packageSnapshot    Json
+  hardwarePrice      Decimal @db.Decimal(14, 2)
+  installationPrice  Decimal @db.Decimal(14, 2)
+  totalPrice         Decimal @db.Decimal(14, 2)
+  createdById        String @db.Uuid
+  sentAt             DateTime? @db.Timestamptz(3)
+  sentChannel        QuoteSentChannel?
+  sentById           String? @db.Uuid
+  decidedAt          DateTime? @db.Timestamptz(3)
+  decidedById        String? @db.Uuid
+  acceptedByName     String? @db.VarChar(120)
+  decisionChannel    QuoteDecisionChannel?
+  decisionReference  String? @db.VarChar(500)
+  decisionReason     String?
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  enquiry      Enquiry @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
+  survey       Survey @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  package      Package @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy    User @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sentBy       User? @relation("QuoteSender", fields: [sentById], references: [id], onDelete: Restrict)
+  decidedBy    User? @relation("QuoteDecider", fields: [decidedById], references: [id], onDelete: Restrict)
+  supersedes   Quote? @relation("QuoteRevision", fields: [supersedesQuoteId], references: [id], onDelete: Restrict)
+  supersededBy Quote? @relation("QuoteRevision")
+  lines        QuoteLine[]
+  order        Order?
+
+  @@unique([enquiryId, revision])
+  @@index([customerId, status])
+  @@index([surveyId])
+  @@index([packageId])
+  @@index([createdById])
+  @@index([sentById])
+  @@index([decidedById])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id                       String @id @default(uuid()) @db.Uuid
+  quoteId                  String @db.Uuid
+  position                 Int
+  kind                     QuoteLineKind
+  description              String @db.VarChar(200)
+  quantity                 Decimal @db.Decimal(12, 3)
+  unitPrice                Decimal @db.Decimal(14, 2)
+  lineTotal                Decimal @db.Decimal(14, 2)
+  productId                String? @db.Uuid
+  productSnapshot          Json?
+  policyStatus             QuotePolicyStatus
+  warrantyPolicySnapshot   Json?
+
+  quote   Quote @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packingRequirement PackingRequirement?
+  invoiceLines InvoiceLine[]
+
+  @@unique([quoteId, position])
+  @@index([productId])
+  @@map("quote_lines")
+}
+
+// Idempotent command results (TRD decision M6). One row per actor and Idempotency-Key, claimed at the start of the
+// business transaction and committed with its result, so a retry replays the recorded result instead of acting twice.
+model Command {
+  id             String   @id @default(uuid()) @db.Uuid
+  actorId        String   @db.Uuid
+  idempotencyKey String
+  // UPPER_SNAKE_CASE business action, such as ORDER_CONFIRM; a key reused for another action is refused.
+  action         String
+  // SHA-256 of the canonical JSON request body; a key reused with another body is refused.
+  payloadHash    String
+  // The response body returned to the first request; set before the transaction commits.
+  result         Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  // Restrict: the record of who issued a money or stock command is evidence.
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([actorId, idempotencyKey])
+  @@map("commands")
+}
+
+// Orders and invoicing (D2, C5: R7, R8, R21). Confirmation turns the latest accepted quote into one order, its
+// packing requirements (one per COMPONENT quote line) and one sales invoice, in one idempotent transaction.
+// One order per enquiry as well as per quote, so a later quote revision can never become a second sale.
+model Order {
+  id            String   @id @default(uuid()) @db.Uuid
+  number        Int      @unique @default(autoincrement())
+  quoteId       String   @unique @db.Uuid
+  enquiryId     String   @unique @db.Uuid
+  customerId    String   @db.Uuid
+  // Set by D3's job helper when it is wired; null means the job is still to be created by D3.
+  jobId         String?  @unique @db.Uuid
+  confirmedById String   @db.Uuid
+  confirmedAt   DateTime @default(now()) @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  // Restrict throughout: an order is a sale record and its sources are evidence.
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  enquiry     Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Restrict)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  confirmedBy User     @relation("OrderConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  packing     PackingRequirement[]
+  invoices    Invoice[]
+
+  @@index([customerId])
+  @@index([confirmedById])
+  @@map("orders")
+}
+
+// What the warehouse must pack: the accepted quote's COMPONENT lines, frozen at confirmation. D3 allocates stock
+// against quoteLineId; component prices are zero because the package line already charges the hardware.
+model PackingRequirement {
+  id          String  @id @default(uuid()) @db.Uuid
+  orderId     String  @db.Uuid
+  quoteLineId String  @unique @db.Uuid
+  productId   String  @db.Uuid
+  quantity    Decimal @db.Decimal(12, 3)
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("packing_requirements")
+}
+
+enum InvoiceSourceType {
+  ORDER
+  TICKET
+}
+
+enum InvoiceKind {
+  SALE
+  REPAIR
+}
+
+enum InvoiceStatus {
+  POSTED
+  PART_PAID
+  PAID
+}
+
+// Posted invoices are never edited except for the paid amount, which only the receipt helper changes.
+// Unique (sourceType, sourceId, kind) makes posting idempotent: one sales invoice per order (TRD section 5).
+model Invoice {
+  id          String            @id @default(uuid()) @db.Uuid
+  number      Int               @unique @default(autoincrement())
+  sourceType  InvoiceSourceType
+  sourceId    String            @db.Uuid
+  kind        InvoiceKind
+  orderId     String?           @db.Uuid
+  customerId  String            @db.Uuid
+  status      InvoiceStatus     @default(POSTED)
+  subtotal    Decimal           @db.Decimal(14, 2)
+  // Pre-tax management example: tax is not configured, so it is zero with an explicit note (TRD money rules).
+  taxAmount   Decimal           @default(0) @db.Decimal(14, 2)
+  taxNote     String            @db.VarChar(200)
+  total       Decimal           @db.Decimal(14, 2)
+  paidAmount  Decimal           @default(0) @db.Decimal(14, 2)
+  version     Int               @default(1)
+  postedAt    DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(3)
+
+  order    Order?        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lines    InvoiceLine[]
+  payments Payment[]
+
+  @@unique([sourceType, sourceId, kind])
+  @@index([orderId])
+  @@index([customerId, status])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid()) @db.Uuid
+  invoiceId   String  @db.Uuid
+  position    Int
+  description String  @db.VarChar(200)
+  quantity    Decimal @db.Decimal(12, 3)
+  unitPrice   Decimal @db.Decimal(14, 2)
+  lineTotal   Decimal @db.Decimal(14, 2)
+  quoteLineId String? @db.Uuid
+
+  invoice   Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, position])
+  @@index([quoteLineId])
+  @@map("invoice_lines")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  OTHER
+}
+
+enum PaymentKind {
+  ADVANCE
+  PARTIAL
+  FINAL
+}
+
+// A receipt staff record after money arrives outside the app (no gateway). The external reference is unique per
+// method, so the same bank or UPI reference cannot be counted twice (TRD: Payment, external reference, RECEIPT).
+model Payment {
+  id           String        @id @default(uuid()) @db.Uuid
+  invoiceId    String        @db.Uuid
+  amount       Decimal       @db.Decimal(14, 2)
+  method       PaymentMethod
+  reference    String        @db.VarChar(120)
+  kind         PaymentKind
+  receivedAt   DateTime      @db.Timestamptz(3)
+  recordedById String        @db.Uuid
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy User    @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@unique([method, reference])
+  @@index([invoiceId])
+  @@index([recordedById])
+  @@map("payments")
 }
