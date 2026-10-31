@@ -29,6 +29,11 @@ export function readConstraintViolation(error: unknown): ConstraintViolation | n
   return { kind, constraint: typeof index === 'string' ? index : named ?? null };
 }
 
+export const SURVEY_ALREADY_OPEN: RefusalReason = {
+  code: 'SURVEY_ALREADY_OPEN', reason: 'This enquiry already has a survey in progress.', source: 'SURVEY',
+  nextAction: 'Finish, approve or reject the open survey before scheduling another.',
+};
+
 /** A CHECK that guards one input field becomes a 400 on that field; any other rule becomes a 409 refusal. */
 export type ConstraintRule = { field: string; message: string } | { refusal: RefusalReason };
 
@@ -80,6 +85,22 @@ export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
   users_email_key: { refusal: {
     code: 'STAFF_EMAIL_TAKEN', reason: 'A staff account with this email already exists.', source: 'AUTH',
     nextAction: 'Use a different email or reactivate the existing account.',
+  } },
+  surveys_tilt_range: { field: 'roofTiltDeg', message: 'Roof tilt must be from 0 to 90 degrees' },
+  surveys_cable_distance_nonnegative: { field: 'cableDistanceM', message: 'Cable distance cannot be negative' },
+  surveys_roof_area_nonnegative: { field: 'usableRoofAreaSqm', message: 'Usable roof area cannot be negative' },
+  surveys_version_positive: { field: 'version', message: 'Version must be at least 1' },
+  surveys_rejected_has_reason: { field: 'reason', message: 'Give a reason when rejecting a survey' },
+  surveys_revision_positive: { field: 'revision', message: 'Revision must be at least 1' },
+  surveys_one_open_per_enquiry: { refusal: SURVEY_ALREADY_OPEN },
+  surveys_enquiryId_revision_key: { refusal: SURVEY_ALREADY_OPEN },
+  surveys_submitted_has_measurements: { refusal: {
+    code: 'SURVEY_MEASUREMENTS_MISSING', reason: 'A submitted survey needs every site measurement.', source: 'SURVEY',
+    nextAction: 'Record roof direction, tilt, cable distance and usable roof area, then submit.',
+  } },
+  surveys_decision_recorded: { refusal: {
+    code: 'SURVEY_DECISION_INCOMPLETE', reason: 'An approval or rejection must record who decided and when.', source: 'SURVEY',
+    nextAction: 'Approve or reject the survey through the survey screen.',
   } },
   commands_key_format: { field: 'Idempotency-Key', message: 'Idempotency-Key must be 8–128 letters, digits, "-" or "_"' },
   // Action and hash are server-made, so these firing is a bug the user cannot fix by editing.

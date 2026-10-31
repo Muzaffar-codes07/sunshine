@@ -33,7 +33,7 @@ Helpers accept the caller's transaction. No upload/network request inside a stoc
 
 ## Planned state transitions
 
-- Survey: DRAFT → SCHEDULED → SUBMITTED → APPROVED/REJECTED. Approved edits create a new revision.
+- Survey (built in C4): SCHEDULED → SUBMITTED → APPROVED/REJECTED, one row per revision. A decided revision is never edited; a change means scheduling the next revision, and only one revision per enquiry can be open. A quote needs the latest revision to be APPROVED (`SurveysService.requireApprovedSurvey`, else 409 `SURVEY_NOT_APPROVED`). Routes: `POST`/`GET /enquiries/:id/surveys` and `POST /surveys/:id/reschedule|approve|reject` (sales, admin); `GET /surveys/assigned` (technician's own schedule); `POST /surveys/:id/submit` (assigned technician, admin); `GET /surveys/:id` (sales, admin, assigned technician). There is no DRAFT state: scheduling creates the record.
 - Quote: DRAFT → SENT → ACCEPTED/REJECTED. Quote creation requires approved survey.
 - Order: CONFIRMED → PAYMENT_PENDING → READY → FULFILLMENT → COMPLETED.
 - Allocation: RESERVED → DISPATCHED → DELIVERED/INSTALLED → RELEASED explicitly; installed unit remains assigned.
