@@ -60,7 +60,7 @@ export const stockSummarySchema = z.object({
 });
 // A negative free balance is exposed honestly, not clamped to zero; services block allocation on shortage.
 export const unitViewSchema = z.object({
-  id: z.uuid(), productId: z.uuid(), manufacturer: z.string().min(1), serial: equipmentSerialSchema,
+  id: z.uuid(), productId: z.uuid(), manufacturerId: z.uuid(), manufacturer: z.string().min(1), serial: equipmentSerialSchema,
   normalizedSerial: z.string().min(1), status: unitStatusSchema,
 });
 export const recordScanRequestSchema = z.object({
