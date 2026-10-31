@@ -4,6 +4,8 @@ import { moneySchema, positiveQuantitySchema, quantitySchema } from './shared';
 const version = z.number().int().positive();
 const uuidList = z.array(z.uuid()).max(200).refine((ids) => new Set(ids).size === ids.length, 'Duplicate IDs are not allowed');
 const reference = z.string().trim().min(1).max(128);
+// PostgreSQL returns UUIDs in lower case, so a request's IDs are made to match before they're compared or hashed.
+const canonicalId = z.uuid().transform((value) => value.toLowerCase());
 export const equipmentSerialSchema = z.string().min(1).max(128).refine((value) => value.trim().length > 0, 'Serial must not be blank');
 // Preserve raw serial/scan text separately. Scope uniqueness by canonical manufacturer + product.
 export const normalizeEquipmentSerial = (raw: string): string => raw.trim().toUpperCase();
@@ -13,7 +15,7 @@ export const allocationStatusSchema = z.enum(['RESERVED', 'DISPATCHED', 'DELIVER
 export const dispatchStatusSchema = z.enum(['DRAFT', 'DISPATCHED', 'DELIVERED']);
 
 export const stockReceiptLineSchema = z.object({
-  productId: z.uuid(), quantity: positiveQuantitySchema, unitCost: moneySchema,
+  productId: canonicalId, quantity: positiveQuantitySchema, unitCost: moneySchema,
   zeroCostReason: z.string().trim().min(5).max(500).optional(),
   serials: z.array(equipmentSerialSchema).max(200).default([]),
 }).strict().superRefine((line, ctx) => {
@@ -27,7 +29,7 @@ export const stockReceiptLineSchema = z.object({
 });
 // The service must reject receivedAt > serverNow and record the staff actor.
 export const receiveStockRequestSchema = z.object({
-  reference, locationId: z.uuid(), receivedAt: z.iso.datetime({ offset: true }), lines: z.array(stockReceiptLineSchema).min(1).max(100),
+  reference, locationId: canonicalId, receivedAt: z.iso.datetime({ offset: true }), lines: z.array(stockReceiptLineSchema).min(1).max(100),
 }).strict().superRefine((receipt, ctx) => {
   const seen = new Set<string>();
   receipt.lines.forEach((line, i) => line.serials.forEach((serial, j) => {
