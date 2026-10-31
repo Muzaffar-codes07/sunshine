@@ -126,3 +126,7 @@ Run `npm run test:constraints` with an explicit `TEST_DATABASE_URL` naming a dis
 The original row-lock/deadlock experiments above remain historical evidence, not a new runtime inventory implementation. For new stock commands acquire all Product rows in ID order, then product/location locks in sorted order, then Unit rows in ID order. Helpers use the caller’s transaction; test mixed receipt/dispatch paths as well as opposite-order documents. New code follows Sunshine’s existing source-reuse rules.
 
 Compose currently uses a floating PostgreSQL 17 image. Before generating or refreshing canonical definitions, check `SHOW server_version`; use 17.11 to match CI. A shared Compose pin is a D4 release-coordination change, not silently included in this D3 PR.
+
+## Migration source line endings
+
+Migration SQL uses LF on every platform, enforced by .gitattributes. PostgreSQL retains source line endings inside function bodies, so a CRLF checkout changes pg_get_functiondef and fails the exact canonical manifest check even when the SQL statements read the same. Existing clean Windows worktrees must re-check out their migration files after this attribute change before replaying migrations; keep the exact checker and committed SQL contents unchanged.

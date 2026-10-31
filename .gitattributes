@@ -3,3 +3,6 @@
 # Preserve downloaded evidence byte-for-byte; do not render minified vendor pages
 # as source-code diffs or apply our whitespace policy to third-party snapshots.
 docs/research/solar/sources/raw/** -text -diff -whitespace
+
+# PostgreSQL retains function-body line endings; keep canonical migration bytes portable.
+prisma/migrations/**/migration.sql text eol=lf
