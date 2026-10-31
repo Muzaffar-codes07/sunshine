@@ -10,7 +10,7 @@ Jobs, assignments, installation completion, evidence associations and time.
 
 Add controllers, services, shared contracts and domain tests here. Business rules belong in services; critical side effects share one transaction. See [roles](../../../../docs/team/roles.md) and [API contracts](../../../../docs/architecture/api-contracts.md).
 
-`POST /api/v1/jobs/:id/start` and `/complete` need an `Idempotency-Key` and `expectedVersion`, for a technician on the job or an ADMIN. Start needs a crew, a recorded payment and allocated equipment. Delivery will replace allocation as the material gate once dispatch and delivery exist.
+`POST /api/v1/jobs/:id/start` and `/complete` need an `Idempotency-Key` and `expectedVersion`, for a technician on the job or an ADMIN. Start needs a crew, a recorded payment and delivered equipment.
 
 Completion needs the sold capacity, every check for the system type (`BATTERY` only off-grid), the job's saved start time, a non-future finish, time records for the crew, images for roof photos, and a separate signature file. Upload files with a `JOB` context, because a file with no context can only be attached by the person who uploaded it. Each file's bytes are verified before the transaction, and a refusal leaves the job as it was. A completed job and its evidence can't change, and the database enforces this.
 

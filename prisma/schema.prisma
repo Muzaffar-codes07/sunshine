@@ -35,6 +35,8 @@ model User {
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
   allocations Allocation[]
+  dispatchesPosted Dispatch[] @relation("DispatchPostedBy")
+  dispatchesDelivered Dispatch[] @relation("DispatchDeliveredBy")
   allocationsReleased Allocation[] @relation("AllocationReleaseActor")
   dispatchesCreated Dispatch[]
   dispatchScans DispatchScan[]
@@ -531,6 +533,7 @@ model StockDocument {
   fromLocation StockLocation? @relation("StockDocumentFrom", fields: [fromLocationId], references: [id], onDelete: Restrict)
   toLocation StockLocation? @relation("StockDocumentTo", fields: [toLocationId], references: [id], onDelete: Restrict)
   lines StockDocumentLine[]
+  dispatch Dispatch?
   @@unique([kind, reference])
   @@index([status, kind])
   @@map("stock_documents")
@@ -1011,15 +1014,30 @@ model Allocation {
 }
 
 // I06 draft/scans only. Posting status and stock/cost linkage are added with the actual dispatch writer.
+enum DispatchStatus {
+  DRAFT
+  DISPATCHED
+  DELIVERED
+}
 model Dispatch {
   id String @id @default(uuid()) @db.Uuid
   orderId String @unique @db.Uuid
   createdById String @db.Uuid
   version Int @default(1)
+  status DispatchStatus @default(DRAFT)
+  // The issue document that took the goods out of stock.
+  issueDocumentId String? @unique @db.Uuid
+  dispatchedAt DateTime? @db.Timestamptz(3)
+  dispatchedById String? @db.Uuid
+  deliveredAt DateTime? @db.Timestamptz(3)
+  deliveredById String? @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  issueDocument StockDocument? @relation(fields: [issueDocumentId], references: [id], onDelete: Restrict)
+  dispatchedBy User? @relation("DispatchPostedBy", fields: [dispatchedById], references: [id], onDelete: Restrict)
+  deliveredBy User? @relation("DispatchDeliveredBy", fields: [deliveredById], references: [id], onDelete: Restrict)
   scans DispatchScan[]
   @@index([createdById])
   @@map("dispatches")
