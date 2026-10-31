@@ -7,7 +7,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/main.js",
-    "test:db": "node --test test/*.db.test.mjs"
+    "test:db": "node --test --test-concurrency=1 test/*.db.test.mjs",
+    "test": "npm run build && node --test test/*.unit.test.cjs",
+    "seed:staff": "node dist/auth/seed-staff.js"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",
@@ -17,14 +19,18 @@
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "@sunshine/contracts": "*",
+    "connect-pg-simple": "10.0.0",
     "dotenv": "^17.2.3",
+    "express-session": "1.19.0",
     "multer": "^2.5.0",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@types/connect-pg-simple": "7.0.3",
     "@types/express": "^5.0.5",
+    "@types/express-session": "1.19.0",
     "@types/node": "^22.19.0",
     "@types/pg": "^8.15.6"
   }

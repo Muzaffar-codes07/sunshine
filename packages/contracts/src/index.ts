@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
-export const staffRoleSchema = z.enum(['ADMIN', 'SALES', 'WAREHOUSE', 'TECHNICIAN', 'SUPPORT']);
-export type StaffRole = z.infer<typeof staffRoleSchema>;
+export * from './staff';
 
 export const healthResponseSchema = z.object({
   data: z.object({
@@ -27,3 +26,5 @@ export const apiErrorSchema = z.object({
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
 export * from './sales';
+
+export * from './auth';
