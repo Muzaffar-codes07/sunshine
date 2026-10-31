@@ -2,7 +2,7 @@
 
 SunPower Solutions' enquiry-to-installation-to-service platform for the Odoo hackathon.
 
-**Current state: runnable scaffold, not a completed business application.** The frontend, NestJS API, shared validation contracts, local PostgreSQL configuration and initial platform migration are implemented. Authentication, sales, inventory, installation, warranty, service and financial workflows are planned; their folders explicitly identify the owner and next work. The landing screen reports live infrastructure status and does not fabricate business data.
+**Current state: runnable scaffold, not a completed business application.** The frontend, NestJS API, shared validation contracts, local PostgreSQL configuration and initial platform migration are implemented. Public enquiry intake and staff cookie sessions are implemented; qualification, surveys, orders, inventory, installation, warranty, service and financial workflows remain planned; their folders explicitly identify the owner and next work. The landing screen reports live infrastructure status and does not fabricate business data.
 
 ## Start here
 
@@ -42,7 +42,7 @@ If the Compose app is already running, first use `docker compose --profile app s
 - Database readiness: <http://127.0.0.1:3001/api/v1/health/ready>
 - PostgreSQL: `127.0.0.1:55439` (loopback only; choose another port in `.env` if occupied).
 
-The API fails startup if `DATABASE_URL` is absent. Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent of the DB. No demo accounts or authentication endpoints exist yet. The initial migration creates only the user foundation; no business seed exists yet.
+The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent. Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts are created only by the explicit staff seed command below; startup never seeds them.
 
 Shared contracts are built before development starts. If you edit them, run `npm run build -w @sunshine/contracts`; dependent processes then need to reload. Frontend requests go through Vite's `/api` proxy, avoiding a separate development CORS policy.
 
@@ -86,3 +86,17 @@ tests/e2e/             Future integrated browser scenarios
 The [role document](docs/team/roles.md) is authoritative for ownership. D2 owns finance writes; D3 owns warranty activation; D4 owns warranty decisions and read-only reports. Every member contributes commits and explains their work. Use short branches and small reviewed PRs. Do not copy StockSense code unless the organizers explicitly permit reuse.
 
 The contents of `docs/research/history/` are retained discussion history, including the original Wedding/Solar comparison. They contain superseded stack and role proposals and are **not implementation instructions**.
+
+## Staff sessions and local-demo accounts
+
+After copying `.env.example`, generate a fresh session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and place it in `SESSION_SECRET` before starting the API. `AUTH_TRUSTED_ORIGINS` lists exact frontend origins (scheme, host and port); the default example covers the local Vite and release URLs. Login, logout and cookie-authenticated mutations require a matching Origin, or an exact-origin Referer when Origin is absent. A missing/null/foreign origin is rejected. Anonymous public enquiry remains validated and rate-limited.
+
+Apply all migrations and build. For an explicitly disposable local-demo database, set `DEMO_DATABASE_DISPOSABLE=true` and a unique `DEMO_STAFF_PASSWORD` (12–200 characters) in your local environment, then run `npm run seed:staff -w @sunshine/api`. This creates `admin@sunshine.test`, `sales@sunshine.test`, `warehouse@sunshine.test`, `technician@sunshine.test`, and `support@sunshine.test`, each with its matching StaffRole. The shared seed password is local-demo-only, read from the environment and never printed or committed. The seed refuses to run without the disposable-database opt-in. Remove that opt-in after seeding.
+
+Auth endpoints: `POST /api/v1/auth/login` with `{email,password}`, `GET /api/v1/auth/me`, and `POST /api/v1/auth/logout`. Login rotates the session ID; logout removes it. Sessions last eight hours, and protected requests recheck the current active account and role. Other modules import AuthModule and apply AuthGuard plus RolesGuard and `@Roles('SALES', 'ADMIN')`; file/job/customer record ownership still needs its domain authorization check.
+
+For a tested HTTPS deployment, set `SESSION_COOKIE_SECURE=true` and configure the exact public origin. Only set `TRUST_PROXY` for a known proxy/address range (for example `loopback`); it is disabled by default. Origin validation never trusts Host or forwarding headers.
+
+`npm test -w @sunshine/api` runs the focused security unit checks. `TEST_DATABASE_URL=<explicit disposable test DB> npm run test:db -w @sunshine/api` runs API/session/role/revocation tests after migrations and build; the database name must contain `test`. These tests write rows and must never target the demo or real database.
+
+Login allows five attempts per IP per minute. Teammates behind one NAT share this budget; avoid repeated account switching during the demonstration and wait one minute if limited.
