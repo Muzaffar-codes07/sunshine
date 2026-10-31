@@ -39,6 +39,14 @@ test('unit choices and versions reject duplicates and stale-version placeholders
   assert.equal(c.dispatchRequestSchema.safeParse({ expectedVersion: 0 }).success, false);
   assert.equal(c.dispatchRequestSchema.safeParse({ expectedVersion: 1, customerId: id(2) }).success, false);
 });
+test('unit identity uses the catalogue manufacturer UUID and a display label', () => {
+  const unit = { id: id(1), productId: id(2), manufacturerId: id(3), manufacturer: 'Solar Hardware Co',
+    serial: ' INV-A ', normalizedSerial: 'INV-A', status: 'AVAILABLE' };
+  assert.equal(c.unitViewSchema.parse(unit).manufacturerId, id(3));
+  const { manufacturerId, ...missingManufacturer } = unit;
+  assert.equal(c.unitViewSchema.safeParse(missingManufacturer).success, false);
+  assert.equal(c.unitViewSchema.safeParse({ ...unit, manufacturerId: 'Solar Hardware Co' }).success, false);
+});
 test('typed scans can be represented but cannot count as required dispatch scans', () => {
   assert.equal(c.recordScanRequestSchema.parse({ rawValue: ' INV-A ', method: 'TYPED' }).rawValue, ' INV-A ');
   assert.equal(c.scanRecordSchema.parse(typedScan).countsForDispatch, false);
