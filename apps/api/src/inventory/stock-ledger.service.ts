@@ -53,6 +53,12 @@ export class StockLedgerService {
     return rows[0]?.quantity ?? new Prisma.Decimal(0);
   }
 
+  /** What jobs hold here. Dispatched goods have already left the ledger, so only RESERVED counts. */
+  async reserved(tx: Prisma.TransactionClient, productId: string, locationId: string) {
+    const held = await tx.allocation.aggregate({ where: { productId, locationId, status: 'RESERVED' }, _sum: { quantity: true } });
+    return held._sum.quantity ?? new Prisma.Decimal(0);
+  }
+
   /** Total across usable locations; quarantined stock can't be sold, so it doesn't affect the average. */
   async usableOnHand(tx: Prisma.TransactionClient, productId: string) {
     const rows = await tx.$queryRaw<{ quantity: Prisma.Decimal | null }[]>`

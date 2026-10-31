@@ -486,6 +486,34 @@
       "definition": "CREATE TRIGGER quotes_preserve_frozen_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quotes FOR EACH ROW EXECUTE FUNCTION quotes_preserve_frozen_terms()"
     },
     {
+      "name": "allocations_has_source",
+      "table": "allocations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((\"quoteLineId\" IS NOT NULL))"
+    },
+    {
+      "name": "allocations_quantity_positive",
+      "table": "allocations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "allocations_unit_is_one",
+      "table": "allocations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"unitId\" IS NULL) OR (quantity = (1)::numeric)))"
+    },
+    {
+      "name": "allocations_version_positive",
+      "table": "allocations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
       "name": "jobs_version_positive",
       "table": "jobs",
       "kind": "check",
@@ -633,6 +661,20 @@
       "definition": "CHECK ((version >= 1))"
     },
     {
+      "name": "allocations_check_source",
+      "table": "allocations_check_source",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.allocations_check_source()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  sold RECORD;\n  unit_product uuid;\nBEGIN\n  IF NEW.\"status\" <> 'RESERVED' THEN\n    RAISE EXCEPTION 'an allocation starts as reserved' USING ERRCODE = 'restrict_violation';\n  END IF;\n  SELECT ql.\"kind\", ql.\"productId\", p.\"trackingMode\" INTO sold\n  FROM \"quote_lines\" ql\n  JOIN \"orders\" o ON o.\"quoteId\" = ql.\"quoteId\"\n  JOIN \"jobs\" j ON j.\"orderId\" = o.\"id\"\n  JOIN \"products\" p ON p.\"id\" = ql.\"productId\"\n  WHERE ql.\"id\" = NEW.\"quoteLineId\" AND j.\"id\" = NEW.\"jobId\";\n  IF NOT FOUND OR sold.\"kind\" <> 'COMPONENT' OR sold.\"productId\" <> NEW.\"productId\" THEN\n    RAISE EXCEPTION 'an allocation must match a component sold on its job''s order' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF (sold.\"trackingMode\" = 'SERIALIZED') <> (NEW.\"unitId\" IS NOT NULL) THEN\n    RAISE EXCEPTION 'serialized stock is allocated by unit, and bulk stock by quantity' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"unitId\" IS NOT NULL THEN\n    SELECT \"productId\" INTO unit_product FROM \"units\" WHERE \"id\" = NEW.\"unitId\";\n    IF unit_product IS DISTINCT FROM NEW.\"productId\" THEN\n      RAISE EXCEPTION 'an allocated unit must be the sold product' USING ERRCODE = 'restrict_violation';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "allocations_freeze_identity",
+      "table": "allocations_freeze_identity",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.allocations_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"jobId\" <> OLD.\"jobId\" OR NEW.\"quoteLineId\" IS DISTINCT FROM OLD.\"quoteLineId\" OR NEW.\"productId\" <> OLD.\"productId\"\n    OR NEW.\"unitId\" IS DISTINCT FROM OLD.\"unitId\" OR NEW.\"locationId\" <> OLD.\"locationId\" OR NEW.\"quantity\" <> OLD.\"quantity\"\n    OR NEW.\"actorId\" <> OLD.\"actorId\" OR OLD.\"status\" = 'RELEASED' THEN\n    RAISE EXCEPTION 'an allocation''s identity cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
       "name": "stock_document_line_units_guard",
       "table": "stock_document_line_units_guard",
       "kind": "function",
@@ -673,6 +715,20 @@
       "kind": "function",
       "owner": "D3",
       "definition": "CREATE OR REPLACE FUNCTION public.units_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"productId\" <> OLD.\"productId\" OR NEW.\"manufacturerId\" <> OLD.\"manufacturerId\"\n    OR NEW.\"rawSerial\" <> OLD.\"rawSerial\" OR NEW.\"normalizedSerial\" <> OLD.\"normalizedSerial\"\n    OR NEW.\"acquisitionCost\" <> OLD.\"acquisitionCost\" OR NEW.\"receiptLineId\" <> OLD.\"receiptLineId\" THEN\n    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "allocations_identity_frozen",
+      "table": "allocations",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER allocations_identity_frozen BEFORE DELETE OR UPDATE ON public.allocations FOR EACH ROW EXECUTE FUNCTION allocations_freeze_identity()"
+    },
+    {
+      "name": "allocations_source_valid",
+      "table": "allocations",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER allocations_source_valid BEFORE INSERT ON public.allocations FOR EACH ROW EXECUTE FUNCTION allocations_check_source()"
     },
     {
       "name": "stock_document_line_units_guarded",
@@ -736,6 +792,20 @@
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER units_identity_frozen BEFORE DELETE OR UPDATE ON public.units FOR EACH ROW EXECUTE FUNCTION units_freeze_identity()"
+    },
+    {
+      "name": "allocations_one_active_bulk_line",
+      "table": "allocations",
+      "kind": "unique_partial_index",
+      "owner": "D3",
+      "definition": "CREATE UNIQUE INDEX allocations_one_active_bulk_line ON public.allocations USING btree (\"quoteLineId\") WHERE ((\"unitId\" IS NULL) AND (status <> 'RELEASED'::\"AllocationStatus\"))"
+    },
+    {
+      "name": "allocations_one_active_unit",
+      "table": "allocations",
+      "kind": "unique_partial_index",
+      "owner": "D3",
+      "definition": "CREATE UNIQUE INDEX allocations_one_active_unit ON public.allocations USING btree (\"unitId\") WHERE ((\"unitId\" IS NOT NULL) AND (status <> 'RELEASED'::\"AllocationStatus\"))"
     },
     {
       "name": "stock_on_hand",

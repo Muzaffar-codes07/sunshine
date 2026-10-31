@@ -153,6 +153,16 @@ export class StockDocumentsService {
         throw refusal(notMovable(`Line ${line.lineNumber}: its quantity doesn't match its units.`, 'Cancel this draft and make a new one.'));
       }
     }
+    for (const line of document.lines.filter((candidate) => candidate.plannedUnits.length === 0)) {
+      const left = (await this.ledger.onHand(tx, line.productId, from)).minus(line.quantity);
+      const held = await this.ledger.reserved(tx, line.productId, from);
+      if (left.greaterThanOrEqualTo(0) && left.lessThan(held)) {
+        throw refusal({
+          code: 'STOCK_RESERVED', reason: `Line ${line.lineNumber}: ${held.toFixed(3)} is reserved for jobs here, so this would leave too little.`, source: 'INVENTORY',
+          nextAction: 'Move a smaller quantity, or dispatch the reserved stock first.',
+        });
+      }
+    }
     await tx.stockDocument.update({ where: { id: document.id }, data: { status: 'DONE', validatedAt, validatedById: actorId, occurredAt: validatedAt, version: { increment: 1 } } });
     for (const line of document.lines) {
       const movement = await this.ledger.post(tx, {

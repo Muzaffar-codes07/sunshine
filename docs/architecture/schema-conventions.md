@@ -45,7 +45,7 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | `20261031220000_jobs` holds `Job`, one per order; `JobAssignment` and time records follow |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
-| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `Allocation`, `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
+| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `20261031230000_allocations` adds `Allocation`; `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
 
 **To land a migration:**

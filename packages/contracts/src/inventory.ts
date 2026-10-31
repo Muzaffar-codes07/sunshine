@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { moneySchema, positiveQuantitySchema, quantitySchema } from './shared';
 
 const version = z.number().int().positive();
-const uuidList = z.array(z.uuid()).max(200).refine((ids) => new Set(ids).size === ids.length, 'Duplicate IDs are not allowed');
-const reference = z.string().trim().min(1).max(128);
 // PostgreSQL returns UUIDs in lower case, so a request's IDs are made to match before they're compared or hashed.
 const canonicalId = z.uuid().transform((value) => value.toLowerCase());
+const uuidList = z.array(canonicalId).max(200).refine((ids) => new Set(ids).size === ids.length, 'Duplicate IDs are not allowed');
+const reference = z.string().trim().min(1).max(128);
 export const equipmentSerialSchema = z.string().min(1).max(128).refine((value) => value.trim().length > 0, 'Serial must not be blank');
 // Preserve raw serial/scan text separately. Scope uniqueness by canonical manufacturer + product.
 export const normalizeEquipmentSerial = (raw: string): string => raw.trim().toUpperCase();
@@ -54,6 +54,7 @@ export const allocationViewSchema = z.object({
 }).refine((value) => value.unitId === null || /^1(?:\.0{1,3})?$/.test(value.quantity), {
   path: ['quantity'], message: 'A physical unit allocation must have quantity one',
 });
+export const allocationListResponseSchema = z.object({ data: z.array(allocationViewSchema) });
 
 const signedQuantity = z.string().regex(/^-?(0|[1-9]\d{0,8})(\.\d{1,3})?$/)
   .refine((value) => !/^-0(?:\.0{1,3})?$/.test(value), 'Serialize zero without a negative sign');
@@ -136,6 +137,8 @@ export const stockLevelListQuerySchema = z.object({
 export const stockLevelViewSchema = z.object({
   productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1), locationId: z.uuid(),
   locationCode: z.string().min(1), locationKind: stockLocationKindSchema, onHand: quantitySchema,
+  // Free is usable on-hand minus RESERVED, so quarantine has none. A count can leave it negative, and that stays visible.
+  reserved: quantitySchema, free: signedQuantity,
 });
 export const stockLevelListResponseSchema = z.object({ data: z.object({
   items: z.array(stockLevelViewSchema), total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),

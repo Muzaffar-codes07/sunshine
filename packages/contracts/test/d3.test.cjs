@@ -135,3 +135,10 @@ test('transfer and count drafts reject duplicate products and a same-location mo
   assert.equal(c.createStockCountRequestSchema.safeParse({ ...count, lines: [count.lines[0], count.lines[0]] }).success, false);
   assert.equal(c.stockDocumentCommandRequestSchema.safeParse({}).success, false);
 });
+
+test('allocation requests lowercase unit IDs, so both spellings count as one unit', () => {
+  const unit = 'abcdef00-0000-4000-8000-000000000001';
+  assert.deepEqual(c.allocateOrderRequestSchema.parse({ expectedVersion: 1, unitIds: [unit.toUpperCase()] }).unitIds, [unit]);
+  assert.equal(c.allocateOrderRequestSchema.safeParse({ expectedVersion: 1, unitIds: [unit, unit.toUpperCase()] }).success, false);
+  assert.equal(c.allocateOrderRequestSchema.safeParse({}).success, false);
+});
