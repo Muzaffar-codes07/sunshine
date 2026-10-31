@@ -1,5 +1,6 @@
 import { QuotesModule } from './quotes/quotes.module';
 import { OrdersModule } from './orders/orders.module';
+import { SummaryModule } from './summary/summary.module';
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { resolve } from 'node:path';
@@ -23,6 +24,7 @@ import { InventoryModule } from './inventory/inventory.module';
     InventoryModule,
     QuotesModule,
     OrdersModule,
+    SummaryModule,
   ],
   controllers: [HealthController],
 })

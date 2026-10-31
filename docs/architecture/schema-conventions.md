@@ -87,7 +87,9 @@ Row locks work inside `$transaction` through the driver adapter. Two concurrent 
 | `SELECT ... FOR UPDATE`, then check and update | 20 of 20 | The app's own `INSUFFICIENT_STOCK` |
 | No lock, CHECK constraint only | 20 of 20 | A raw database error, `P2010` |
 
-So use both: the lock gives a clean refusal, and the constraint is the backstop. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
+So use both: the lock gives a clean refusal, and the constraint is the backstop.
+
+**Isolation levels need the callback form.** With `@prisma/adapter-pg`, the array form `$transaction([...], { isolationLevel })` silently runs at READ COMMITTED; only `$transaction(async (tx) => ..., { isolationLevel })` reaches PostgreSQL. `summary.db.test.mjs` asserts both, so it fails if Prisma changes this. Lock rows in a stable order, such as `ORDER BY id`, and do no file or network work while holding locks.
 
 Two concurrent active allocations of one unit also had one winner in 20 of 20 rounds, and the unit could be allocated again after release.
 
