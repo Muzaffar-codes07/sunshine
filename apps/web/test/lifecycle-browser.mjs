@@ -1,0 +1,172 @@
+// Isolated persisted warehouse -> field acceptance. Requires built API/contracts, migrated
+// TEST_DATABASE_URL ending in _test, and an externally installed Playwright package/browser.
+// API setup creates explicit synthetic sales fixtures; business effects run through real services.
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { randomInt, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+const root = resolve(import.meta.dirname, '../../..');
+const apiRequire = createRequire(resolve(root, 'apps/api/package.json'));
+const webRequire = createRequire(resolve(root, 'apps/web/package.json'));
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
+const db = process.env.TEST_DATABASE_URL;
+if (!db || !new URL(db).pathname.endsWith('_test')) throw Error('Explicit disposable _test database required');
+process.env.DATABASE_URL = db;
+process.env.SESSION_SECRET = 'issue44-browser-only-test-session-secret';
+process.env.SESSION_COOKIE_SECURE = 'false';
+const origin = 'http://127.0.0.1:5145';
+process.env.AUTH_TRUSTED_ORIGINS = origin;
+const { NestFactory } = apiRequire('@nestjs/core');
+const { AppModule } = apiRequire('./dist/app.module');
+const { PrismaService } = apiRequire('./dist/platform/prisma.service');
+const { ApiExceptionFilter } = apiRequire('./dist/platform/api-exception.filter');
+const { AuthRuntime } = apiRequire('./dist/auth/auth.runtime');
+const { hashPassword } = apiRequire('./dist/auth/passwords');
+const { seedCatalogue } = apiRequire('./dist/catalog/seed-catalogue');
+const { catalogueDemoId } = apiRequire('./dist/catalog/demo-catalogue');
+const { SurveysService } = apiRequire('./dist/sales/surveys.service');
+const { QuotesService } = apiRequire('./dist/quotes/quotes.service');
+const { OrdersService } = apiRequire('./dist/orders/orders.service');
+const { InvoicesService } = apiRequire('./dist/finance/invoices.service');
+const { IdempotencyService } = apiRequire('./dist/platform/idempotency');
+const { JobsService } = apiRequire('./dist/field/jobs.service');
+const { StockLedgerService } = apiRequire('./dist/inventory/stock-ledger.service');
+let app, vite, browser, activePage;
+const results = [];
+const contexts = [];
+try {
+  app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix('api/v1'); app.useGlobalFilters(new ApiExceptionFilter());
+  app.enableCsrfProtection({ trustedOrigins: app.get(AuthRuntime).origins });
+  await app.listen(0, '127.0.0.1');
+  const prisma = app.get(PrismaService);
+  await seedCatalogue(prisma);
+  vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), server: {
+    host: '127.0.0.1', port: 5145, strictPort: true, proxy: { '/api': await app.getUrl() },
+  } });
+  await vite.listen();
+  browser = process.env.BROWSER_WS_FILE
+    ? await chromium.connect(readFileSync(process.env.BROWSER_WS_FILE, 'utf8').trim())
+    : await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true });
+  const password = 'issue44-browser-only-password';
+  const staff = {};
+  for (const role of ['ADMIN', 'SALES', 'TECHNICIAN', 'WAREHOUSE', 'SUPPORT']) staff[role] = await prisma.user.create({ data: {
+    email: `${randomUUID()}@issue44.test`, displayName: `${role} browser tester`, role, passwordHash: await hashPassword(password),
+  } });
+  const identity = role => ({ id: staff[role].id, email: staff[role].email, role, displayName: staff[role].displayName });
+  const context = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(context);
+  const login = await context.request.post('/api/v1/auth/login', { headers: { origin }, data: { email: staff.ADMIN.email, password } });
+  assert.equal(login.status(), 200);
+  const page = await context.newPage();
+  activePage = page;
+  const errors = []; page.on('pageerror', error => { errors.push(error.message); console.error('BROWSER ERROR', error.message); });
+  async function post(path, body) {
+    const response = await context.request.post('/api/v1' + path, { headers: { origin, 'idempotency-key': randomUUID() }, data: body });
+    const json = await response.json(); assert.ok(response.ok(), JSON.stringify(json)); return json.data;
+  }
+  for (let run = 1; run <= 3; run++) {
+    // Transparent synthetic fixture: approved survey, accepted quote, paid order and physical stock.
+    const customer = await prisma.customer.create({ data: { name: `Browser Customer ${run}`, phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '44 Solar Road', city: 'Nagpur', pincode: '440001' } });
+    const enquiry = await prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'QUALIFIED', contactName: customer.name, siteAddressLine: customer.addressLine, siteCity: customer.city, sitePincode: customer.pincode } });
+    const surveys = app.get(SurveysService), quotes = app.get(QuotesService);
+    const survey = (await surveys.schedule(enquiry.id, { technicianId: staff.TECHNICIAN.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() })).data;
+    await surveys.submit(survey.id, { version: 1, roofDirection: 'S', roofTiltDeg: '18.5', cableDistanceM: '22.00', usableRoofAreaSqm: '80.00' }, identity('TECHNICIAN'));
+    await surveys.approve(survey.id, { version: 2 }, identity('SALES'));
+    const quote = (await quotes.create(enquiry.id, { surveyId: survey.id, packageId: catalogueDemoId(1003) }, identity('SALES'))).data;
+    await quotes.send(quote.id, { version: 1, channel: 'PRINT' }, identity('SALES'));
+    await quotes.accept(quote.id, { version: 2, acceptedByName: customer.name, channel: 'IN_PERSON' }, identity('SALES'));
+    const order = (await app.get(OrdersService).confirm({ quoteId: quote.id }, randomUUID(), identity('SALES'))).data;
+    const payment = { amountInr: order.invoice.total, method: 'UPI', reference: `UTR-${randomUUID().slice(0, 10)}`, receivedAt: new Date().toISOString() };
+    await app.get(IdempotencyService).run({ actorId: staff.ADMIN.id, key: randomUUID(), action: 'PAYMENT_RECEIPT', payload: payment }, tx => app.get(InvoicesService).recordPayment(tx, order.invoice.id, payment, identity('ADMIN')));
+    const job = await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } });
+    await app.get(JobsService).schedule(job.id, { expectedVersion: job.version, scheduledStart: new Date(Date.now() + 86400000).toISOString(), scheduledFinish: new Date(Date.now() + 90000000).toISOString(), technicianIds: [staff.TECHNICIAN.id] }, identity('SALES'));
+    const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
+    const products = await prisma.product.findMany({ where: { id: { in: order.packing.map(line => line.productId) } } });
+    for (const product of products) {
+      const quantity = order.packing.filter(line => line.productId === product.id).reduce((sum, line) => sum + Number(line.quantity), 0);
+      await post('/stock/receipts', { reference: `BROWSER-${randomUUID()}`, locationId: location.id, receivedAt: new Date().toISOString(), lines: [{ productId: product.id, quantity: String(quantity), unitCost: '100.00', serials: product.trackingMode === 'SERIALIZED' ? Array.from({ length: quantity }, () => `B44-${randomUUID().slice(0, 15)}`) : [] }] });
+    }
+    console.log('Prepared fixture', run, order.id, job.id);
+    const begin = Date.now();
+    await page.goto(`/workspace/warehouse/orders/${order.id}`);
+    await page.getByRole('button', { name: 'Reserve all stock' }).click();
+    await page.getByRole('button', { name: 'Prepare dispatch', exact: true }).click();
+    await page.getByRole('heading', { name: 'Scan equipment' }).waitFor();
+    const allocated = await prisma.allocation.findMany({ where: { jobId: job.id, unitId: { not: null } }, include: { unit: true } });
+    // Typed input is persisted but never qualifies as physical scan evidence.
+    await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocated[0].unit.rawSerial);
+    await page.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
+    await page.getByText(`0 of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
+    await page.getByText('Recorded only', { exact: true }).waitFor();
+    await page.getByLabel('Input source', { exact: true }).selectOption('SCANNER');
+    for (const [index, allocation] of allocated.entries()) {
+      await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocation.unit.rawSerial);
+      await page.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
+      await page.getByText(`${index + 1} of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
+    }
+    // Commit response loss: real server commits; browser retries the exact key and body.
+    const commands = [];
+    let lose = true;
+    await page.route('**/api/v1/dispatches/*/dispatch', async route => {
+      const request = route.request(); commands.push({ key: request.headers()['idempotency-key'], body: request.postData() });
+      const response = await route.fetch();
+      if (lose) { lose = false; assert.equal(response.status(), 200); await route.abort('failed'); }
+      else await route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: 'Post dispatch', exact: true }).click();
+    await page.getByRole('button', { name: 'Retry this request' }).click();
+    await page.getByRole('button', { name: 'Record delivery' }).waitFor();
+    assert.equal(commands.length, 2); assert.deepEqual(commands[0], commands[1]);
+    await page.unroute('**/api/v1/dispatches/*/dispatch');
+    await page.getByRole('button', { name: 'Record delivery' }).click();
+    await page.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
+    await page.reload(); await page.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
+    console.log('Delivered', run);
+    await page.goto(`/workspace/field-service/jobs/${job.id}`);
+    await page.getByRole('button', { name: 'Start job', exact: true }).click();
+    await page.getByRole('heading', { name: 'Complete the job', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Complete job', exact: true }).click();
+    await page.getByText('Add at least one roof photo.', { exact: true }).waitFor();
+    await page.locator('input[type=file]').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1sAAAAASUVORK5CYII=', 'base64') });
+    await page.getByRole('button', { name: "Don't use" }).waitFor();
+    await page.reload(); await page.getByRole('button', { name: "Don't use" }).waitFor();
+    const canvas = page.locator('canvas'); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox(); assert.ok(box);
+    await page.mouse.move(box.x + 20, box.y + 30); await page.mouse.down(); await page.mouse.move(box.x + 120, box.y + 60, { steps: 10 }); await page.mouse.up();
+    await page.getByRole('button', { name: 'Export PNG' }).click();
+    await page.getByText('Signature saved.', { exact: false }).waitFor();
+    for (const checkbox of await page.locator('input[name=check]').all()) await checkbox.check();
+    await page.getByRole('button', { name: 'Complete job', exact: true }).click();
+    await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
+    await page.reload(); await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
+    assert.equal(await page.getByAltText('Roof photo 1').evaluate(img => img.complete && img.naturalWidth > 0), true);
+    assert.equal(await page.getByAltText('Customer signature').evaluate(img => img.complete && img.naturalWidth > 0), true);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const saved = await prisma.job.findUniqueOrThrow({ where: { id: job.id }, include: { allocations: true } });
+    assert.equal(saved.status, 'COMPLETED'); assert.ok(saved.allocations.every(row => row.status === 'INSTALLED'));
+    assert.equal(await prisma.stockDocument.count({ where: { reference: `DISPATCH:${(await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } })).id}` } }), 1);
+    results.push({ run, seconds: ((Date.now() - begin) / 1000).toFixed(1), jobId: job.id, orderId: order.id, serialUnits: allocated.length, status: saved.status });
+    console.log('Completed persisted run', JSON.stringify(results.at(-1)));
+  }
+  // Real unavailable adapters stay visible as errors, never as fabricated coverage or finance.
+  await page.goto('/workspace/reports');
+  await page.getByText(/await.*integration/i).first().waitFor();
+  assert.equal(await page.getByRole('button', { name: /Download/ }).count(), 0);
+  await page.goto('/workspace/service');
+  assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), true);
+  await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill('TEST-UNAVAILABLE');
+  await page.getByRole('button', { name: 'Look up serial' }).click();
+  await page.getByRole('alert').filter({ hasText: /unavailable|integration/i }).waitFor();
+  // Keyboard navigation focuses content after a client-side route change.
+  await page.getByRole('link', { name: 'Overview', exact: true }).click();
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
+  assert.deepEqual(errors, []);
+  console.log(JSON.stringify({ results, browserErrors: errors, scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; D4 unavailable gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+} catch (error) {
+  console.error('FAIL', error);
+  if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));
+  throw error;
+} finally {
+  for (const context of contexts) await context.close();
+  await browser?.close(); await vite?.close(); await app?.close();
+}

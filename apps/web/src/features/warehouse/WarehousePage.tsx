@@ -5,7 +5,6 @@ import { ScanInput, type ScanSource } from '../../components/device/ScanInput';
 import { DetailPattern, ListPattern } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
-import { ActionDrawer } from '../../components/shared/patterns';
 import { ReceiveStock } from './ReceiveStockForm';
 import { FulfilmentOrders } from './FulfilmentOrders';
 import { describeProblem } from '../sales/queries';
@@ -24,7 +23,6 @@ type Tab = 'orders' | 'levels' | 'movements' | 'integrity' | 'valuation' | 'unit
 export function WarehousePage() {
   const session = useStaffSession();
   const [activeTab, setActiveTab] = useState<Tab>('orders');
-  const [receiptOpen, setReceiptOpen] = useState(false);
 
   if (session.isPending) return <p role="status">Checking your session…</p>;
   if (session.error) return <p role="alert">{describeProblem(session.error).message}</p>;
@@ -42,7 +40,7 @@ export function WarehousePage() {
     return (
       <div role="alert" className="form-error">
         <h1>Unauthorized</h1>
-        <p>Your role ({actor.role}) cannot access the warehouse workspace.</p>
+        <p>Your role cannot use the warehouse workspace. Current role: {actor.role}.</p>
         <p>
           <Link to="/workspace">Back to workspace overview</Link>
         </p>
@@ -60,9 +58,7 @@ export function WarehousePage() {
           </p>
         </div>
         <div className="warehouse-header-actions">
-          <button type="button" onClick={() => setReceiptOpen(true)}>
-            + Inward Stock / Receive
-          </button>
+          <ReceiveStock />
         </div>
       </header>
 
@@ -70,6 +66,7 @@ export function WarehousePage() {
         <button type="button" aria-pressed={activeTab === 'orders'} onClick={() => setActiveTab('orders')}>Orders to fulfil</button>
         <button
           type="button"
+          aria-pressed={activeTab === 'levels'}
           className={activeTab === 'levels' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('levels')}
         >
@@ -77,6 +74,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-pressed={activeTab === 'movements'}
           className={activeTab === 'movements' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('movements')}
         >
@@ -84,6 +82,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-pressed={activeTab === 'integrity'}
           className={activeTab === 'integrity' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('integrity')}
         >
@@ -91,6 +90,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-pressed={activeTab === 'valuation'}
           className={activeTab === 'valuation' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('valuation')}
         >
@@ -98,6 +98,7 @@ export function WarehousePage() {
         </button>
         <button
           type="button"
+          aria-pressed={activeTab === 'unit-lookup'}
           className={activeTab === 'unit-lookup' ? 'tab-btn active' : 'tab-btn'}
           onClick={() => setActiveTab('unit-lookup')}
         >
@@ -114,12 +115,11 @@ export function WarehousePage() {
         {activeTab === 'unit-lookup' && <UnitLookupSection />}
       </section>
 
-      <ActionDrawer open={receiptOpen} title="Receive stock" onClose={() => setReceiptOpen(false)}><ReceiveStock /></ActionDrawer>
     </div>
   );
 }
 
-function StockLevelsSection() {
+export function StockLevelsSection() {
   const [locationId, setLocationId] = useState('');
   const [page, setPage] = useState(1);
   const [asOfDate, setAsOfDate] = useState('');
@@ -159,6 +159,8 @@ function StockLevelsSection() {
 
   return (
     <div className="stock-levels-view">
+      {locations.isPending && <p role="status">Loading locations…</p>}
+      {locations.error && <p role="alert">{describeProblem(locations.error).message} <button onClick={() => void locations.refetch()}>Retry locations</button></p>}
       <div className="filters-row">
         <Field label="Warehouse location">
           {(c) => (
@@ -266,6 +268,8 @@ function StockMovementsSection() {
     { id: 'sku', label: 'SKU' },
     { id: 'product', label: 'Product Name' },
     { id: 'quantity', label: 'Quantity' },
+    { id: 'from', label: 'From location' },
+    { id: 'to', label: 'To location' },
   ];
 
   return (
@@ -307,7 +311,8 @@ function StockMovementsSection() {
             kind: <span className="stage">{m.documentKind}</span>,
             sku: <code>{m.sku}</code>,
             product: m.productName,
-            quantity: <strong>+{m.quantity}</strong>,
+            quantity: <strong>{m.quantity}</strong>,
+            from: m.fromLocationId ?? 'External', to: m.toLocationId ?? 'External',
           },
         }))}
       />
@@ -429,7 +434,8 @@ function StockIntegritySection() {
 }
 
 function StockValuationSection() {
-  const valuation = useStockValue();
+  const [page, setPage] = useState(1);
+  const valuation = useStockValue({ page, pageSize: 25 });
   const data = valuation.data?.data;
   const items = data?.items ?? [];
 
@@ -492,6 +498,11 @@ function StockValuationSection() {
           },
         }))}
       />
+      {data && data.total > data.pageSize && <nav className="pager" aria-label="Valuation pagination">
+        <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+        <span>Page {page} of {Math.ceil(data.total / data.pageSize)}</span>
+        <button disabled={page * data.pageSize >= data.total} onClick={() => setPage(page + 1)}>Next</button>
+      </nav>}
     </div>
   );
 }

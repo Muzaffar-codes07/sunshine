@@ -11,7 +11,9 @@ import { OrderFulfilmentPage } from '../features/warehouse/OrderFulfilmentPage';
 import { WarehousePage } from '../features/warehouse/WarehousePage';
 import { apiGet } from '../lib/api';
 import { LoginPage } from '../features/auth/LoginPage';
-import { PlannedWorkspace, Workspace, WorkspaceOverview, workspaces } from './Workspace';
+import { Workspace, WorkspaceOverview } from './Workspace';
+import { ServiceWorkspacePage } from '../features/service';
+import { ReportsWorkspacePage } from '../features/reports';
 import { PatternsPage } from './PatternsPage';
 import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
 
@@ -33,7 +35,8 @@ export function App() {
         <Route path="field-service/jobs/:id" element={<FieldJobPage />} />
         <Route path="warehouse" element={<WarehousePage />} />
         <Route path="warehouse/orders/:id" element={<OrderFulfilmentPage />} />
-        {workspaces.filter(([path]) => path !== 'sales' && path !== 'orders' && path !== 'warehouse' && path !== 'field-service').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        <Route path="service" element={<ServiceWorkspacePage />} />
+        <Route path="reports" element={<ReportsWorkspacePage />} />
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}
@@ -52,11 +55,11 @@ function Home() {
   const database = useQuery({ queryKey: ['readiness'], queryFn: ({ signal }) => apiGet('/health/ready', readinessResponseSchema, signal) });
   return (
     <main className="shell">
-      <header><a className="brand" href="/" aria-label="Sunshine home"><span className="sun">☀</span> sunshine<span className="brand-tag">SOLAR OPERATIONS</span></a><span className="stage">Development scaffold</span></header>
+      <header><a className="brand" href="/" aria-label="Sunshine home"><span className="sun">☀</span> sunshine<span className="brand-tag">SOLAR OPERATIONS</span></a><span className="stage">Solar operations</span></header>
       <section className="hero">
         <p className="eyebrow">ONE CUSTOMER. ONE CONNECTED LIFECYCLE.</p>
         <h1>From rooftop enquiry<br />to years of reliable service.</h1>
-        <p className="intro">The foundation for SunPower Solutions. Business workflows are planned and have not been implemented yet.</p>
+        <p className="intro">Connect enquiries, surveys, orders, equipment and installation evidence for SunPower Solutions.</p>
         <p><Link to="/enquire">Make a solar enquiry</Link></p>
         <p><Link to="/login">Staff sign in</Link></p>
       </section>
@@ -64,7 +67,7 @@ function Home() {
         <Status label="Application API" pending={health.isPending} error={health.error} ready={health.isSuccess} onRetry={() => void health.refetch()} />
         <Status label="Local PostgreSQL" pending={database.isPending} error={database.error} ready={database.isSuccess} onRetry={() => void database.refetch()} />
       </section>
-      <section className="modules"><h2>Workspaces to build</h2><div className="module-grid">{areas.map((area, index) => <article key={area}><span className="module-number">0{index + 1}</span><h3>{area}</h3><p>Planned · not implemented</p></article>)}</div></section>
+      <section className="modules"><h2>Connected operations</h2><div className="module-grid">{areas.map((area, index) => <article key={area}><span className="module-number">0{index + 1}</span><h3>{area}</h3><p>Staff access required</p></article>)}</div></section>
       <footer>React + NestJS + local PostgreSQL <span>Shared contracts. Clear ownership. Real persistence.</span></footer>
     </main>
   );

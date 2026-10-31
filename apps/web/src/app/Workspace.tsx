@@ -1,14 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { logoutResponseSchema } from '@sunshine/contracts';
+import { logoutResponseSchema, type StaffRole } from '@sunshine/contracts';
 import { apiPost, ApiRequestError } from '../lib/api';
 import { sessionKey, useStaffSession } from '../features/auth/session';
 
 export const workspaces = [
   ['sales', 'Sales'], ['orders', 'Orders'], ['warehouse', 'Warehouse'],
-  ['field-service', 'Field & Service'], ['reports', 'Reports'],
+  ['field-service', 'Field jobs'], ['service', 'Warranty & service'], ['reports', 'Reports'],
 ] as const;
+
+export const workspaceRoles: Record<string, readonly StaffRole[]> = {
+  sales: ['ADMIN', 'SALES', 'TECHNICIAN'], orders: ['ADMIN', 'SALES', 'WAREHOUSE'],
+  warehouse: ['ADMIN', 'WAREHOUSE'], 'field-service': ['ADMIN', 'TECHNICIAN'],
+  service: ['ADMIN', 'SUPPORT'], reports: ['ADMIN'],
+};
+export function visibleWorkspaces(role: StaffRole) {
+  return workspaces.filter(([path]) => (workspaceRoles[path]?.includes(role) ?? false));
+}
+const descriptions: Record<string, string> = {
+  sales: 'Enquiries, assigned surveys and quotations.', orders: 'Confirmed orders, invoices, receipts and crew scheduling.',
+  warehouse: 'Receive stock, inspect the ledger and fulfil orders.', 'field-service': 'Assigned jobs, installation photos and customer acceptance.',
+  service: 'Equipment coverage and repair records. Some actions await backend integration.',
+  reports: 'Posted revenue, costs, pay and subsidy records. Source integration is pending.',
+};
 
 export function Workspace() {
   const session = useStaffSession();
@@ -18,6 +33,10 @@ export function Workspace() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const from = location.pathname + location.search;
+  const content = useRef<HTMLElement>(null);
+  useEffect(() => { content.current?.focus(); }, [location.pathname, session.data?.id]);
+  const area = location.pathname.split('/')[2];
+  const allowed = !area || !workspaceRoles[area] || (session.data && workspaceRoles[area].includes(session.data.role));
 
   async function logout() {
     if (pending) return;
@@ -44,16 +63,14 @@ export function Workspace() {
     {error && <p className="form-error" role="alert">{error}</p>}
     <nav className="workspace-nav" aria-label="Staff workspaces">
       <NavLink to="/workspace" end>Overview</NavLink>
-      {workspaces.map(([path, label]) => <NavLink key={path} to={`/workspace/${path}`}>{label}</NavLink>)}
+      {visibleWorkspaces(session.data.role).map(([path, label]) => <NavLink key={path} to={`/workspace/${path}`}>{label}</NavLink>)}
     </nav>
-    <main id="workspace-content" tabIndex={-1}><Outlet /></main>
+    <main ref={content} id="workspace-content" tabIndex={-1}>{allowed ? <Outlet /> : <section role="alert"><h1>Access unavailable</h1><p>Your role cannot open this workspace.</p><Link to="/workspace">Choose an available workspace</Link></section>}</main>
   </div>;
 }
 
 export function WorkspaceOverview() {
-  return <><h1>Overview</h1><p>Choose a workspace to continue.</p><div className="workspace-cards">{workspaces.map(([path, label]) => <section key={path}><h2><Link to={`/workspace/${path}`}>{label}</Link></h2><p>Workflow screens are planned.</p></section>)}</div></>;
-}
-
-export function PlannedWorkspace({ title }: { title: string }) {
-  return <><h1>{title}</h1><p>This workspace is planned. Business actions are not available yet.</p></>;
+  const session = useStaffSession();
+  if (!session.data) return null;
+  return <><h1>Your workspace</h1><p>Signed in as {session.data.displayName}. Choose the next step for your role.</p><div className="workspace-cards">{visibleWorkspaces(session.data.role).map(([path, label]) => <section key={path}><h2><Link to={`/workspace/${path}`}>{label}</Link></h2><p>{descriptions[path]}</p></section>)}</div></>;
 }

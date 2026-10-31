@@ -193,3 +193,18 @@ footer { display: flex; justify-content: space-between; gap: 20px; color: #8c9eb
   .filters-row .field { width: 100%; }
 }
 
+
+/* Workspace layout: keep tables scrollable inside their region on small screens. */
+#workspace-content { min-width: 0; overflow-wrap: anywhere; }
+.workspace-nav { flex-wrap: wrap; }
+.staff-account { flex-wrap: wrap; min-width: 0; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+fieldset { min-width: 0; }
+.pattern-card, .workspace-cards > section, .detail-grid > div { min-width: 0; }
+.warehouse-tabs button[aria-pressed="true"] { border-color: #f7bd52; color: #f7bd52; }
+@media (max-width: 600px) {
+  .staff-header { align-items: flex-start; flex-direction: column; padding-block: 16px; }
+  .staff-account { width: 100%; justify-content: space-between; }
+  .filters-row .field { min-width: 0; }
+  .pager { flex-wrap: wrap; }
+}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListPattern } from '../../components/shared/patterns';
 import { describeProblem, humanize } from '../sales/queries';
-import { useJobs, useStockLevels } from './queries';
+import { useJobs } from './queries';
 
 function Pager({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (page: number) => void }) {
   if (total <= pageSize) return null;

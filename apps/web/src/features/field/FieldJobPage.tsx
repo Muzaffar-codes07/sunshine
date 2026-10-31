@@ -17,9 +17,10 @@ const toIso = (value: FormDataEntryValue | null) => {
 
 function StartJob({ job }: { job: JobView }) {
   const command = useRetrySafeCommand(jobResponseSchema, fieldRoot);
+  const [suggested] = useState(() => isoToLocal(new Date().toISOString()));
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const checked = checkInput(startInstallationRequestSchema, { expectedVersion: job.version, startedAt: toIso(new FormData(event.currentTarget).get('startedAt')) }, { startedAt: 'Enter a valid date and time.' });
+    const checked = checkInput(startInstallationRequestSchema, { expectedVersion: job.version, startedAt: new FormData(event.currentTarget).get('startedAt') === suggested ? new Date().toISOString() : toIso(new FormData(event.currentTarget).get('startedAt')) }, { startedAt: 'Enter a valid date and time.' });
     if ('problem' in checked) { command.setProblem(checked.problem); return; }
     command.run(`/jobs/${job.id}/start`, checked.data);
   }
@@ -27,7 +28,7 @@ function StartJob({ job }: { job: JobView }) {
     <form onSubmit={submit} noValidate aria-busy={command.busy}>
       <fieldset disabled={command.busy || command.uncertain}>
         <legend>Arrived on site</legend>
-        <Field label="Started at (local time)" error={command.problem.fields.startedAt}>{(control) => <input {...control} name="startedAt" type="datetime-local" defaultValue={isoToLocal(new Date().toISOString())} required />}</Field>
+        <Field label="Started at (local time)" hint="Leave the suggested value to record the current instant." error={command.problem.fields.startedAt}>{(control) => <input {...control} name="startedAt" type="datetime-local" defaultValue={suggested} required />}</Field>
         <button type="submit">{command.busy ? 'Starting…' : 'Start job'}</button>
       </fieldset>
     </form>

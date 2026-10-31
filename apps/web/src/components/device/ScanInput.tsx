@@ -66,10 +66,12 @@ export function ScanInput({
   const [cameraState, setCameraState] = useState<CameraState>({ status: 'idle' });
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const attemptRef = useRef(0);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<number | undefined>(undefined);
 
   const stopCamera = useCallback(() => {
+    attemptRef.current += 1;
     if (intervalRef.current !== undefined) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = undefined;
@@ -88,6 +90,10 @@ export function ScanInput({
       stopCamera();
     };
   }, [stopCamera]);
+
+  useEffect(() => {
+    if (disabled) { stopCamera(); setCameraState({ status: 'idle' }); }
+  }, [disabled, stopCamera]);
 
   const handleStopCamera = () => {
     stopCamera();
@@ -120,24 +126,32 @@ export function ScanInput({
       return;
     }
 
+    stopCamera();
+    const attempt = attemptRef.current;
+    const current = () => attemptRef.current === attempt;
     setCameraState({ status: 'starting' });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' } },
         audio: false,
       });
+      if (!current()) { stream.getTracks().forEach((track) => track.stop()); return; }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+      if (!current()) return;
       setCameraState({ status: 'scanning' });
 
       const detector = new Detector();
+      let detecting = false;
       intervalRef.current = window.setInterval(async () => {
-        if (!videoRef.current || videoRef.current.readyState < 2) return;
+        if (!current() || detecting || !videoRef.current || videoRef.current.readyState < 2) return;
+        detecting = true;
         try {
           const results = await detector.detect(videoRef.current);
+          if (!current()) return;
           if (results.length > 0 && results[0]?.rawValue) {
             const detectedValue = results[0].rawValue.trim();
             if (detectedValue) {
@@ -147,10 +161,11 @@ export function ScanInput({
             }
           }
         } catch {
-          // ignore transient frame decode errors
-        }
+          // A frame may be undecodable; retry after this detection settles.
+        } finally { detecting = false; }
       }, 250);
     } catch (err) {
+      if (!current()) return;
       stopCamera();
       setCameraState({
         status: 'error',
@@ -162,7 +177,8 @@ export function ScanInput({
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = manualText.trim();
-    if (trimmed) {
+    if (trimmed && !disabled) {
+      handleStopCamera();
       onScan(trimmed, 'manual');
       setManualText('');
     }
@@ -194,17 +210,17 @@ export function ScanInput({
       </form>
 
       <div className="scan-camera-section">
-        {cameraState.status === 'scanning' ? (
+        {cameraState.status === 'scanning' || cameraState.status === 'starting' ? (
           <button type="button" onClick={handleStopCamera}>
-            Stop camera
+            {cameraState.status === 'starting' ? 'Cancel camera' : 'Stop camera'}
           </button>
         ) : (
           <button
             type="button"
             onClick={() => void startCamera()}
-            disabled={disabled || cameraState.status === 'starting'}
+            disabled={disabled}
           >
-            {cameraState.status === 'starting' ? 'Starting camera…' : 'Scan with camera'}
+            Scan with camera
           </button>
         )}
 

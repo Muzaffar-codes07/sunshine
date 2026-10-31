@@ -19,8 +19,8 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
 
   try {
     const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
-    const { WarehousePage } = await vite.ssrLoadModule('/src/features/warehouse/WarehousePage.tsx');
-    const { StockReceiptDrawer } = await vite.ssrLoadModule('/src/features/warehouse/StockReceiptDrawer.tsx');
+    const { WarehousePage, StockLevelsSection } = await vite.ssrLoadModule('/src/features/warehouse/WarehousePage.tsx');
+    const { ReceiveStock } = await vite.ssrLoadModule('/src/features/warehouse/ReceiveStockForm.tsx');
     const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
 
     const renderWithSession = (component, user, initialEntries = ['/workspace/warehouse']) => {
@@ -73,7 +73,7 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
         { id: 'user-1', email: 'sales@sunshine.test', displayName: 'Sales Person', role: 'SALES' }
       );
       assert.ok(html.includes('Unauthorized'), 'displays unauthorized heading for SALES');
-      assert.ok(html.includes('cannot access the warehouse workspace'), 'denies warehouse access to SALES');
+      assert.ok(html.includes('cannot use the warehouse workspace'), 'denies warehouse access to SALES');
     }
 
     // 2. WAREHOUSE role can access warehouse workspace
@@ -88,9 +88,10 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
       assert.ok(html.includes('Integrity &amp; Audit'), 'displays Integrity tab');
       assert.ok(html.includes('Valuation'), 'displays Valuation tab');
       assert.ok(html.includes('Unit &amp; Serial Scan'), 'displays Unit & Serial Scan tab');
-      assert.ok(html.includes('PANEL-400W'), 'displays pre-seeded SKU in table');
-      assert.ok(html.includes('50.000'), 'displays on-hand balance without client calculation');
-      assert.ok(html.includes('40.000'), 'displays free balance without client calculation');
+      const levelsHtml = renderWithSession(React.createElement(StockLevelsSection), { id: 'user-2', displayName: 'Warehouse', role: 'WAREHOUSE' });
+      assert.ok(levelsHtml.includes('PANEL-400W'), 'displays pre-seeded SKU in table');
+      assert.ok(levelsHtml.includes('50.000'), 'displays on-hand balance without client calculation');
+      assert.ok(levelsHtml.includes('40.000'), 'displays free balance without client calculation');
     }
 
     // 3. StockReceiptDrawer renders inwards form elements
@@ -102,13 +103,10 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
         React.createElement(
           QueryClientProvider,
           { client },
-          React.createElement(StockReceiptDrawer, { open: true, onClose: () => {} })
+          React.createElement(ReceiveStock)
         )
       );
-      assert.ok(html.includes('Receive Goods / Inward Stock'), 'drawer renders title');
-      assert.ok(html.includes('Receipt reference / PO number'), 'drawer has reference field');
-      assert.ok(html.includes('Destination location'), 'drawer has location selector');
-      assert.ok(html.includes('Post Stock Receipt'), 'drawer has submit button');
+      assert.ok(html.includes('Receive stock'), 'uses the existing retry-safe receiving control');
     }
 
     // 4. App route /workspace/warehouse is wired to WarehousePage (not PlannedWorkspace)

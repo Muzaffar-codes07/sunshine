@@ -33,11 +33,14 @@ type Intent = { path: string; body: unknown; key: string };
 export function useRetrySafeCommand<T>(schema: ZodType<T>, refresh: QueryKey, onDone?: (result: T) => void) {
   const client = useQueryClient();
   const intent = useRef<Intent | null>(null);
+  const sending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [problem, setProblem] = useState<Problem>(noProblem);
 
   async function send(saved: Intent) {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true); setProblem(noProblem);
     try {
       const result = await apiPost(saved.path, schema, saved.body, { idempotencyKey: saved.key });
@@ -48,16 +51,16 @@ export function useRetrySafeCommand<T>(schema: ZodType<T>, refresh: QueryKey, on
       const definitive = error instanceof ApiRequestError && error.status >= 400 && error.status < 500;
       if (definitive) intent.current = null;
       setUncertain(!definitive); setProblem(describeFailure(error));
-    } finally { setBusy(false); }
+    } finally { sending.current = false; setBusy(false); }
   }
 
   return {
     busy, uncertain, problem, setProblem,
     run(path: string, body: unknown) {
-      if (busy || uncertain) return;
+      if (sending.current || intent.current) return;
       const saved = { path, body, key: newIdempotencyKey() };
       intent.current = saved; void send(saved);
     },
-    retry() { if (intent.current && !busy) void send(intent.current); },
+    retry() { if (intent.current && !sending.current) void send(intent.current); },
   };
 }

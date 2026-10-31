@@ -77,3 +77,9 @@ The transport preserves `error.fieldErrors`, refusal `reason`/`nextAction`, HTTP
 The new web suite checks server-rendered components plus mocked HTTP behavior: default mutation lock, saved coverage/lineage/action selection, exact display strings, query filters, malformed responses, 401/403/409/503, refusal next actions, CSV error handling and byte preservation. Synthetic IDs and facts live only in tests. These are not persisted business acceptance tests.
 
 The test script is included in the existing root `npm test`/`npm run check` workflow without new dependencies. The development preview is separately typechecked by that script.
+
+## Issue #44 integration update (1 November 2026)
+
+The integration candidate mounts this component at `/workspace/service` for ADMIN/SUPPORT and reports at `/workspace/reports` for ADMIN. Field jobs retain `/workspace/field-service`; the two workflows do not replace one another. The shell handles direct-link role refusals and focuses content after navigation. Production UI review remains outstanding.
+
+Ticket commands remain disabled. The real warranty/report endpoints still return their unavailable-adapter errors: routing a page does not complete F06/F07. Ticket list/detail refresh still depends on #56; posted report/CSV reconciliation, repair billing/replacement, authoritative policy/equipment readers, frozen pay rates and historical installation seeds remain tracked by #53. Do not mark these as accepted from fixture tests.

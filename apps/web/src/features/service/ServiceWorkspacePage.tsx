@@ -133,7 +133,7 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
 
   const action = ticket ? nextTicketAction(ticket.status) : null;
   return <section aria-labelledby="service-workspace-title">
-    <h1 id="service-workspace-title">Field &amp; Service</h1>
+    <h1 id="service-workspace-title">Warranty &amp; Service</h1>
     <p>Look up equipment coverage and its policy dates before discussing repair work.</p>
 
     <FormPattern title="Warranty lookup" submitLabel="Look up serial" pending={lookupPending}
@@ -158,7 +158,7 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
       { id: 'reason', label: 'Saved reason', value: lookup.assessment.reason },
     ]} />}
 
-    {!ticketCommandsEnabled && <p role="status">Ticket actions are temporarily unavailable. Warranty lookup remains available.</p>}
+    {!ticketCommandsEnabled && <p role="status">Ticket actions are unavailable until authorized reads, retry handling and billing are connected. Warranty lookup can also be unavailable while equipment and policy integration is pending.</p>}
     <fieldset disabled={!ticketCommandsEnabled} style={{ border: 0, padding: 0, minWidth: 0 }}>
     <legend>Service ticket actions</legend>
     {!ticket && <FormPattern title="Create service ticket" submitLabel="Create ticket" pending={ticketPending}
