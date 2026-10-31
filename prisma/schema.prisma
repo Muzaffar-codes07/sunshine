@@ -88,7 +88,7 @@ model Enquiry {
   message             String?
   // Qualification facts recorded on the first call (PDF: shadow-free roof area, monthly bill, grid suitability).
   shadowFreeRoofAreaSqm Decimal?    @db.Decimal(8, 2)
-  monthlyBillInr        Decimal?    @db.Decimal(12, 2)
+  monthlyBillInr        Decimal?    @db.Decimal(14, 2)
   gridConnectionSuitable Boolean?
   ownerId             String?       @db.Uuid
   nextFollowUpAt      DateTime?     @db.Timestamptz(3)
@@ -98,6 +98,8 @@ model Enquiry {
   updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  // SetNull, not Restrict: the owner is only a work assignment. Removing a staff user must neither be blocked
+  // by their open enquiries nor delete them; the enquiry returns to the unassigned queue.
   owner    User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([status, nextFollowUpAt])
