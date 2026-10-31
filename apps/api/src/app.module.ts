@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { PlatformModule } from './platform/platform.module';
 import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
+import { FinanceModule } from './finance/finance.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SalesModule } from './sales/sales.module';
     }),
     PlatformModule,
     SalesModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
 })
