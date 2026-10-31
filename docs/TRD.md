@@ -41,7 +41,7 @@ Modules export narrow transaction-aware helpers; no hidden independently committ
 
 Use [the model/ERD](architecture/data-model.md) for entities and relationships. UUID PKs; FKs; scoped normalized serial uniqueness; one active unit allocation; quote-line XOR ticket-line allocation source; positive quantities; explicit statuses and indexes. Money uses decimal strings/SQL numerics, quantity precision and rounding are documented; UTC storage with Asia/Kolkata business periods.
 
-Package template and accepted quote snapshot are separate. Quote line type distinguishes package charge, component requirement and service. Allocations identify actual units/bulk stock. Current on-hand/reserved balances and immutable movements reconcile. Serial acquisition cost and bulk weighted-average receipt cost are frozen into consumption; no duplicate purchase/consumption expense.
+Package template and accepted quote snapshot are separate. Quote line type distinguishes package charge, component requirement and service. Allocations identify actual units/bulk stock. On-hand is derived from immutable movements and RESERVED allocations reconcile against it ([stock ledger](architecture/data-model.md#stock-ledger-owner-decision-31-oct)). Serial acquisition cost and bulk weighted-average receipt cost are frozen into consumption; no duplicate purchase/consumption expense.
 
 Files retain uploader and authorized record association. Ticket/time/file/job/customer must agree across relationships. Replacement links old/new unit with retained history and quarantines old equipment; do not overwrite serial identity or silently restart warranty.
 
@@ -58,7 +58,7 @@ Routes, ownership and helpers are in [API contracts](architecture/api-contracts.
 | Quote creation | Check approved survey; freeze package/quantity/price/policy facts |
 | Order confirmation | Accepted terms/order + one job + invoice + packing obligations + audit/command result |
 | Receipt | Unique payment reference, invoice balance/readiness and audit/command result |
-| Stock reservation | Lock balance/units in stable order; all component requirements or none |
+| Stock reservation | Lock stock keys and units in the global order; all component requirements or none |
 | Dispatch | Check all required scans, post stock and actual job cost once |
 | Delivery | First completion and per-unit warranty activation once |
 | Field completion | Validate time/kW/persisted evidence and acceptance, then update job |

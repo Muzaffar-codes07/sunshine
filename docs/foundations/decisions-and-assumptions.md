@@ -22,6 +22,7 @@ Current baseline, 31 October 2026. Product owner/organizer decisions are distinc
 | ADR-16 | Current repository visibility/history | Existing owner-pushed state; no change authorized/requested in this task | Do not alter visibility or rewrite history; owner controls any such decision |
 | ADR-17 | Specific event submission fields/required hosting/video/Odoo framework | Unknown; event retrieval inaccessible | D2 verifies, labels recommended artifacts separately, does not invent requirements |
 | ADR-18 | Available scanner/phone | Unknown physical resource | Choose and test at early hardware gate; typing is not successful scan proof |
+| ADR-19 | Stock model | Owner decision, 31 Oct | Derived append-only ledger with one writer, not a stored balance. Rules are in the data model |
 
 ## Changes to decisions
 

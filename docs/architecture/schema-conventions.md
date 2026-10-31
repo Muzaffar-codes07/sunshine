@@ -35,7 +35,7 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 4 | `Quote`, `QuoteLine`, `Order`, `Invoice`, `InvoiceLine`, `Payment` | D2 | Queued |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
-| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Current TRD uses StockBalance; replacing it with a derived ledger needs Tuhin’s decision |
+| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
 
 **To land a migration:**
