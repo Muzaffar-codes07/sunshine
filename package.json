@@ -7,8 +7,11 @@
   "scripts": {
     "dev": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/api && concurrently -k -n api,web \"npm run dev -w @sunshine/api\" \"npm run dev -w @sunshine/web\"",
     "build": "npm run db:generate && npm run build -w @sunshine/contracts && npm run build -w @sunshine/web && npm run build -w @sunshine/api",
-    "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present",
-    "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present",
+    "typecheck": "npm run build -w @sunshine/contracts && npm run db:generate && npm run typecheck --workspaces --if-present && tsc -p prisma/tsconfig.json --noEmit",
+    "test": "npm run db:generate && npm run build -w @sunshine/contracts && npm run test --workspaces --if-present && npm run test:seed",
+    "test:seed": "npm run db:generate && npm run build:seed && node --test prisma/seed/test/*.test.cjs",
+    "build:seed": "tsc -p prisma/tsconfig.json",
+    "db:seed": "npm run db:generate && npm run build:seed && node dist/seed/prisma/seed.js",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose stop db",
     "db:generate": "prisma generate",
