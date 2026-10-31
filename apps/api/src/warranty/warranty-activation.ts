@@ -1,5 +1,6 @@
 import { quotePolicySnapshotSchema } from '@sunshine/contracts';
 import { Prisma } from '../generated/prisma/client';
+import { ApiError } from '../platform/api-error';
 
 /** The calendar date in India. Warranty periods are IST dates, kept apart from the delivery instant. */
 export function istDate(instant: Date): string {
@@ -18,6 +19,7 @@ export function addCalendarMonths(date: string, months: number): string {
 /**
  * Starts each delivered unit's warranty from the terms frozen on its accepted quote line. Runs once per delivery, in
  * its transaction. An existing warranty is left alone, so a replacement's continued coverage is never restarted.
+ * Damaged terms refuse the delivery: skipping them would quietly leave a customer without the cover they bought.
  * D4 owns this helper (#53). D3's delivery command only calls it.
  */
 export async function activateFromDelivery(tx: Prisma.TransactionClient, { jobId, deliveredAt }: { jobId: string; deliveredAt: Date }) {
@@ -27,8 +29,9 @@ export async function activateFromDelivery(tx: Prisma.TransactionClient, { jobId
   });
   const startDate = istDate(deliveredAt);
   const data = rows.flatMap((row) => {
-    const policy = row.quoteLine?.policyStatus === 'CONFIGURED' ? quotePolicySnapshotSchema.safeParse(row.quoteLine.warrantyPolicySnapshot) : null;
-    if (!policy?.success) return [];
+    if (row.quoteLine?.policyStatus !== 'CONFIGURED') return [];
+    const policy = quotePolicySnapshotSchema.safeParse(row.quoteLine.warrantyPolicySnapshot);
+    if (!policy.success) throw new ApiError(503, 'POLICY_DATA_INVALID', 'The warranty terms saved on this order need review before delivery');
     return [{
       unitId: row.unitId!, startDate: new Date(`${startDate}T00:00:00.000Z`), expiryDate: new Date(`${addCalendarMonths(startDate, policy.data.durationMonths)}T00:00:00.000Z`),
       policyName: policy.data.policyName, policyRevision: policy.data.revision, scope: policy.data.scope, durationMonths: policy.data.durationMonths,

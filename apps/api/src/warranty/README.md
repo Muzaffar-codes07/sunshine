@@ -5,6 +5,12 @@ production lookup awaits upstream integration**.
 
 Delivery-triggered coverage activation and equipment history. D4 owns coverage decisions.
 
+## Policy terms
+
+`product_warranty_policies` holds what each product's warranty promises today. `PrismaQuoteWarrantyPolicyReader` supplies a quote's frozen terms from it, so a later edit never changes cover already sold. `activateFromDelivery` starts the warranty from those frozen terms and refuses the delivery (503 `POLICY_DATA_INVALID`) if they are damaged.
+
+`npm run seed:catalogue -w @sunshine/api` also inserts the synthetic demo terms: 240 months for panels (requirement R12's example), and 24 months for inverters, batteries and charge controllers (R12's example and the runbook's normal component duration). Rows are insert-only, so a rerun never overwrites an edited term. Quotes created before a term exists stay UNCONFIGURED. There is no screen for editing terms yet.
+
 `WarrantyService.evaluateWarranty(unitId, asOfDate, requestedScope?)` reads the
 saved policy, evaluates its half-open IST calendar interval, and returns the policy
 revision, scope, dates, assessment date and reason. Omitting `requestedScope`
