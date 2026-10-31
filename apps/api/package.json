@@ -9,7 +9,8 @@
     "start": "node dist/main.js",
     "test:db": "node --test --test-concurrency=1 test/*.db.test.mjs",
     "test": "npm run build && node --test test/*.unit.test.cjs",
-    "seed:staff": "node dist/auth/seed-staff.js"
+    "seed:staff": "node dist/auth/seed-staff.js",
+    "seed:catalogue": "node dist/catalog/seed-catalogue.js"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",

@@ -37,6 +37,28 @@ export type ConstraintRule = { field: string; message: string } | { refusal: Ref
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
+  manufacturers_name_not_blank: { field: 'name', message: 'Enter the manufacturer name' },
+  products_sku_format: { field: 'sku', message: 'Use 2–64 uppercase letters, digits, hyphens or underscores for the SKU' },
+  products_name_not_blank: { field: 'name', message: 'Enter the product name' },
+  products_price_nonnegative: { field: 'unitSalePrice', message: 'Enter a finite nonnegative sale price' },
+  products_tracking_consistent: { refusal: {
+    code: 'PRODUCT_CONFIGURATION_INVALID', reason: 'The product kind, manufacturer and tracking facts do not agree.', source: 'CATALOGUE',
+    nextAction: 'Review the hardware manufacturer and stock tracking, or configure an untracked service job.',
+  } },
+  products_serialized_uom: { field: 'unitOfMeasure', message: 'Serialized equipment must use PCS' },
+  packages_capacity_range: { field: 'capacityKw', message: 'Choose a capacity from 1 to 5 kW' },
+  packages_revision_positive: { field: 'revision', message: 'Revision must be at least 1' },
+  packages_name_not_blank: { field: 'name', message: 'Enter the package name' },
+  packages_prices_nonnegative: { refusal: {
+    code: 'PACKAGE_PRICE_INVALID', reason: 'The package prices must be finite, nonnegative and within the supported total.', source: 'CATALOGUE',
+    nextAction: 'Review the hardware and installation prices before publishing the package.',
+  } },
+  package_items_quantity_positive: { field: 'quantity', message: 'Enter a finite quantity greater than zero' },
+  package_items_position_positive: { field: 'position', message: 'Position must be at least 1' },
+  packages_one_active_revision: { refusal: {
+    code: 'PACKAGE_REVISION_ACTIVE', reason: 'Another revision is already current for this capacity and system type.', source: 'CATALOGUE',
+    nextAction: 'Retire the current revision in the same transaction before activating its replacement.',
+  } },
   customers_name_not_blank: { field: 'name', message: 'Enter the customer name' },
   customers_phone_format: { field: 'phone', message: 'Enter a 10-digit Indian mobile number' },
   customers_pincode_format: { field: 'pincode', message: 'Enter a 6-digit PIN code' },

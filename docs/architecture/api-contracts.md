@@ -1,6 +1,6 @@
 # API contracts and module handoffs
 
-Only `GET /api/v1/health` and `GET /api/v1/health/ready` are implemented. Everything else below is planned and must acquire shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
+Health/readiness, public enquiries, staff authentication, the staff enquiry queue, and catalogue/package reads are implemented. Other routes below remain planned and need shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
 
 ## Response convention
 
@@ -11,8 +11,9 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | Owner | Planned routes |
 |---|---|
 | D2 | `/auth/login`, `/auth/logout`, `/auth/me`; `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
+| D2 | `/products`, `/packages` (read APIs and caller-transaction catalogue helpers) |
 | D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
-| D3 | `/products`, `/packages`, `/stock/receipts`, `/units`, `/orders/:id/allocations`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
+| D3 | `/stock/receipts`, `/units`, `/orders/:id/allocations`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
 | D4 | `/jobs` and schedule/start/complete actions, `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
 ## H1.5 interfaces
