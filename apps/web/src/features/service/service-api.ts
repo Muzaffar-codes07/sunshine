@@ -5,7 +5,10 @@ import {
   type ConfirmTicketInput,
   type CreateTicketInput,
   type ResolveTicketInput,
+  type TicketListQuery,
+  type TicketListResponse,
   type ServiceTicketResponse,
+  ticketListResponseSchema,
   type WarrantyLookupQuery,
   type WarrantyLookupResponse,
 } from '@sunshine/contracts';
@@ -24,6 +27,13 @@ export function lookupWarranty(query: WarrantyLookupQuery, signal?: AbortSignal)
 
 export function getTicket(id: string, signal?: AbortSignal): Promise<ServiceTicketResponse> {
   return apiGet(`/tickets/${encodeURIComponent(id)}`, serviceTicketResponseSchema, signal);
+}
+
+export function listTickets(query: TicketListQuery, signal?: AbortSignal): Promise<TicketListResponse> {
+  const search = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) });
+  if (query.unitId) search.set('unitId', query.unitId);
+  if (query.status) search.set('status', query.status);
+  return apiGet(`/tickets?${search.toString()}`, ticketListResponseSchema, signal);
 }
 
 export function createTicket(input: CreateTicketInput, idempotencyKey: string): Promise<ServiceTicketResponse> {

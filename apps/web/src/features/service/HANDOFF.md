@@ -5,7 +5,7 @@ Consumer and final UI reviewer: Nirmayi (`@3upho`). Feature implementation: Bhan
 ## Components ready for review
 
 - `ServiceWorkspacePage` — serial lookup, saved policy/coverage/lineage display and prepared ticket lifecycle forms.
-- Saved ticket ID load/refresh uses contract-validated `GET /tickets/:id` without enabling ticket mutations. It depends on separate draft PR #56 reaching `main`.
+- Saved ticket ID load/refresh and bounded browse filters use contract-validated `GET /tickets/:id` and `GET /tickets` without enabling ticket mutations. This branch includes the shared-contract/API work from draft PR #56; neither is on `main` yet.
 - `ReportsWorkspacePage` — IST period overview, job profitability, technician pay, subsidy milestones and CSV download handling.
 - Existing shared patterns and `Field` are consumed without editing them. Routes, navigation and global CSS remain with Nirmayi.
 
@@ -68,7 +68,7 @@ The transport preserves `error.fieldErrors`, refusal `reason`/`nextAction`, HTTP
 ## Integration gates still open
 
 1. PR #8's contracts and coordinated migration are on `main`. Deploying them does not wire production access. `WarrantyLookupAccess` and `WarrantyEquipmentReader` still default to 503; the latter must read real Unit and installation facts. Reporting still has 503 `ReportingAccess` and `ReportingSourceReader`/time-source defaults. D2/D3/D4 must supply verified adapters before production acceptance.
-2. The ticket POST controller still ignores `Idempotency-Key`, and `ServiceTicketAccess` still defaults to 503. Backend replay in the caller transaction is required before enabling writes. Sending a header alone is not retry protection. Authorized detail/list reads are prepared in separate draft PR #56; they are not on `main` yet. The service page consumes its detail route by ID; it does not yet offer ticket list discovery.
+2. The ticket POST controller still ignores `Idempotency-Key`, and `ServiceTicketAccess` still defaults to 503. Backend replay in the caller transaction is required before enabling writes. Sending a header alone is not retry protection. Authorized detail/list reads from draft PR #56 are included on this branch but are not on `main` yet. The service page supports bounded discovery by unit/status and a detail load by ID.
 3. Repair billing/invoice/cost projections and replacement commands need public authorized routes. Pending-job/open-repair reporting and subsidy evidence navigation are also incomplete.
 4. Nirmayi's route placement and UI review remain necessary for production release. These components can be implemented and tested before that input.
 5. Real persisted API refresh/reconciliation, browser interaction, 360px layout and demo-phone checks remain pending. The historical D4 seed still lacks its real installation writer, so its stable preview IDs are not an acceptance dataset. Earlier browser tooling failed at initialization with `failed to write kernel assets`; no browser success is claimed.
