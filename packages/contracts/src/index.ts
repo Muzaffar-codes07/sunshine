@@ -53,3 +53,5 @@ export * from './quotes';
 export * from './idempotency';
 export * from './orders';
 export * from './summary';
+
+export * from './files';

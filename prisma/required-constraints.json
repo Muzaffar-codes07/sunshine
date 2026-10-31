@@ -453,6 +453,48 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
+    },
+    {
+      "name": "files_storage_key_format",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"storageKey\")::text ~ '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'::text))"
+    },
+    {
+      "name": "files_original_name_not_blank",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((length(btrim((\"originalName\")::text)) > 0) AND ((\"originalName\")::text !~ '[[:cntrl:]]'::text)))"
+    },
+    {
+      "name": "files_media_type_known",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"mediaType\")::text = ANY ((ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying, 'application/pdf'::character varying])::text[])))"
+    },
+    {
+      "name": "files_size_range",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"sizeBytes\" > 0) AND (\"sizeBytes\" <= 10485760)))"
+    },
+    {
+      "name": "files_sha256_format",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((sha256)::text ~ '^[a-f0-9]{64}$'::text))"
+    },
+    {
+      "name": "files_context_consistent",
+      "table": "files",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"contextType\" IS NULL) = (\"contextId\" IS NULL)))"
     }
   ]
 }

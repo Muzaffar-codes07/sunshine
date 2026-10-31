@@ -52,6 +52,7 @@ export const ORDER_ALREADY_CONFIRMED: RefusalReason = {
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
+  ...Object.fromEntries(['files_storage_key_format', 'files_original_name_not_blank', 'files_media_type_known', 'files_size_range', 'files_sha256_format', 'files_context_consistent'].map(name => [name, { refusal: { code: 'FILE_METADATA_INVALID', reason: 'The file metadata is invalid.', source: 'FILES', nextAction: 'Upload the original supported file again.' } }])),
   ...Object.fromEntries([
     'quotes_revision_positive', 'quotes_version_positive', 'quotes_prices_reconcile', 'quotes_revision_source',
     'quotes_snapshots_objects', 'quotes_sent_evidence', 'quotes_decision_evidence', 'quotes_accepted_evidence', 'quotes_rejected_reason',

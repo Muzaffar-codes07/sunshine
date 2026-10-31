@@ -1,3 +1,4 @@
+import { FilesModule } from './files/files.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { OrdersModule } from './orders/orders.module';
 import { SummaryModule } from './summary/summary.module';
@@ -16,6 +17,7 @@ import { CatalogModule } from './catalog/catalog.module';
       rootPath: resolve(__dirname, '../../web/dist'),
       exclude: ['/api/{*path}'],
     }),
+    FilesModule,
     PlatformModule,
     AuthModule,
     SalesModule,

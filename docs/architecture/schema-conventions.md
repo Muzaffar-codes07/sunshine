@@ -38,7 +38,8 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 1b | `enquiries.monthlyBillInr` to `Decimal(14,2)` (`20261031120000_enquiry_bill_money`) | D2 | Merged in #12 |
 | 2a | `Session` (`20261031110000_auth_sessions`) | D2 | Merged in #9 |
 | 2b | `Survey` (`20261031140000_survey`) | D2 | C4; eight CHECKs and `surveys_one_open_per_enquiry` registered here |
-| 2c | `AuditEntry`, `File` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
+| 2c | `AuditEntry` | D2 | Queued; coordinate independent changes rather than waiting for unrelated tables |
+| 2e | `File` (`20261031190000_files`) | D2 | B08 private transport; six CHECKs; JOB/TICKET authorization port fails closed until wired |
 | 2d | `Command` (`20261031150000_commands`) | D2 | C7, idempotent command results; three CHECKs registered here |
 | 3 | `Product`, `Package`, `PackageItem` | D2 | Queued |
 | 4a | `Quote`, `QuoteLine` (`20261031170000_quotes`) | D2 | X4 (#26) |
