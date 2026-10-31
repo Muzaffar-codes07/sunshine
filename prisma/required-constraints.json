@@ -276,67 +276,25 @@
       "definition": "CHECK ((version >= 1))"
     },
     {
+      "name": "stock_document_lines_guard",
+      "table": "stock_document_lines_guard",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_document_lines_guard()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  old_document uuid;\n  new_document uuid;\n  parent RECORD;\nBEGIN\n  IF TG_OP <> 'INSERT' THEN old_document := OLD.\"documentId\"; END IF;\n  IF TG_OP <> 'DELETE' THEN new_document := NEW.\"documentId\"; END IF;\n  FOR parent IN\n    SELECT \"status\" FROM \"stock_documents\" WHERE \"id\" IN (old_document, new_document) ORDER BY \"id\" FOR SHARE\n  LOOP\n    IF parent.\"status\" IN ('DONE', 'CANCELED') THEN\n      RAISE EXCEPTION 'lines of a closed stock document cannot change' USING ERRCODE = 'restrict_violation';\n    END IF;\n  END LOOP;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_documents_guard",
+      "table": "stock_documents_guard",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_documents_guard()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'INSERT' THEN\n    IF NEW.\"status\" <> 'DRAFT' THEN\n      RAISE EXCEPTION 'a stock document starts as a draft' USING ERRCODE = 'restrict_violation';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF OLD.\"status\" IN ('DONE', 'CANCELED') THEN\n    RAISE EXCEPTION 'a closed stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  IF NEW.\"status\" = 'DONE' AND NOT EXISTS (SELECT 1 FROM \"stock_document_lines\" WHERE \"documentId\" = NEW.\"id\") THEN\n    RAISE EXCEPTION 'a stock document needs lines before validation' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
       "name": "stock_ledger_refuse_change",
       "table": "stock_ledger_refuse_change",
       "kind": "function",
       "owner": "D3",
       "definition": "CREATE OR REPLACE FUNCTION public.stock_ledger_refuse_change()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'stock ledger table % is append-only', TG_TABLE_NAME USING ERRCODE = 'restrict_violation';\nEND;\n$function$\n"
-    },
-    {
-      "name": "stock_movements_append_only",
-      "table": "stock_movements",
-      "kind": "trigger",
-      "owner": "D3",
-      "definition": "CREATE TRIGGER stock_movements_append_only BEFORE DELETE OR UPDATE ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
-    },
-    {
-      "name": "stock_movements_no_truncate",
-      "table": "stock_movements",
-      "kind": "trigger",
-      "owner": "D3",
-      "definition": "CREATE TRIGGER stock_movements_no_truncate BEFORE TRUNCATE ON public.stock_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
-    },
-    {
-      "name": "unit_movements_append_only",
-      "table": "unit_movements",
-      "kind": "trigger",
-      "owner": "D3",
-      "definition": "CREATE TRIGGER unit_movements_append_only BEFORE DELETE OR UPDATE ON public.unit_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
-    },
-    {
-      "name": "unit_movements_no_truncate",
-      "table": "unit_movements",
-      "kind": "trigger",
-      "owner": "D3",
-      "definition": "CREATE TRIGGER unit_movements_no_truncate BEFORE TRUNCATE ON public.unit_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
-    },
-    {
-      "name": "stock_on_hand",
-      "table": "stock_on_hand",
-      "kind": "view",
-      "owner": "D3",
-      "definition": " SELECT \"productId\",\n    \"locationId\",\n    sum(delta) AS quantity\n   FROM ( SELECT stock_movements.\"productId\",\n            stock_movements.\"toLocationId\" AS \"locationId\",\n            stock_movements.quantity AS delta\n           FROM stock_movements\n          WHERE (stock_movements.\"toLocationId\" IS NOT NULL)\n        UNION ALL\n         SELECT stock_movements.\"productId\",\n            stock_movements.\"fromLocationId\",\n            (- stock_movements.quantity)\n           FROM stock_movements\n          WHERE (stock_movements.\"fromLocationId\" IS NOT NULL)) legs\n  GROUP BY \"productId\", \"locationId\";"
-    },
-    {
-      "name": "unit_locations",
-      "table": "unit_locations",
-      "kind": "view",
-      "owner": "D3",
-      "definition": " SELECT DISTINCT ON (um.\"unitId\") um.\"unitId\",\n    m.\"toLocationId\" AS \"locationId\"\n   FROM (unit_movements um\n     JOIN stock_movements m ON ((m.id = um.\"movementId\")))\n  ORDER BY um.\"unitId\", m.sequence DESC;"
-    },
-    {
-      "name": "stock_document_lines_freeze_done",
-      "table": "stock_document_lines_freeze_done",
-      "kind": "function",
-      "owner": "D3",
-      "definition": "CREATE OR REPLACE FUNCTION public.stock_document_lines_freeze_done()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF (TG_OP <> 'INSERT' AND EXISTS (SELECT 1 FROM \"stock_documents\" WHERE \"id\" = OLD.\"documentId\" AND \"status\" = 'DONE'))\n    OR (TG_OP <> 'DELETE' AND EXISTS (SELECT 1 FROM \"stock_documents\" WHERE \"id\" = NEW.\"documentId\" AND \"status\" = 'DONE')) THEN\n    RAISE EXCEPTION 'lines of a validated stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
-    },
-    {
-      "name": "stock_documents_freeze_done",
-      "table": "stock_documents_freeze_done",
-      "kind": "function",
-      "owner": "D3",
-      "definition": "CREATE OR REPLACE FUNCTION public.stock_documents_freeze_done()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF OLD.\"status\" = 'DONE' THEN\n    RAISE EXCEPTION 'a validated stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
     },
     {
       "name": "stock_movements_check_source",
@@ -353,18 +311,32 @@
       "definition": "CREATE OR REPLACE FUNCTION public.units_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"productId\" <> OLD.\"productId\" OR NEW.\"manufacturerId\" <> OLD.\"manufacturerId\"\n    OR NEW.\"rawSerial\" <> OLD.\"rawSerial\" OR NEW.\"normalizedSerial\" <> OLD.\"normalizedSerial\"\n    OR NEW.\"acquisitionCost\" <> OLD.\"acquisitionCost\" OR NEW.\"receiptLineId\" <> OLD.\"receiptLineId\" THEN\n    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
     },
     {
-      "name": "stock_document_lines_frozen_when_done",
+      "name": "stock_document_lines_guarded",
       "table": "stock_document_lines",
       "kind": "trigger",
       "owner": "D3",
-      "definition": "CREATE TRIGGER stock_document_lines_frozen_when_done BEFORE INSERT OR DELETE OR UPDATE ON public.stock_document_lines FOR EACH ROW EXECUTE FUNCTION stock_document_lines_freeze_done()"
+      "definition": "CREATE TRIGGER stock_document_lines_guarded BEFORE INSERT OR DELETE OR UPDATE ON public.stock_document_lines FOR EACH ROW EXECUTE FUNCTION stock_document_lines_guard()"
     },
     {
-      "name": "stock_documents_frozen_when_done",
+      "name": "stock_documents_guarded",
       "table": "stock_documents",
       "kind": "trigger",
       "owner": "D3",
-      "definition": "CREATE TRIGGER stock_documents_frozen_when_done BEFORE DELETE OR UPDATE ON public.stock_documents FOR EACH ROW EXECUTE FUNCTION stock_documents_freeze_done()"
+      "definition": "CREATE TRIGGER stock_documents_guarded BEFORE INSERT OR DELETE OR UPDATE ON public.stock_documents FOR EACH ROW EXECUTE FUNCTION stock_documents_guard()"
+    },
+    {
+      "name": "stock_movements_append_only",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_append_only BEFORE DELETE OR UPDATE ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "stock_movements_no_truncate",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_no_truncate BEFORE TRUNCATE ON public.stock_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
     },
     {
       "name": "stock_movements_source_valid",
@@ -374,11 +346,39 @@
       "definition": "CREATE TRIGGER stock_movements_source_valid BEFORE INSERT ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_movements_check_source()"
     },
     {
+      "name": "unit_movements_append_only",
+      "table": "unit_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER unit_movements_append_only BEFORE DELETE OR UPDATE ON public.unit_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "unit_movements_no_truncate",
+      "table": "unit_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER unit_movements_no_truncate BEFORE TRUNCATE ON public.unit_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
       "name": "units_identity_frozen",
       "table": "units",
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER units_identity_frozen BEFORE DELETE OR UPDATE ON public.units FOR EACH ROW EXECUTE FUNCTION units_freeze_identity()"
+    },
+    {
+      "name": "stock_on_hand",
+      "table": "stock_on_hand",
+      "kind": "view",
+      "owner": "D3",
+      "definition": " SELECT \"productId\",\n    \"locationId\",\n    sum(delta) AS quantity\n   FROM ( SELECT stock_movements.\"productId\",\n            stock_movements.\"toLocationId\" AS \"locationId\",\n            stock_movements.quantity AS delta\n           FROM stock_movements\n          WHERE (stock_movements.\"toLocationId\" IS NOT NULL)\n        UNION ALL\n         SELECT stock_movements.\"productId\",\n            stock_movements.\"fromLocationId\",\n            (- stock_movements.quantity)\n           FROM stock_movements\n          WHERE (stock_movements.\"fromLocationId\" IS NOT NULL)) legs\n  GROUP BY \"productId\", \"locationId\";"
+    },
+    {
+      "name": "unit_locations",
+      "table": "unit_locations",
+      "kind": "view",
+      "owner": "D3",
+      "definition": " SELECT DISTINCT ON (um.\"unitId\") um.\"unitId\",\n    m.\"toLocationId\" AS \"locationId\"\n   FROM (unit_movements um\n     JOIN stock_movements m ON ((m.id = um.\"movementId\")))\n  ORDER BY um.\"unitId\", m.sequence DESC;"
     }
   ]
 }

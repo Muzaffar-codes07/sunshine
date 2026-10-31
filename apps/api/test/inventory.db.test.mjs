@@ -247,7 +247,7 @@ test('a validated document, its lines and a unit identity are frozen, and a repl
   const body = receipt([serializedLine([taken], '1000.00')]);
   const { data } = await (await post(body)).json();
   const lineId = data.lines[0].id;
-  const refused = (statement, params) => assert.rejects(sql.query(statement, params), /validated stock document|identity and cost/);
+  const refused = (statement, params) => assert.rejects(sql.query(statement, params), /closed stock document|identity and cost/);
   await refused(`UPDATE stock_documents SET status = 'CANCELED' WHERE id = $1`, [data.id]);
   await refused('DELETE FROM stock_documents WHERE id = $1', [data.id]);
   await refused('UPDATE stock_document_lines SET "unitCost" = 2000 WHERE id = $1', [lineId]);
@@ -283,6 +283,51 @@ test('the ledger refuses a movement that does not match its validated document l
   assert.equal(await prisma.stockMovement.count(), start); assert.ok(start > before);
   await posting({});
   assert.equal(await prisma.stockMovement.count(), start + 1);
+});
+
+test('a line change and validation cannot race, in either order', async () => {
+  const other = new Client({ connectionString: testUrl }); await other.connect();
+  const draft = () => prisma.$transaction((tx) => draftLine(tx, 'ISSUE', bulk.id, '1', { fromLocationId: main.id }));
+  const validate = (client, line) => client.query(`UPDATE stock_documents SET status = 'DONE', "validatedAt" = now() WHERE id = $1`, [line.documentId]);
+  const edit = (client, line) => client.query('UPDATE stock_document_lines SET quantity = 2 WHERE id = $1', [line.id]);
+  const isBlocked = (promise) => Promise.race([promise.then(() => false, () => false), new Promise((done) => setTimeout(() => done(true), 300))]);
+  try {
+    // The edit holds the document: validation waits, then the stale quantity can't post.
+    const first = await draft();
+    await sql.query('BEGIN'); await edit(sql, first);
+    await other.query('BEGIN');
+    const validating = validate(other, first);
+    assert.equal(await isBlocked(validating), true, 'validation should wait for the open line edit');
+    await sql.query('COMMIT'); await validating;
+    await assert.rejects(other.query(`INSERT INTO stock_movements (id, "documentLineId", "productId", "fromLocationId", quantity, "actorId", "occurredAt")
+      VALUES (gen_random_uuid(), $1, $2, $3, 1, $4, $5)`, [first.id, bulk.id, main.id, staff.WAREHOUSE, first.occurredAt]), /must match/);
+    await other.query('ROLLBACK');
+    // Validation holds the document: the edit waits, then is refused and the line keeps its value.
+    const second = await draft();
+    await other.query('BEGIN'); await validate(other, second);
+    await sql.query('BEGIN');
+    const editing = edit(sql, second);
+    const refused = assert.rejects(editing, /closed stock document/);
+    assert.equal(await isBlocked(editing), true, 'the line edit should wait for validation');
+    await other.query('COMMIT'); await refused; await sql.query('ROLLBACK');
+    assert.equal((await prisma.stockDocumentLine.findUniqueOrThrow({ where: { id: second.id } })).quantity.toFixed(3), '1.000');
+  } finally {
+    await sql.query('ROLLBACK').catch(() => {}); await other.query('ROLLBACK').catch(() => {}); await other.end();
+  }
+});
+
+test('documents start as drafts, need lines to validate, and stay closed once cancelled', async () => {
+  const insert = (status, validated) => sql.query(`INSERT INTO stock_documents (id, kind, reference, status, "payloadHash", "actorId", "occurredAt", "validatedAt")
+    VALUES (gen_random_uuid(), 'ISSUE', $1, $2, 'test', $3, now(), $4) RETURNING id`, ['TEST-' + randomUUID(), status, staff.ADMIN, validated]);
+  await assert.rejects(insert('DONE', new Date()), /starts as a draft/);
+  const { rows: [empty] } = await insert('DRAFT', null);
+  await assert.rejects(sql.query(`UPDATE stock_documents SET status = 'DONE', "validatedAt" = now() WHERE id = $1`, [empty.id]), /needs lines/);
+  const line = await prisma.$transaction((tx) => draftLine(tx, 'ISSUE', bulk.id, '1', { fromLocationId: main.id }));
+  await sql.query(`UPDATE stock_documents SET status = 'CANCELED' WHERE id = $1`, [line.documentId]);
+  await assert.rejects(sql.query(`UPDATE stock_documents SET status = 'DONE', "validatedAt" = now() WHERE id = $1`, [line.documentId]), /closed stock document/);
+  await assert.rejects(sql.query('UPDATE stock_document_lines SET quantity = 2 WHERE id = $1', [line.id]), /closed stock document/);
+  await assert.rejects(sql.query(`INSERT INTO stock_movements (id, "documentLineId", "productId", "fromLocationId", quantity, "actorId", "occurredAt")
+    VALUES (gen_random_uuid(), $1, $2, $3, 1, $4, $5)`, [line.id, bulk.id, main.id, staff.WAREHOUSE, line.occurredAt]), /validated document/);
 });
 
 test('stock pages are bounded, and the total survives an empty later page', async () => {

@@ -260,30 +260,49 @@ $$;
 CREATE TRIGGER "stock_movements_source_valid" BEFORE INSERT ON "stock_movements"
   FOR EACH ROW EXECUTE FUNCTION "stock_movements_check_source"();
 
--- A validated document is evidence: its header and lines never change. Corrections are new documents.
-CREATE FUNCTION "stock_documents_freeze_done"() RETURNS trigger LANGUAGE plpgsql AS $$
+-- A document starts as a draft. Once validated or cancelled it is closed for good: corrections are new documents.
+CREATE FUNCTION "stock_documents_guard"() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF OLD."status" = 'DONE' THEN
-    RAISE EXCEPTION 'a validated stock document cannot change' USING ERRCODE = 'restrict_violation';
+  IF TG_OP = 'INSERT' THEN
+    IF NEW."status" <> 'DRAFT' THEN
+      RAISE EXCEPTION 'a stock document starts as a draft' USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
   END IF;
+  IF OLD."status" IN ('DONE', 'CANCELED') THEN
+    RAISE EXCEPTION 'a closed stock document cannot change' USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF NEW."status" = 'DONE' AND NOT EXISTS (SELECT 1 FROM "stock_document_lines" WHERE "documentId" = NEW."id") THEN
+    RAISE EXCEPTION 'a stock document needs lines before validation' USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER "stock_documents_guarded" BEFORE INSERT OR UPDATE OR DELETE ON "stock_documents"
+  FOR EACH ROW EXECUTE FUNCTION "stock_documents_guard"();
+-- The share lock makes a line change and validation of its document wait for each other, in either order.
+CREATE FUNCTION "stock_document_lines_guard"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  old_document uuid;
+  new_document uuid;
+  parent RECORD;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN old_document := OLD."documentId"; END IF;
+  IF TG_OP <> 'DELETE' THEN new_document := NEW."documentId"; END IF;
+  FOR parent IN
+    SELECT "status" FROM "stock_documents" WHERE "id" IN (old_document, new_document) ORDER BY "id" FOR SHARE
+  LOOP
+    IF parent."status" IN ('DONE', 'CANCELED') THEN
+      RAISE EXCEPTION 'lines of a closed stock document cannot change' USING ERRCODE = 'restrict_violation';
+    END IF;
+  END LOOP;
   IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER "stock_documents_frozen_when_done" BEFORE UPDATE OR DELETE ON "stock_documents"
-  FOR EACH ROW EXECUTE FUNCTION "stock_documents_freeze_done"();
-CREATE FUNCTION "stock_document_lines_freeze_done"() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF (TG_OP <> 'INSERT' AND EXISTS (SELECT 1 FROM "stock_documents" WHERE "id" = OLD."documentId" AND "status" = 'DONE'))
-    OR (TG_OP <> 'DELETE' AND EXISTS (SELECT 1 FROM "stock_documents" WHERE "id" = NEW."documentId" AND "status" = 'DONE')) THEN
-    RAISE EXCEPTION 'lines of a validated stock document cannot change' USING ERRCODE = 'restrict_violation';
-  END IF;
-  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
-  RETURN NEW;
-END;
-$$;
-CREATE TRIGGER "stock_document_lines_frozen_when_done" BEFORE INSERT OR UPDATE OR DELETE ON "stock_document_lines"
-  FOR EACH ROW EXECUTE FUNCTION "stock_document_lines_freeze_done"();
+CREATE TRIGGER "stock_document_lines_guarded" BEFORE INSERT OR UPDATE OR DELETE ON "stock_document_lines"
+  FOR EACH ROW EXECUTE FUNCTION "stock_document_lines_guard"();
 
 -- A unit's identity and acquisition cost are fixed at receipt. Only its lifecycle status moves on.
 CREATE FUNCTION "units_freeze_identity"() RETURNS trigger LANGUAGE plpgsql AS $$
