@@ -47,3 +47,7 @@ export * from './auth';
 
 export * from './shared';
 export * from './catalogue';
+
+// D3 operational transport contracts; no runtime stock or field behavior implied.
+export * from './inventory';
+export * from './field';
