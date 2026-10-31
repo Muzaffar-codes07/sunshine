@@ -29,3 +29,11 @@ The rules are in the [data model](../../../../docs/architecture/data-model.md#st
 - The database enforces the ledger: a movement must match a validated (DONE) document line, a DONE or CANCELED document and its lines can't change, a line change and validation wait for each other, and a unit's identity and cost are fixed. Only unit status and version can change.
 - A retry must resend the original body: `2` and `2.000` count as different requests.
 - Receipts need an `Idempotency-Key`. Their reference and payload hash are the permanent guard, so a new key can't receive the same delivery twice.
+
+### Replacement predecessor foundation
+
+`Unit.replacesUnitId` is a nullable restrictive self-FK, indexed for predecessor lookup and returned by `GET /units/:id`. Receipt-created and pre-existing units default to null; no history is fabricated. Once a link is recorded it cannot be redirected or cleared. Self-links, missing predecessors and cycles (including concurrent opposite links and multi-row insert cycles) are refused by SQL.
+
+A new non-null link must be written inside the caller's default READ COMMITTED transaction. The SQL guard serializes graph-edge additions with advisory key `(18461029,1)`, then reads ancestors after the wait. RepeatableRead/Serializable link mutations fail closed because an older snapshot could miss a committed edge; read-only unit traceability still uses RepeatableRead. Normal receipt/status updates with no new edge take no graph lock. Future stock/replacement writers must acquire Product/stock/sorted Unit locks before assigning lineage and leave it in the same atomic transaction as stock, cost and ticket effects. Do not take the lineage advisory lock separately before acquiring unit locks.
+
+This is persistence and read support only. No public lineage setter, replacement command, stock issue/return, quarantine decision, ticket association or warranty continuation is enabled here. D4's orchestrator must validate actual old/new equipment, product compatibility, installation/customer and repair source before using the field. The reverse Prisma relation is a collection; no unapproved one-successor business restriction is introduced. Migration `20261031290000_unit_replacement_lineage` is independent of the still-pending D4 migration260000.
