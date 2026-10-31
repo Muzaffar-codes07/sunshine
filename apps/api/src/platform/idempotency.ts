@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext, HttpStatus, Injectable } from '
 import { createHash } from 'node:crypto';
 import type { Request } from 'express';
 import { IDEMPOTENCY_KEY_HEADER, idempotencyKeySchema } from '@sunshine/contracts';
-import { ApiError } from './api-error';
+import { ApiError, refusal } from './api-error';
 import { PrismaService } from './prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 
@@ -48,8 +48,10 @@ export class IdempotencyService {
       where: { actorId_idempotencyKey: { actorId: command.actorId, idempotencyKey: command.key } },
     });
     if (!recorded || recorded.action !== command.action || recorded.payloadHash !== payloadHash) {
-      throw new ApiError(HttpStatus.CONFLICT, 'IDEMPOTENCY_CONFLICT',
-        'This Idempotency-Key was already used for a different request. Send a new key for a new action.');
+      throw refusal({
+        code: 'IDEMPOTENCY_CONFLICT', reason: 'This Idempotency-Key was already used for a different request.', source: 'PLATFORM',
+        nextAction: 'Send a new Idempotency-Key for a new action; reuse a key only to retry the same request.',
+      });
     }
     return recorded.result as T;
   }
