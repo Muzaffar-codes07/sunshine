@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+.enquiry-page { max-width: 760px; margin: 0 auto; padding: 32px 20px; }
+.enquiry-page h1 { margin: 24px 0; }
+.enquiry-page a, .hero a { color: #f7bd52; }
+.enquiry-page fieldset { border: 0; padding: 0; min-width: 0; }
+.enquiry-page legend { margin-bottom: 20px; }
+.field { display: grid; gap: 8px; margin-bottom: 20px; }
+.field label { font-weight: 600; }
+.field input:not([type="checkbox"]), .field select, .field textarea { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #50657f; border-radius: 6px; color: #e9eef5; background: #111e2d; }
+.field input[type="checkbox"] { width: 24px; height: 24px; }
+.field-hint { color: #a4b3c7; margin: 0; }
+.form-error { color: #ffb4ab; }
+.field :focus-visible { outline: 3px solid #f7bd52; outline-offset: 3px; }
+button:disabled { opacity: .6; cursor: default; }
+
 :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e9eef5; background: #0b1320; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { margin: 0; }
