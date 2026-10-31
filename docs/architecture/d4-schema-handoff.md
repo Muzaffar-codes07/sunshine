@@ -38,6 +38,14 @@ Mutable warranty, ticket and subsidy records carry optimistic versions.
   PENDING_DOCS and RECEIVED to DISBURSED, retaining REJECTED separately.
 - Cost idempotency is the compound key `(uniqueSourceId, costType)`, as specified
   by Task 1.2. Callers must namespace the source by its source kind and ID.
+- Task 3.1 adds nullable `ServiceTicket.billingSnapshot` JSONB to the queued
+  migration. It stores revision 1, the SHA-256 of sorted type/source references,
+  and the immutable billing result, including source/cost/price lines, totals and
+  nullable invoice ID. Save it in the transaction that posts costs, invoice and
+  ticket lines. Null means not billed; same references replay, changed references
+  conflict. Billing's status/version CAS serializes against lifecycle mutations.
+  Only the billing helper writes this snapshot; corrections require reversals.
+  No new migration is applied before the existing Unit/Job dependencies land.
 
 ## Migration dependencies
 

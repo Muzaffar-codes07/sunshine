@@ -24,7 +24,13 @@ ownership, source/job consistency, authorization and workflow locks belong to
 the calling domain. The current compound key does not prevent the same source
 being posted under a second cost type; callers must choose one canonical type.
 
-No cost endpoint, invoice/payment writer or migration is included. Before using
+Task 3.1 exports `ServiceInvoiceWriter` as an explicit D2 integration port.
+Its default implementation returns 503 `SERVICE_INVOICE_UNAVAILABLE`; it does
+not implement invoice persistence. D2 must delegate `ensureServiceInvoice(tx,
+input)` to its official finance helper using the supplied transaction and unique
+ticket repair source. See the [repair billing contract](../service/README.md).
+
+No cost endpoint, persisted invoice/payment writer or migration is included. Before using
 the helper against PostgreSQL, complete the
 [D4 schema migration gate](../../../../docs/architecture/d4-schema-handoff.md),
 including the Job relation and SQL constraints. Unit tests use a transaction
