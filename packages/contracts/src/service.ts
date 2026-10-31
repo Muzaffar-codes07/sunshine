@@ -78,3 +78,20 @@ export const serviceTicketSchema = z.object({
 export type ServiceTicket = z.infer<typeof serviceTicketSchema>;
 export const serviceTicketResponseSchema = z.object({ data: serviceTicketSchema });
 export type ServiceTicketResponse = z.infer<typeof serviceTicketResponseSchema>;
+
+export const ticketListQuerySchema = z.strictObject({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  unitId: z.uuid().optional(),
+  status: ticketStatusSchema.optional(),
+});
+export type TicketListQuery = z.output<typeof ticketListQuerySchema>;
+export const ticketListResponseSchema = z.object({
+  data: z.object({
+    items: z.array(serviceTicketSchema),
+    page: z.number().int().positive(),
+    pageSize: z.number().int().min(1).max(50),
+    total: z.number().int().nonnegative(),
+  }),
+});
+export type TicketListResponse = z.infer<typeof ticketListResponseSchema>;

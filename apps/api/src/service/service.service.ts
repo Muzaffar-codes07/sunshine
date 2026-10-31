@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { assessTicketInputSchema, confirmTicketInputSchema, createTicketInputSchema,
-  resolveTicketInputSchema, serviceTicketResponseSchema, ticketAssessmentSnapshotSchema,
+  resolveTicketInputSchema, serviceTicketResponseSchema, ticketListQuerySchema, ticketListResponseSchema, ticketAssessmentSnapshotSchema,
   warrantyEquipmentSchema, type AssessTicketInput, type ConfirmTicketInput,
-  type CreateTicketInput, type ResolveTicketInput, type ServiceTicketResponse } from '@sunshine/contracts';
+  type CreateTicketInput, type ResolveTicketInput, type ServiceTicketResponse,
+  type TicketListQuery, type TicketListResponse } from '@sunshine/contracts';
 import { ApiError } from '../platform/api-error';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
 import { WarrantyEquipmentReader } from '../warranty/warranty-readers';
@@ -15,6 +16,22 @@ import { TicketRepository, type TicketRow } from './service.repository';
 export class ServiceService {
   constructor(private readonly tickets: TicketRepository, private readonly warranty: WarrantyService,
     private readonly equipment: WarrantyEquipmentReader) {}
+
+  async getTicket(id: string): Promise<ServiceTicketResponse> {
+    new ZodValidationPipe(z.uuid()).transform(id);
+    const ticket = await this.tickets.findById(id);
+    if (!ticket) throw new ApiError(404, 'TICKET_NOT_FOUND', 'No ticket was found');
+    return this.response(ticket);
+  }
+
+  async listTickets(query: TicketListQuery): Promise<TicketListResponse> {
+    const input = new ZodValidationPipe(ticketListQuerySchema).transform(query);
+    const { rows, total } = await this.tickets.list(input);
+    return ticketListResponseSchema.parse({ data: {
+      items: rows.map((row) => this.response(row).data),
+      page: input.page, pageSize: input.pageSize, total,
+    } });
+  }
 
   async createTicket(input: CreateTicketInput): Promise<ServiceTicketResponse> {
     const data = new ZodValidationPipe(createTicketInputSchema).transform(input);
