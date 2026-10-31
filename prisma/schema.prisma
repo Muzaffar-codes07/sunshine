@@ -117,3 +117,93 @@ model Session {
   @@index([expire], map: "staff_sessions_expire_idx")
   @@map("staff_sessions")
 }
+
+// D2 canonical catalogue: D3 stock and D4 equipment identity reference these product/manufacturer IDs.
+enum ProductKind {
+  HARDWARE
+  SERVICE
+}
+enum ProductTrackingMode {
+  SERIALIZED
+  BULK
+  NONE
+}
+enum UnitOfMeasure {
+  PCS
+  SET
+  M
+  JOB
+}
+enum ProductCategory {
+  PANEL
+  INVERTER
+  CHARGE_CONTROLLER
+  BATTERY
+  MOUNTING
+  WIRING_BOX
+  SWITCHGEAR
+  CABLE
+  EARTHING
+  CONNECTOR
+  INSTALLATION
+  OTHER
+}
+model Manufacturer {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique @db.VarChar(120)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  products Product[]
+  @@map("manufacturers")
+}
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+  sku String @unique @db.VarChar(64)
+  name String @db.VarChar(160)
+  kind ProductKind
+  category ProductCategory
+  trackingMode ProductTrackingMode
+  unitOfMeasure UnitOfMeasure
+  manufacturerId String? @db.Uuid
+  unitSalePrice Decimal @db.Decimal(14, 2)
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  manufacturer Manufacturer? @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  packageItems PackageItem[]
+  installationPackages Package[] @relation("PackageInstallationService")
+  @@index([active, kind])
+  @@map("products")
+}
+model Package {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(64)
+  name String @db.VarChar(160)
+  capacityKw Int
+  systemType SystemType
+  revision Int @default(1)
+  active Boolean @default(true)
+  hardwarePrice Decimal @db.Decimal(14, 2)
+  installationPrice Decimal @db.Decimal(14, 2)
+  installationProductId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  installationProduct Product @relation("PackageInstallationService", fields: [installationProductId], references: [id], onDelete: Restrict)
+  items PackageItem[]
+  @@unique([capacityKw, systemType, revision])
+  @@index([active, capacityKw, systemType])
+  @@map("packages")
+}
+model PackageItem {
+  id String @id @default(uuid()) @db.Uuid
+  packageId String @db.Uuid
+  productId String @db.Uuid
+  position Int
+  quantity Decimal @db.Decimal(12, 3)
+  package Package @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  @@unique([packageId, productId])
+  @@unique([packageId, position])
+  @@index([productId])
+  @@map("package_items")
+}
