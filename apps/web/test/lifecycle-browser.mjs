@@ -168,6 +168,16 @@ try {
   }
   const anonymous = await browser.newContext({ baseURL: origin }); contexts.push(anonymous);
   assert.equal((await anonymous.request.get(`/api/v1/tickets/${lastTicket.id}`)).status(), 401);
+  await page.goto('/workspace/warehouse');
+  for (const [button, table] of [['Stock Balances', /Current Stock Levels/], ['Movement Ledger', /Stock Movements Ledger/], ['Valuation', /Product Inventory Valuation/]]) {
+    await page.getByRole('button', { name: button, exact: true }).click();
+    await page.getByRole('table', { name: table }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${button} fits 360px`);
+  }
+  await page.getByRole('button', { name: 'Integrity & Audit', exact: true }).click();
+  await page.getByText('✓ System Invariants Healthy', { exact: true }).waitFor();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'desktop fits');
   // Real unavailable adapters stay visible as errors, never as fabricated coverage or finance.
   await page.goto('/workspace/reports');
   await page.getByText(/await.*integration/i).first().waitFor();
