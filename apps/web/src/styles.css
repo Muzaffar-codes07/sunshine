@@ -11,14 +11,8 @@
 .field input[type="checkbox"] { width: 24px; height: 24px; }
 .field-hint { color: #a4b3c7; margin: 0; }
 .form-error { color: #ffb4ab; }
-.field :focus-visible, .signature-canvas:focus-visible { outline: 3px solid #f7bd52; outline-offset: 3px; }
+.field :focus-visible { outline: 3px solid #f7bd52; outline-offset: 3px; }
 button:disabled { opacity: .6; cursor: default; }
-.spike-section { border-top: 1px solid #334155; padding: 24px 0; }
-.spike-env { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; overflow-wrap: anywhere; }
-.spike-env dd { margin: 0; }
-.scan-video, .spike-img { width: 100%; max-height: 360px; object-fit: contain; margin-top: 16px; }
-.signature-canvas { width: 100%; height: auto; background: white; touch-action: none; }
-.drawer-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 
 :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e9eef5; background: #0b1320; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
