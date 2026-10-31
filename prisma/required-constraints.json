@@ -248,6 +248,139 @@
       "definition": "CHECK ((version >= 1))"
     },
     {
+      "name": "quote_lines_charging_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'COMPONENT'::\"QuoteLineKind\") AND (\"unitPrice\" = (0)::numeric) AND (\"lineTotal\" = (0)::numeric)) OR ((kind = ANY (ARRAY['PACKAGE'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (quantity = (1)::numeric) AND (\"unitPrice\" = \"lineTotal\"))))"
+    },
+    {
+      "name": "quote_lines_description_not_blank",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((length(btrim((description)::text)) > 0))"
+    },
+    {
+      "name": "quote_lines_position_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"position\" >= 1))"
+    },
+    {
+      "name": "quote_lines_prices_nonnegative",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"unitPrice\" >= (0)::numeric) AND (\"lineTotal\" >= (0)::numeric) AND (\"unitPrice\" <> 'NaN'::numeric) AND (\"lineTotal\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_product_consistent",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((kind = 'PACKAGE'::\"QuoteLineKind\") AND (\"productId\" IS NULL) AND (\"productSnapshot\" IS NULL) AND (\"policyStatus\" = 'NOT_APPLICABLE'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL)) OR ((kind = ANY (ARRAY['COMPONENT'::\"QuoteLineKind\", 'SERVICE'::\"QuoteLineKind\"])) AND (\"productId\" IS NOT NULL) AND (\"productSnapshot\" IS NOT NULL) AND (jsonb_typeof(\"productSnapshot\") = 'object'::text) AND (\"productSnapshot\" ?& ARRAY['id'::text, 'kind'::text, 'trackingMode'::text]) AND (jsonb_typeof((\"productSnapshot\" -> 'id'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'kind'::text)) = 'string'::text) AND (jsonb_typeof((\"productSnapshot\" -> 'trackingMode'::text)) = 'string'::text) AND ((\"productSnapshot\" ->> 'id'::text) = (\"productId\")::text) AND ((\"productSnapshot\" ->> 'kind'::text) =\nCASE\n    WHEN (kind = 'COMPONENT'::\"QuoteLineKind\") THEN 'HARDWARE'::text\n    ELSE 'SERVICE'::text\nEND) AND (((\"policyStatus\" = 'CONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NOT NULL) AND (jsonb_typeof(\"warrantyPolicySnapshot\") = 'object'::text)) OR ((\"policyStatus\" = 'UNCONFIGURED'::\"QuotePolicyStatus\") AND (\"warrantyPolicySnapshot\" IS NULL))))))"
+    },
+    {
+      "name": "quote_lines_quantity_positive",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "quote_lines_serialized_whole",
+      "table": "quote_lines",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"productSnapshot\" IS NULL) OR ((\"productSnapshot\" ->> 'trackingMode'::text) <> 'SERIALIZED'::text) OR (quantity = trunc(quantity))))"
+    },
+    {
+      "name": "quotes_accepted_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NOT NULL) AND (length(btrim((\"acceptedByName\")::text)) >= 2) AND (\"decisionChannel\" IS NOT NULL) AND (\"decisionReason\" IS NULL)) OR ((status <> 'ACCEPTED'::\"QuoteStatus\") AND (\"acceptedByName\" IS NULL) AND (\"decisionChannel\" IS NULL) AND (\"decisionReference\" IS NULL))))"
+    },
+    {
+      "name": "quotes_decision_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = ANY (ARRAY['ACCEPTED'::\"QuoteStatus\", 'REJECTED'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NOT NULL) AND (\"decidedById\" IS NOT NULL)) OR ((status = ANY (ARRAY['DRAFT'::\"QuoteStatus\", 'SENT'::\"QuoteStatus\"])) AND (\"decidedAt\" IS NULL) AND (\"decidedById\" IS NULL))))"
+    },
+    {
+      "name": "quotes_prices_reconcile",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"hardwarePrice\" >= (0)::numeric) AND (\"installationPrice\" >= (0)::numeric) AND (\"totalPrice\" >= (0)::numeric) AND (\"hardwarePrice\" <> 'NaN'::numeric) AND (\"installationPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" <> 'NaN'::numeric) AND (\"totalPrice\" = (\"hardwarePrice\" + \"installationPrice\"))))"
+    },
+    {
+      "name": "quotes_rejected_reason",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NOT NULL) AND (length(btrim(\"decisionReason\")) >= 3)) OR ((status <> 'REJECTED'::\"QuoteStatus\") AND (\"decisionReason\" IS NULL))))"
+    },
+    {
+      "name": "quotes_revision_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "quotes_revision_source",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((revision = 1) AND (\"supersedesQuoteId\" IS NULL) AND (\"revisionReason\" IS NULL)) OR ((revision > 1) AND (\"supersedesQuoteId\" IS NOT NULL) AND (\"revisionReason\" IS NOT NULL) AND (length(btrim(\"revisionReason\")) >= 3))))"
+    },
+    {
+      "name": "quotes_sent_evidence",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((((status = 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NULL) AND (\"sentById\" IS NULL) AND (\"sentChannel\" IS NULL)) OR ((status <> 'DRAFT'::\"QuoteStatus\") AND (\"sentAt\" IS NOT NULL) AND (\"sentById\" IS NOT NULL) AND (\"sentChannel\" IS NOT NULL))))"
+    },
+    {
+      "name": "quotes_snapshots_objects",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((jsonb_typeof(\"customerSnapshot\") = 'object'::text) AND (jsonb_typeof(\"packageSnapshot\") = 'object'::text)))"
+    },
+    {
+      "name": "quotes_version_positive",
+      "table": "quotes",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_one_package_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_package_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'PACKAGE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_service_charge",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_service_charge ON public.quote_lines USING btree (\"quoteId\") WHERE (kind = 'SERVICE'::\"QuoteLineKind\")"
+    },
+    {
+      "name": "quote_lines_one_component_product",
+      "table": "quote_lines",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX quote_lines_one_component_product ON public.quote_lines USING btree (\"quoteId\", \"productId\") WHERE (kind = 'COMPONENT'::\"QuoteLineKind\")"
+    },
+    {
       "name": "product_cost_bases_average_nonnegative",
       "table": "product_cost_bases",
       "kind": "check",
@@ -360,6 +493,20 @@
       "definition": "CHECK ((version >= 1))"
     },
     {
+      "name": "quote_lines_preserve_sent_terms",
+      "table": "quote_lines_preserve_sent_terms",
+      "kind": "function",
+      "owner": "D2",
+      "definition": "CREATE OR REPLACE FUNCTION public.quote_lines_preserve_sent_terms()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE parent_status \"QuoteStatus\";\nBEGIN\n  SELECT \"status\" INTO parent_status FROM \"quotes\" WHERE \"id\" = CASE WHEN TG_OP = 'DELETE' THEN OLD.\"quoteId\" ELSE NEW.\"quoteId\" END FOR SHARE;\n  IF parent_status <> 'DRAFT' THEN\n    RAISE EXCEPTION 'violates check constraint \"quote_lines_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quote_lines_frozen_terms';\n  END IF;\n  IF TG_OP = 'UPDATE' AND NEW.\"quoteId\" <> OLD.\"quoteId\" THEN\n    RAISE EXCEPTION 'violates check constraint \"quote_lines_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quote_lines_frozen_terms';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND $function$\n"
+    },
+    {
+      "name": "quotes_preserve_frozen_terms",
+      "table": "quotes_preserve_frozen_terms",
+      "kind": "function",
+      "owner": "D2",
+      "definition": "CREATE OR REPLACE FUNCTION public.quotes_preserve_frozen_terms()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'INSERT' THEN\n    IF NEW.\"status\" <> 'DRAFT' OR NEW.\"version\" <> 1 THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF TG_OP = 'DELETE' THEN\n    IF OLD.\"status\" <> 'DRAFT' THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n    END IF;\n    RETURN OLD;\n  END IF;\n  IF ROW(OLD.\"id\", OLD.\"enquiryId\", OLD.\"surveyId\", OLD.\"packageId\", OLD.\"customerId\", OLD.\"revision\", OLD.\"supersedesQuoteId\", OLD.\"revisionReason\",\n      OLD.\"customerSnapshot\", OLD.\"packageSnapshot\", OLD.\"hardwarePrice\", OLD.\"installationPrice\", OLD.\"totalPrice\", OLD.\"createdById\", OLD.\"createdAt\")\n    IS DISTINCT FROM ROW(NEW.\"id\", NEW.\"enquiryId\", NEW.\"surveyId\", NEW.\"packageId\", NEW.\"customerId\", NEW.\"revision\", NEW.\"supersedesQuoteId\", NEW.\"revisionReason\",\n      NEW.\"customerSnapshot\", NEW.\"packageSnapshot\", NEW.\"hardwarePrice\", NEW.\"installationPrice\", NEW.\"totalPrice\", NEW.\"createdById\", NEW.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1\n    OR NOT ((OLD.\"status\" = 'DRAFT' AND NEW.\"status\" = 'SENT') OR (OLD.\"status\" = 'SENT' AND NEW.\"status\" IN ('ACCEPTED', 'REJECTED')))\n    OR (OLD.\"status\" = 'SENT' AND ROW(OLD.\"sentAt\", OLD.\"sentById\", OLD.\"sentChannel\") IS DISTINCT FROM ROW(NEW.\"sentAt\", NEW.\"sentById\", NEW.\"sentChannel\"))\n  THEN\n    RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n  END IF;\n  IF NEW.\"status\" = 'SENT' THEN\n    IF (SELECT count(*) FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'PACKAGE' AND \"lineTotal\" = NEW.\"hardwarePrice\") <> 1\n      OR (SELECT count(*) FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'SERVICE' AND \"lineTotal\" = NEW.\"installationPrice\") <> 1\n      OR EXISTS (SELECT 1 FROM unnest(ARRAY['PANEL','INVERTER','CHARGE_CONTROLLER','MOUNTING','WIRING_BOX','SWITCHGEAR','CABLE','EARTHING','CONNECTOR']) AS required(category)\n        WHERE NOT EXISTS (SELECT 1 FROM \"quote_lines\" line WHERE line.\"quoteId\" = NEW.\"id\" AND line.\"kind\" = 'COMPONENT' AND line.\"productSnapshot\"->>'category' = required.category))\n      OR ((NEW.\"packageSnapshot\"->>'systemType' = 'OFF_GRID') IS DISTINCT FROM EXISTS (\n        SELECT 1 FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'COMPONENT' AND \"productSnapshot\"->>'category' = 'BATTERY'))\n    THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_complete_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_complete_terms';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND $function$\n"
+    },
+    {
       "name": "stock_document_lines_guard",
       "table": "stock_document_lines_guard",
       "kind": "function",
@@ -393,6 +540,20 @@
       "kind": "function",
       "owner": "D3",
       "definition": "CREATE OR REPLACE FUNCTION public.units_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"productId\" <> OLD.\"productId\" OR NEW.\"manufacturerId\" <> OLD.\"manufacturerId\"\n    OR NEW.\"rawSerial\" <> OLD.\"rawSerial\" OR NEW.\"normalizedSerial\" <> OLD.\"normalizedSerial\"\n    OR NEW.\"acquisitionCost\" <> OLD.\"acquisitionCost\" OR NEW.\"receiptLineId\" <> OLD.\"receiptLineId\" THEN\n    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "quote_lines_preserve_sent_terms",
+      "table": "quote_lines",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER quote_lines_preserve_sent_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quote_lines FOR EACH ROW EXECUTE FUNCTION quote_lines_preserve_sent_terms()"
+    },
+    {
+      "name": "quotes_preserve_frozen_terms",
+      "table": "quotes",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER quotes_preserve_frozen_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quotes FOR EACH ROW EXECUTE FUNCTION quotes_preserve_frozen_terms()"
     },
     {
       "name": "stock_document_lines_guarded",

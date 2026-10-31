@@ -1,3 +1,4 @@
+import { QuotesModule } from './quotes/quotes.module';
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { resolve } from 'node:path';
@@ -19,6 +20,7 @@ import { InventoryModule } from './inventory/inventory.module';
     SalesModule,
     CatalogModule,
     InventoryModule,
+    QuotesModule,
   ],
   controllers: [HealthController],
 })

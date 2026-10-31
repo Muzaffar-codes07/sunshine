@@ -1,6 +1,6 @@
 # API contracts and module handoffs
 
-Health/readiness, public enquiries, staff authentication, the staff enquiry queue, and catalogue/package reads are implemented. Other routes below remain planned and need shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
+Health/readiness, public enquiries, staff authentication, the staff enquiry queue, catalogue/package reads, and quote snapshots with recorded sending/acceptance are implemented. Other routes below remain planned and need shared schemas and tests before use. The readiness endpoint checks DB connectivity, not completion of migrations or business workflows.
 
 ## Response convention
 

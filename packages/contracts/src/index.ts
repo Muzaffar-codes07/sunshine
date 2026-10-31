@@ -49,6 +49,7 @@ export * from './auth';
 
 export * from './shared';
 export * from './catalogue';
+export * from './quotes';
 export * from './idempotency';
 
 // D3 operational transport contracts; no runtime stock or field behavior implied.
