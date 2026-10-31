@@ -1,0 +1,5 @@
+{
+  "description": "Hand-written database rules Prisma can't track. Add one entry in the same PR as the migration that creates it. Checked by npm run db:check.",
+  "kinds": ["check", "exclusion", "unique_partial_index"],
+  "required": []
+}
