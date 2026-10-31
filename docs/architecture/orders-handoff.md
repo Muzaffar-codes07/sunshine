@@ -7,7 +7,8 @@ Owner: D2. Requirements R7, R8 and R21. Migration `20261031180000_orders`.
 | Route | Who | Behaviour |
 | --- | --- | --- |
 | `POST /api/v1/orders` | SALES, ADMIN | Body `{quoteId}` plus an `Idempotency-Key` header. Confirms the latest accepted quote. |
-| `GET /api/v1/orders/:id` | SALES, ADMIN, WAREHOUSE | Order with packing requirements, invoice, payments and `released`. |
+| `GET /api/v1/orders/:id` | SALES, ADMIN | Order with packing requirements, invoice, payments and `released`. |
+| `GET /api/v1/orders/:id/fulfilment` | SALES, ADMIN, WAREHOUSE | Order number, enquiry, job, packing requirements and `released`; no invoice, amounts or payment references. |
 | `GET /api/v1/enquiries/:id/order` | SALES, ADMIN | The enquiry's order. |
 | `GET /api/v1/invoices/:id` | SALES, ADMIN | Invoice with lines, payments and balance. |
 | `POST /api/v1/invoices/:id/payments` | ADMIN | `{amountInr, method, reference, receivedAt}` plus `Idempotency-Key`. Records money already received. |
@@ -16,7 +17,7 @@ Recording money needs an explicit finance permission (PRD), so only ADMIN may po
 
 ## What confirmation does, in one transaction
 
-1. `QuotesService.requireAcceptedQuote(tx, quoteId)` share-locks the enquiry and requires the latest accepted revision.
+1. `QuotesService.requireAcceptedQuote(tx, quoteId)` share-locks the enquiry, requires it to be QUALIFIED (an archived or disqualified enquiry is history: `ENQUIRY_NOT_QUALIFIED`) and requires the latest accepted revision.
 2. It creates one `Order`. Orders are unique per quote **and** per enquiry, so a later quote revision can never become a second sale. `QuotesService` also refuses every quote change once an order exists (`ORDER_ALREADY_CONFIRMED`).
 3. It creates one `PackingRequirement` per COMPONENT quote line: `quoteLineId`, `productId` and `quantity`.
 4. `InvoicesService.ensureSalesInvoice` posts one invoice with the unique source `(ORDER, orderId, SALE)`. Its lines are the quote's PACKAGE and SERVICE charges only. Components are zero-priced, so hardware is never charged twice.
@@ -36,6 +37,7 @@ Tax is not configured. Invoices carry `taxAmount 0` and the note "Tax not config
 ## For D3
 
 - **Job helper:** provide `ORDER_JOB_CREATOR` (`apps/api/src/orders/order-job.port.ts`) from the jobs module. It must use `tx`, be idempotent per `orderId` and never commit on its own. Until it's wired, `Order.jobId` is null, and D3 can create jobs for confirmed orders that don't have one.
+- **Warehouse screens:** read `GET /orders/:id/fulfilment`. Warehouse staff can't read the full order, because it carries the invoice and payment references.
 - **Allocation:** allocate against `PackingRequirement.quoteLineId` (the COMPONENT quote line) and `productId`.
 - **Payment gate:** `InvoicesService.getOrderPaymentFacts(tx, orderId)` returns `{status, total, paidAmount, balance, released}`. `released` is true once any payment (the advance) is recorded. A minimum-advance policy is deferred, and the readiness check decides what to require.
 

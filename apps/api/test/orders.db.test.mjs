@@ -140,6 +140,47 @@ test('two confirmations with different keys at the same moment make exactly one 
   assert.equal(await prisma.invoice.count({ where: { order: { quoteId: quote.id } } }), 1);
 });
 
+/** Waits until a statement is blocked on a row lock; each poll is its own transaction, so the stats are fresh. */
+async function untilBlockedOn(fragment) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const [{ waiting }] = await prisma.$queryRawUnsafe(
+      `SELECT count(*)::int AS waiting FROM pg_stat_activity
+       WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE $1`, `%${fragment}%`,
+    );
+    if (waiting > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(`nothing waited on a lock for "${fragment}"`);
+}
+
+test('a closed enquiry cannot be confirmed, including one closed while the confirmation waits on it', async () => {
+  const { EnquiryQueueService } = require('../dist/sales/enquiry-queue.service');
+  const queue = app.get(EnquiryQueueService);
+  const archived = await acceptedQuote();
+  await queue.archive(archived.enquiry.id, { version: 1, reason: 'Customer cancelled before confirmation' });
+  const k = key();
+  await refuses(orders.confirm({ quoteId: archived.quote.id }, k, staff(sales)), 409, 'ENQUIRY_NOT_QUALIFIED');
+  assert.equal(await prisma.order.count({ where: { enquiryId: archived.enquiry.id } }), 0);
+  assert.equal(await prisma.invoice.count({ where: { customerId: archived.quote.customerId } }), 0);
+  assert.equal(await prisma.command.count({ where: { idempotencyKey: k } }), 0, 'the refusal leaves no command behind');
+
+  // The archive holds the enquiry row; the confirmation blocks on its share lock and must see ARCHIVED when it wakes.
+  const racing = await acceptedQuote();
+  let confirming;
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      `UPDATE enquiries SET status = 'ARCHIVED', "closedReason" = 'Customer cancelled', version = version + 1 WHERE id = $1::uuid`,
+      racing.enquiry.id,
+    );
+    confirming = orders.confirm({ quoteId: racing.quote.id }, key(), staff(sales));
+    confirming.catch(() => {});
+    await untilBlockedOn('FOR SHARE');
+  });
+  await refuses(confirming, 409, 'ENQUIRY_NOT_QUALIFIED');
+  assert.equal(await prisma.order.count({ where: { enquiryId: racing.enquiry.id } }), 0);
+  assert.equal(await prisma.invoice.count({ where: { customerId: racing.quote.customerId } }), 0);
+});
+
 test('advance, partial and final receipts move the balance; overpayment and paying a paid invoice are refused', async () => {
   const { quote } = await acceptedQuote();
   const { invoice } = (await orders.confirm({ quoteId: quote.id }, key(), staff(sales))).data;
@@ -227,7 +268,7 @@ const post = (path, cookie, body, idempotencyKey) => fetch(`${base}${path}`, {
   body: JSON.stringify(body),
 });
 
-test('HTTP: sales confirms with a key, only admin records receipts, warehouse reads the order', async () => {
+test('HTTP: sales confirms with a key, only admin records receipts, warehouse reads only the fulfilment view', async () => {
   const { enquiry, quote } = await acceptedQuote();
   const [salesCookie, adminCookie, warehouseCookie] = [await login(sales), await login(admin), await login(warehouse)];
   assert.equal((await post('/orders', salesCookie, { quoteId: quote.id })).status, 400, 'Idempotency-Key is required');
@@ -243,9 +284,13 @@ test('HTTP: sales confirms with a key, only admin records receipts, warehouse re
   assert.equal(paid.status, 201);
   assert.equal((await paid.json()).data.balance, '30000.00');
 
-  const read = await fetch(`${base}/orders/${order.id}`, { headers: { cookie: warehouseCookie } });
+  assert.equal((await fetch(`${base}/orders/${order.id}`, { headers: { cookie: warehouseCookie } })).status, 403, 'no invoice or references');
+  const read = await fetch(`${base}/orders/${order.id}/fulfilment`, { headers: { cookie: warehouseCookie } });
   assert.equal(read.status, 200);
-  assert.equal((await read.json()).data.released, true);
+  const { data: fulfilment } = await read.json();
+  assert.equal(fulfilment.released, true);
+  assert.equal(fulfilment.packing.length, order.packing.length);
+  assert.deepEqual(Object.keys(fulfilment).filter((field) => ['invoice', 'customerId', 'quoteId', 'confirmedById'].includes(field)), []);
   const byEnquiry = await fetch(`${base}/enquiries/${enquiry.id}/order`, { headers: { cookie: salesCookie } });
   assert.equal((await byEnquiry.json()).data.id, order.id);
   const again = await post('/orders', salesCookie, { quoteId: quote.id }, key());

@@ -102,6 +102,13 @@ export const orderSchema = z.object({
 export type Order = z.infer<typeof orderSchema>;
 export const orderResponseSchema = z.object({ data: orderSchema });
 
+/** What the warehouse needs to pack an order: no invoice, amounts or payment references (D3 review on #29). */
+export const orderFulfilmentSchema = orderSchema.pick({
+  id: true, number: true, displayNumber: true, enquiryId: true, jobId: true, confirmedAt: true, packing: true, released: true,
+});
+export type OrderFulfilment = z.infer<typeof orderFulfilmentSchema>;
+export const orderFulfilmentResponseSchema = z.object({ data: orderFulfilmentSchema });
+
 /** What D3 and D4 read about an order's money, inside their own transaction. */
 export const orderPaymentFactsSchema = z.object({
   orderId: z.uuid(),
