@@ -26,10 +26,10 @@ export class QuotesService {
 
   async create(enquiryId: string, command: CreateQuote, actor: StaffIdentity) {
     return this.prisma.$transaction(async tx => {
-      await this.lockEnquiry(tx, enquiryId);
-      const latest = await tx.quote.findFirst({ where: { enquiryId }, orderBy: { revision: 'desc' }, select: { id: true } });
+      const canonicalEnquiryId = await this.lockEnquiry(tx, enquiryId);
+      const latest = await tx.quote.findFirst({ where: { enquiryId: canonicalEnquiryId }, orderBy: { revision: 'desc' }, select: { id: true } });
       if (latest) throw blocked('QUOTE_ALREADY_EXISTS', 'This enquiry already has a quote revision.', 'Open the latest quote and use Revise to change its terms.');
-      return { data: await this.snapshot(tx, enquiryId, command, actor, 1) };
+      return { data: await this.snapshot(tx, canonicalEnquiryId, command, actor, 1) };
     }, { timeout: 15000 });
   }
 
@@ -50,7 +50,7 @@ export class QuotesService {
     const row = await this.prisma.quote.findUnique({ where: { id }, include: quoteInclude });
     if (!row) throw notFound();
     const latest = await this.prisma.quote.findFirst({ where: { enquiryId: row.enquiryId }, orderBy: { revision: 'desc' }, select: { id: true } });
-    return { data: quoteView(row, latest?.id === id) };
+    return { data: quoteView(row, latest?.id === row.id) };
   }
 
   send(id: string, command: SendQuote, actor: StaffIdentity) {
@@ -86,6 +86,7 @@ export class QuotesService {
     const [row] = await tx.$queryRawUnsafe<{ id: string; status: string }[]>('SELECT id, status FROM enquiries WHERE id = $1::uuid FOR UPDATE', id);
     if (!row) throw new ApiError(404, 'NOT_FOUND', 'Enquiry not found');
     if (row.status !== 'QUALIFIED') throw blocked('ENQUIRY_NOT_QUALIFIED', 'Only an open qualified enquiry can receive quote changes.', 'Qualify an open enquiry before quoting; keep closed enquiries as history.');
+    return row.id;
   }
 
   private async currentForCommand(tx: Prisma.TransactionClient, id: string, version: number) {
