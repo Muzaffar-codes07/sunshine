@@ -295,6 +295,8 @@ model ServiceTicket {
   status              TicketStatus         @default(OPEN)
   faultDescription    String
   assessmentSnapshot  Json?
+  // Immutable Task 3.1 source hash and billing result, saved with costs/invoice.
+  billingSnapshot     Json?
   resolutionDetails   String?
   resolvedAt          DateTime?            @db.Timestamptz(3)
   // Customer's recorded name, mapped from CustomerConfirmation.confirmerName.

@@ -63,6 +63,20 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
 - Money is a decimal string compatible with `numeric(14,2)`: at most 12 integer digits and two fractional digits. Contribution may be negative; negative zero is rejected.
 - Ticket quantities and technician summary hours are decimal strings compatible with `numeric(12,3)`: at most nine integer digits and three fractional digits. Ticket quantities must be positive; summary hours may be zero. Use Decimal arithmetic and serialize before validation; do not coerce through JavaScript numbers.
 - `TicketLine` includes `type` (`PART`/`LABOUR`), `description`, `quantity`, `unitCost`, `totalCost`, and `billableToCustomer`. The service supplies totals and billability from saved coverage; this response/domain shape does not authorize client overrides.
+- Task 3.1's internal `RepairBillingService.executeRepairBilling(tx, ticketId, repairItems)`
+  accepts only PART/LABOUR source UUID references. A transaction-aware persisted
+  source adapter supplies eligible consumed stock/approved time, actual work scope
+  and frozen internal/selling rates. Saved ticket coverage derives billability;
+  other scopes require reassessment. D3 part postings use STOCK_MOVEMENT sources;
+  service labour uses TIME_ENTRY sources. Covered work posts internal job costs
+  without an invoice. Chargeable work calls D2's `ServiceInvoiceWriter` port using
+  `TICKET:<id>:REPAIR`; selling prices and pre-tax subtotal remain distinct from
+  cost. Per-line half-up cents are summed, never binary floats. Ticket billing
+  snapshot/lines, source costs and invoice share the caller transaction. One final
+  batch per ticket; same canonical references replay saved results and different
+  references conflict. No public billing route is added; outer actor-scoped
+  authorization/command replay remains required. Both production adapters default
+  to 503 pending upstream implementation. See the [service module](../../apps/api/src/service/README.md).
 - `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
 - Task 2.1 extends `WarrantyAssessmentResult` with required `asOfDate`, `policyRevision`, `scope`, `coverageStatus` (`COVERED`, `EXPIRED`, `VOID`, `NOT_STARTED`, `NO_WARRANTY`, `OUT_OF_SCOPE`), and `chargeStatus`. Policy name/revision/scope/start/expiry are null together only for `NO_WARRANTY`. Covered work returns `customerCharge: "0.00"` and `chargeStatus: "FREE"`; all other lookup outcomes return null charge and `PENDING_ASSESSMENT` until Task 3.1 assesses billable parts/labour. This is an intentional Task 1.1 contract revision; do not interpret null as a zero invoice. `isCovered` concerns only the returned saved scope; repair orchestration must evaluate its actual work scope separately.
 - `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization currently returns 503 `WARRANTY_AUTH_UNAVAILABLE`; the default equipment reader also rejects with 503. See the [warranty integration gate](../../apps/api/src/warranty/README.md).
