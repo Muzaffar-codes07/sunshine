@@ -18,15 +18,36 @@ export const installationTimeRecordInputSchema = z.object({
 }).strict().refine(ordered, { path: ['finishedAt'], message: 'Finish must be after start' });
 export const completeInstallationRequestSchema = z.object({
   expectedVersion: version, startedAt: timestamp, finishedAt: timestamp,
-  installedCapacityKw: z.number().finite().min(1).max(5),
+  installedCapacityKw: z.number().int().min(1).max(5),
   photoFileIds: uniqueIds.pipe(z.array(z.uuid()).min(1).max(20)),
   signatureFileId: z.uuid(), signerName: z.string().trim().min(2).max(120),
   completedChecks: z.array(installationCheckSchema).min(1).max(6)
     .refine((codes) => new Set(codes).size === codes.length, 'Duplicate checklist codes are not allowed'),
-  timeRecords: z.array(installationTimeRecordInputSchema).min(1).max(15),
+  timeRecords: z.array(installationTimeRecordInputSchema).min(1).max(100),
 }).strict().refine(ordered, { path: ['finishedAt'], message: 'Finish must be after start' })
   .refine((value) => !value.photoFileIds.includes(value.signatureFileId), {
     path: ['signatureFileId'], message: 'A roof photograph is not signature evidence',
+  }).superRefine((value, ctx) => {
+    const start = Date.parse(value.startedAt), finish = Date.parse(value.finishedAt);
+    const byTechnician = new Map<string, { start: number; finish: number; index: number }[]>();
+    value.timeRecords.forEach((entry, index) => {
+      const interval = { start: Date.parse(entry.startedAt), finish: Date.parse(entry.finishedAt), index };
+      if (interval.start < start || interval.finish > finish) {
+        ctx.addIssue({ code: 'custom', path: ['timeRecords', index], message: 'Time record must fall within the installation interval' });
+      }
+      const entries = byTechnician.get(entry.technicianId) ?? [];
+      entries.push(interval); byTechnician.set(entry.technicianId, entries);
+    });
+    for (const entries of byTechnician.values()) {
+      entries.sort((a, b) => a.start - b.start);
+      let previousFinish = -Infinity;
+      for (const entry of entries) {
+        if (entry.start < previousFinish) ctx.addIssue({
+          code: 'custom', path: ['timeRecords', entry.index], message: 'Time records for one technician must not overlap',
+        });
+        previousFinish = Math.max(previousFinish, entry.finish);
+      }
+    }
   });
 // The service checks serverNow, assigned staff, matching accepted capacity/package,
 // persisted private files, required checks and authorized actors inside its transaction.
@@ -35,7 +56,7 @@ export const jobViewSchema = z.object({
   id: z.uuid(), orderId: z.uuid(), customerId: z.uuid(), status: installationStatusSchema, version,
   scheduledStart: timestamp.nullable(), scheduledFinish: timestamp.nullable(),
   technicianIds: uniqueIds, startedAt: timestamp.nullable(), finishedAt: timestamp.nullable(),
-  installedCapacityKw: z.number().finite().min(1).max(5).nullable(),
+  installedCapacityKw: z.number().int().min(1).max(5).nullable(),
   photoFileIds: uniqueIds, signatureFileId: z.uuid().nullable(),
 });
 export type ScheduleJobRequest = z.infer<typeof scheduleJobRequestSchema>;

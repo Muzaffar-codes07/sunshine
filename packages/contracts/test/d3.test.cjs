@@ -79,3 +79,29 @@ test('timezone-aware field timestamps compare instants and reject naive local ti
   assert.equal(c.startInstallationRequestSchema.safeParse({ expectedVersion: 1, startedAt: '2026-10-01T14:00:00' }).success, false);
   assert.equal(c.deliverDispatchRequestSchema.safeParse({ expectedVersion: 1, deliveredAt: '2026-10-01T15:30:00+05:30' }).success, true);
 });
+test('completion bounds labour to its interval and prevents overlapping pay per technician', () => {
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion, timeRecords: [{
+    ...completion.timeRecords[0], startedAt: '2020-01-01T00:00:00Z', finishedAt: '2030-01-01T00:00:00Z',
+  }] }).success, false);
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion,
+    timeRecords: [completion.timeRecords[0], completion.timeRecords[0]],
+  }).success, false);
+  const first = { ...completion.timeRecords[0], finishedAt: '2026-10-01T12:00:00Z' };
+  const second = { ...completion.timeRecords[0], startedAt: '2026-10-01T12:00:00Z' };
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion, timeRecords: [second, first] }).success, true);
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion, installedCapacityKw: 2.5 }).success, false);
+});
+test('general returns express unused serialized equipment and fractional bulk without a ticket', () => {
+  const base = { expectedVersion: 1, source: { kind: 'ALLOCATION', allocationId: id(3) },
+    unitId: null, quantity: '2.500', reason: 'Unused cable', disposition: 'RETURN_TO_STOCK' };
+  assert.equal(c.returnStockRequestSchema.safeParse(base).success, true);
+  assert.equal(c.returnStockRequestSchema.safeParse({ ...base, unitId: id(4), quantity: '1' }).success, true);
+  assert.equal(c.returnStockRequestSchema.safeParse({ ...base, unitId: id(4) }).success, false);
+  assert.equal(c.returnStockRequestSchema.safeParse({ ...base, source: { kind: 'TICKET_LINE', ticketLineId: id(2) } }).success, true);
+  assert.equal(c.returnStockRequestSchema.safeParse({ ...base, source: { kind: 'ALLOCATION' } }).success, false);
+});
+test('zero receipt cost requires an explicit reason rather than a silent default', () => {
+  const line = { productId: id(1), quantity: '1', unitCost: '0.00' };
+  assert.equal(c.stockReceiptLineSchema.safeParse(line).success, false);
+  assert.equal(c.stockReceiptLineSchema.safeParse({ ...line, zeroCostReason: 'Supplier-funded replacement' }).success, true);
+});

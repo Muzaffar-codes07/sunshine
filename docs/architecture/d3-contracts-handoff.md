@@ -20,7 +20,8 @@ Paths are planned interfaces, not existing routes. Staff identity comes from D2 
 | `POST /dispatches/:id/scans` | `recordScanRequestSchema` | Resolve authorized allocated physical unit; serial ambiguity; correct product; TYPED recorded but never sufficient for a required scan |
 | `POST /dispatches/:id/dispatch` | `dispatchRequestSchema` | Recheck all required scans and reservation, stock/cost posting once, source uniqueness and idempotency |
 | `POST /dispatches/:id/deliver` | `deliverDispatchRequestSchema` | `dispatch occurrence <= delivery occurrence <= server now`; actor recorded; D4 activation once in caller transaction, no second stock deduction |
-| D4 return/replacement helpers | `returnUnitRequestSchema`, `replacementStockRequestSchema` | Linked ticket, actual old/new units, authorized return-to-stock; default faulty-unit return is quarantine; distinct physical replacement; D4 owns coverage continuation |
+| D4 ticket-linked unit return/replacement helpers | `returnUnitRequestSchema`, `replacementStockRequestSchema` | Linked ticket, actual old/new units, authorized return-to-stock; default faulty-unit return is quarantine; distinct physical replacement; D4 owns coverage continuation |
+| General unused-equipment / bulk return helper | `returnStockRequestSchema` | Canonical issued allocation or ticket line, actual product/unit, remaining returnable quantity, role checks and source-specific cost reversal |
 | `POST /jobs/:id/schedule` | `scheduleJobRequestSchema` | Active TECHNICIAN assignees, job record authorization and schedule policy |
 | `POST /jobs/:id/start` | `startInstallationRequestSchema` | Assigned staff, eligible job/payment/material state, nonfuture time |
 | `POST /jobs/:id/complete` | `completeInstallationRequestSchema` | Matching installed system/package, valid nonfuture crew time, persisted authorized private photos/signature, all required package checks, cost posting once |
@@ -46,6 +47,14 @@ D3 consumes D4’s single cost writer and warranty activation helper, passing th
 
 ## Verification and remaining gates
 
-Thirteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
+Sixteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
 
 Before runtime acceptance: settle stock model; land D2 catalogue/order/auth/files; agree D4 source/cost/warranty helpers and D2 refusal nesting; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
+
+### Review clarifications
+
+Time records must be contained in the installation interval and cannot overlap for the same technician. Adjacent intervals are allowed and different technicians may work concurrently. The service repeats these checks and deduplicates durable sources; transport validation is not pay posting. Capacity is a whole-number 1–5 kW confirmation matching the current D2 enquiry/package contract; fractional package capacity requires a coordinated later contract change.
+
+`returnUnitRequestSchema` is D4’s ticket-linked serialized-unit convenience input. `returnStockRequestSchema` additionally covers unused installation equipment and fractional bulk from an issued allocation, or parts from a ticket line. Both feed one canonical return service, rather than competing stock writers. Only authorized staff may return inspected unused equipment to usable stock; an old replaced/faulty unit must be quarantined, even if a request says RETURN_TO_STOCK. Returnable quantity cannot exceed the net issued amount, and D4’s agreed reversal source must prevent double credit.
+
+Receipt timestamps must be nonfuture at the server; delivery must be between dispatch occurrence and server now. A zero acquisition cost is accepted only with an explicit recorded zeroCostReason and service authorization, never a silent default; final source/cost audit belongs to the receipt service. The fixture dates do not prove these clock-based service rules. All seed IDs must be RFC-valid UUIDs; repeated-character placeholders may be rejected by z.uuid().
