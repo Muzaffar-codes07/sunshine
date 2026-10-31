@@ -1,3 +1,4 @@
+import { QuotePanel } from '../orders/QuotePanel';
 import { Link, useParams } from 'react-router-dom';
 import {
   archiveEnquirySchema, assignEnquirySchema, enquiryDetailResponseSchema, qualifyEnquirySchema, type EnquiryDetail,
@@ -57,6 +58,7 @@ export function EnquiryDetailPage() {
       { id: 'closed', label: 'Closed reason', value: item.closedReason ?? '—' },
     ]} />
     <SurveyPanel enquiry={item} />
+    <QuotePanel enquiryId={item.id} />
   </>;
 }
 

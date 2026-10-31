@@ -22,7 +22,7 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D2 | `/auth/login`, `/auth/logout`, `/auth/me`, `/staff` (active staff for pickers, SALES and ADMIN); `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
 | D2 | `/products`, `/packages` (read APIs and caller-transaction catalogue helpers) |
 | D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
-| D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/movements`, `/stock/as-of`, `/stock/value`, `/stock/integrity`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule` (implemented); start/complete actions on `/jobs`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
+| D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/movements`, `/stock/as-of`, `/stock/value`, `/stock/integrity`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule`, `start`, `complete` (implemented); `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
 | D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
 I06 draft/scans are implemented at `POST /orders/:id/dispatches`, `GET /dispatches/:id` and `POST /dispatches/:id/scans`. They retain DRAFT status and expose scan completeness only. Stock/cost dispatch posting and delivery routes remain pending D4 integration; complete scans alone never move stock.
@@ -147,7 +147,7 @@ resolution/closure. The internal `ReplacementService.executeReplacement(tx,
 {ticketId, oldUnitId, newUnitId, assessmentDate})` adds no public route. It invokes
 D3's stock port and Task 3.1 billing under the same caller transaction, preserves
 original warranty dates/policy/void flag and saves an immutable replay result.
-The new unit uses ALLOCATED assignment and old uses QUARANTINE. D3's unavailable
+The current helper contract uses RESERVED assignment for the new unit and QUARANTINED for the old unit. D3/D4 must reconcile assignment with actual issue and cost posting before wiring the replacement adapter. D3's unavailable
 stock adapter fails with 503 `REPLACEMENT_STOCK_UNAVAILABLE`; it requires real
 stock/source/auth/migration integration before production. See the
 [service handoff](../../apps/api/src/service/README.md#task-32-hardware-replacement).

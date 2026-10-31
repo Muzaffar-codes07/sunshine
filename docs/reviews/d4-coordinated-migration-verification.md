@@ -17,7 +17,7 @@ fixtures and assertions use `QUARANTINED` and `RESERVED`; negative regressions
 reject the old `QUARANTINE` / `ALLOCATED` unit-result literals. The separate D3
 stock-location kind `QUARANTINE` remains unchanged.
 
-The [260000 draft](../../prisma/drafts/20261031260000_d4/README.md) contains five
+The former 260000 draft (now the [active migration](../../prisma/migrations/20261031260000_d4/migration.sql)) contains five
 D4 tables/enums, the confirmed evidence-file FK, 23 CHECKs, three immutable-cost/
 reversal triggers and two functions. Its canonical PostgreSQL 17.11 definitions
 are kept beside the draft. Neither the active queue nor its manifest includes
