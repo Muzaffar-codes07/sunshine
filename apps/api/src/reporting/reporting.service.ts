@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { jobProfitabilityReportSchema, reportPeriodSchema, periodSummarySchema,
   profitabilityQuerySchema, subsidyReportMilestoneSchema, subsidyReportSchema, subsidyReportStatusSchema,
-  type ReportPeriod } from '@sunshine/contracts';
+  type ReportPeriod, operationsReportSchema, type OperationsQuery } from '@sunshine/contracts';
 import { moneySchema, positiveQuantitySchema, technicianPayReportSchema } from '@sunshine/contracts';
 import { z } from 'zod';
 import { ApiError } from '../platform/api-error';
@@ -65,6 +65,8 @@ export function reportWindow(period: ReportPeriod, asOf: Date) {
 export class ReportingService {
   constructor(private readonly reader: ReportingReader) {}
 
+  async getOperations(query: OperationsQuery) { return operationsReportSchema.parse(await this.reader.readOperations(query)); }
+
   async getTechnicianPaySummary(period: ReportPeriod = 'today', asOf = new Date()) {
     const window = reportWindow(period, asOf);
     const result = z.array(timeEntrySchema).safeParse(await this.reader.readTimeEntries(window));
@@ -101,6 +103,7 @@ export class ReportingService {
   async getJobProfitability(jobId: string, asOf = new Date()) {
     if (!profitabilityQuerySchema.safeParse({ jobId }).success) throw new ApiError(400, 'INVALID_INPUT', 'Invalid job ID');
     validDate(asOf);
+    jobId = jobId.toLowerCase();
     const snapshot = await this.reader.readJob(jobId, asOf);
     if (!snapshot) throw new ApiError(404, 'JOB_NOT_FOUND', 'Job was not found');
     if (snapshot.jobId !== jobId || typeof snapshot.isCompleted !== 'boolean'

@@ -136,3 +136,18 @@ export const reportExportQuerySchema = z.discriminatedUnion('report', [
   z.strictObject({ report: z.literal('pay'), period: reportPeriodSchema.default('today') }),
 ]);
 export type ReportExportQuery = z.infer<typeof reportExportQuerySchema>;
+
+// Portfolio work queues are current, independent of the financial period filter.
+export const operationsQuerySchema = z.strictObject({
+  jobsPage: z.coerce.number().int().min(1).max(10000).default(1),
+  ticketsPage: z.coerce.number().int().min(1).max(10000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+export const operationsReportSchema = z.object({
+  asOf: z.iso.datetime(),
+  jobs: z.object({ total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),
+    items: z.array(z.object({ id: z.uuid(), orderId: z.uuid(), status: z.enum(['SCHEDULED','IN_PROGRESS']), scheduledStart: z.iso.datetime().nullable() })) }),
+  tickets: z.object({ total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),
+    items: z.array(z.object({ id: z.uuid(), ticketNumber: z.string(), jobId: z.uuid(), status: z.enum(['OPEN','ASSESSED','IN_PROGRESS','AWAITING_CUSTOMER_CONFIRMATION']) })) }),
+});
+export type OperationsQuery = z.infer<typeof operationsQuerySchema>;

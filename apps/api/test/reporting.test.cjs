@@ -270,7 +270,18 @@ test('production reports are registered and reject forged admin headers without 
     await app.listen(0, '127.0.0.1');
     for (const path of [`profitability?jobId=${jobId}`, 'overview?period=month', 'subsidies', 'pay-summary', 'export.csv?report=pay', 'export-csv?report=overview']) {
       const response = await fetch(`${await app.getUrl()}/api/v1/reports/${path}`, { headers: { 'x-role': 'ADMIN' } });
-      assert.equal(response.status, 503); assert.equal((await response.json()).error.code, 'REPORTING_AUTH_UNAVAILABLE');
+      assert.equal(response.status, 401); assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
     }
   } finally { await app.close(); }
+});
+
+test('completed installations without approved labour provenance remain provisional, including legacy rows', async () => {
+  const { PersistedReportingSource } = require('../dist/reporting/persisted-reporting-source');
+  const empty = async () => [];
+  const tx = { job: { findFirst: async () => ({ id: jobId, orderId: ownerId, status: 'COMPLETED',
+    completedAt: new Date('2026-01-01T00:00:00Z'), finishedAt: new Date('2026-01-01T00:00:00Z') }), findMany: empty },
+    order: { findMany: empty }, serviceTicket: { findMany: empty }, invoice: { findMany: empty }, payment: { findMany: empty } };
+  const result = await new PersistedReportingSource().readJob(tx, jobId, asOf);
+  assert.equal(result.isCompleted, false);
+  assert.ok(result.unfinishedSteps.some(step => step.includes('approved frozen rates')));
 });

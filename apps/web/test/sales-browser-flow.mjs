@@ -1,13 +1,15 @@
 // Browser-only sales acceptance helper. Every business transition goes through the UI.
 import assert from 'node:assert/strict';
 import { randomInt } from 'node:crypto';
-export async function createSalesOrderFromBrowser({ browser, adminPage, staff, password, prisma, origin, contexts, errors, registerContext }) {
+export async function createSalesOrderFromBrowser({ browser, adminPage, staff, password, prisma, origin, contexts, errors, registerContext, onPage }) {
   const start = Date.now();
   const name = `Public Browser ${randomInt(1e8)}`;
   const newPage = async (role) => {
     const context = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(context);
     if (role) registerContext(role, context);
-    const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); return page;
+    const page = await context.newPage(); onPage?.(page);
+    page.on('response', async response => { if (response.request().method() === 'POST' && response.status() >= 400) console.error('SALES COMMAND REFUSED', response.status(), await response.text()); });
+    page.on('pageerror', error => errors.push(error.message)); return page;
   };
   const publicPage = await newPage();
   await publicPage.goto('/enquire');
