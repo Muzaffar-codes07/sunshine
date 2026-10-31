@@ -8,7 +8,8 @@ export class EnquiriesService {
 
   /**
    * Records a web enquiry. A returning customer is matched by normalized phone and their
-   * existing record is never overwritten from public input; the enquiry keeps what they asked for.
+   * existing record is never overwritten from public input; the enquiry keeps its own copy
+   * of the submitted contact and site details.
    */
   async createFromWeb(input: PublicEnquiryRequest) {
     // Two first-time submissions with the same phone can race on customers_phone_key.
@@ -40,6 +41,12 @@ export class EnquiriesService {
         data: {
           customerId: customer.id,
           source: 'WEB',
+          // Snapshot of what was submitted: a returning customer may enquire for another site.
+          contactName: input.name,
+          contactEmail: input.email,
+          siteAddressLine: input.addressLine,
+          siteCity: input.city,
+          sitePincode: input.pincode,
           requestedCapacityKw: input.requestedCapacityKw,
           systemType: input.systemType,
           subsidyInterest: input.subsidyInterest,

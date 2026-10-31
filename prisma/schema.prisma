@@ -76,6 +76,12 @@ model Enquiry {
   customerId          String        @db.Uuid
   source              EnquirySource
   status              EnquiryStatus @default(NEW)
+  // Contact and site as submitted with this enquiry; the customer record stays canonical.
+  contactName         String
+  contactEmail        String?
+  siteAddressLine     String
+  siteCity            String
+  sitePincode         String
   requestedCapacityKw Int
   systemType          SystemType?
   subsidyInterest     Boolean       @default(false)

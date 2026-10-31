@@ -1,14 +1,20 @@
-// Real PostgreSQL API test for POST /api/v1/enquiries.
-// Needs a migrated database (npm run db:up && npm run db:deploy) and a built API (npm run build -w @sunshine/api).
-// Run: npm run test:db -w @sunshine/api
+// Real PostgreSQL API test for POST /api/v1/enquiries. It writes rows, so it only runs against a
+// disposable database named in TEST_DATABASE_URL (database name must contain "test"), never DATABASE_URL.
+// Setup once: docker compose exec db createdb -U sunshine sunshine_test
+//             DATABASE_URL=<test url> npx prisma migrate deploy
+// Run:        TEST_DATABASE_URL=<test url> npm run test:db -w @sunshine/api   (after building the API)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
-import { config } from 'dotenv';
 
 const require = createRequire(import.meta.url);
-config({ path: resolve(import.meta.dirname, '../../../.env'), quiet: true });
+
+const testUrl = process.env.TEST_DATABASE_URL;
+if (!testUrl || !/test/i.test(new URL(testUrl).pathname)) {
+  throw new Error('Set TEST_DATABASE_URL to a disposable database whose name contains "test"; refusing to write to another database.');
+}
+// PrismaService reads DATABASE_URL, so point it at the disposable database before the app loads.
+process.env.DATABASE_URL = testUrl;
 
 const { NestFactory } = require('@nestjs/core');
 const { AppModule } = require('../dist/app.module');
@@ -77,22 +83,27 @@ test('server-owned fields cannot be supplied by the public form', async () => {
   assert.ok(error.fieldErrors._form?.length);
 });
 
-test('a returning customer is matched by phone and their record is not overwritten', async () => {
+test('a returning customer is matched by phone, not overwritten, and the new site is kept on the enquiry', async () => {
   const phone = runPhone();
   const first = await (await post(valid({ phone, name: 'Original Name' }))).json();
-  const second = await (await post(valid({ phone, name: 'Someone Else' }))).json();
-  const rows = await prisma.enquiry.findMany({ where: { id: { in: [first.data.id, second.data.id] } }, include: { customer: true } });
-  assert.equal(rows.length, 2);
-  assert.equal(rows[0].customerId, rows[1].customerId);
-  assert.equal(rows[0].customer.name, 'Original Name');
+  const second = await (await post(valid({ phone, name: 'Someone Else', addressLine: '99 Factory Lane', city: 'Medchal' }))).json();
+  const [a, b] = await Promise.all([first, second].map((r) => prisma.enquiry.findUniqueOrThrow({ where: { id: r.data.id }, include: { customer: true } })));
+  assert.equal(a.customerId, b.customerId);
+  assert.equal(b.customer.name, 'Original Name');
+  assert.equal(b.customer.addressLine, '12 Sunshine Road');
+  assert.equal(b.contactName, 'Someone Else');
+  assert.equal(b.siteAddressLine, '99 Factory Lane');
+  assert.equal(b.siteCity, 'Medchal');
 });
 
 test('database CHECK rejects an out-of-range capacity even if the API is bypassed', async () => {
   const customer = await prisma.customer.create({ data: {
     name: 'Check Test', phone: runPhone(), addressLine: '1 Test Street', city: 'Hyderabad', pincode: '500001',
   } });
-  await assert.rejects(prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 7 } }));
-  await assert.rejects(prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'ARCHIVED' } }));
+  const site = { contactName: 'Check Test', siteAddressLine: '1 Test Street', siteCity: 'Hyderabad', sitePincode: '500001' };
+  await assert.rejects(prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 7, ...site } }));
+  await assert.rejects(prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'ARCHIVED', ...site } }));
+  await assert.rejects(prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, ...site, sitePincode: '012345' } }));
 });
 
 test('the sixth public submission from one address within a minute is rate limited', async () => {
