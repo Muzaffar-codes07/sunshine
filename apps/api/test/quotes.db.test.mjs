@@ -232,3 +232,10 @@ test('a damaged draft is refused by the API and cannot bypass completeness throu
   }
   assert.equal((await quotes.get(f.quote.id)).data.status,'DRAFT');
 });
+
+test('closing an approved enquiry prevents new quote terms',async()=>{
+  const f=await fixture();
+  await prisma.enquiry.update({where:{id:f.enquiry.id},data:{status:'ARCHIVED',closedReason:'Customer cancelled before quotation'}});
+  await refuses(quotes.create(f.enquiry.id,f.command,staff(sales)),409,'ENQUIRY_NOT_QUALIFIED');
+  assert.equal(await prisma.quote.count({where:{enquiryId:f.enquiry.id}}),0);
+});
