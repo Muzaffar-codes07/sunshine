@@ -38,10 +38,12 @@ export class InstallationService {
       if (!(await this.invoices.getOrderPaymentFacts(tx, job.orderId)).released) {
         reasons.push(notReady('ORDER_NOT_RELEASED', 'No payment has been recorded for this order.', 'Record the customer payment first.'));
       }
-      if ((await tx.dispatch.findUnique({ where: { orderId: job.orderId }, select: { status: true } }))?.status !== 'DELIVERED') {
+      const dispatch = await tx.dispatch.findUnique({ where: { orderId: job.orderId }, select: { status: true, deliveredAt: true } });
+      if (dispatch?.status !== 'DELIVERED') {
         reasons.push(notReady('JOB_MATERIAL_NOT_DELIVERED', 'The equipment hasn\'t been delivered to this job.', 'Dispatch and deliver the order\'s equipment first.'));
       }
       if (startedAt < job.order.confirmedAt) reasons.push(notReady('INSTALLATION_TIME_INVALID', 'Work can\'t start before the order was confirmed.', 'Enter the actual start time.'));
+      else if (dispatch?.deliveredAt && startedAt < dispatch.deliveredAt) reasons.push(notReady('INSTALLATION_TIME_INVALID', 'Work can\'t start before the equipment was delivered.', 'Enter the actual start time.'));
       refuseAll(reasons);
       return this.view(tx, id);
     });
