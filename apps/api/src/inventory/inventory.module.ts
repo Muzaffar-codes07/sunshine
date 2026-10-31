@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { InvoicingModule } from '../finance/invoicing.module';
 import { PlatformModule } from '../platform/platform.module';
+import { AllocationsService } from './allocations.service';
 import { InventoryController } from './inventory.controller';
 import { StockDocumentsService } from './stock-documents.service';
 import { StockLedgerService } from './stock-ledger.service';
@@ -8,9 +10,9 @@ import { StockReadService } from './stock-read.service';
 import { StockReceiptsService } from './stock-receipts.service';
 
 @Module({
-  imports: [PlatformModule, AuthModule],
+  imports: [PlatformModule, AuthModule, InvoicingModule],
   controllers: [InventoryController],
-  providers: [StockLedgerService, StockReceiptsService, StockDocumentsService, StockReadService],
+  providers: [AllocationsService, StockLedgerService, StockReceiptsService, StockDocumentsService, StockReadService],
   exports: [StockLedgerService, StockReadService],
 })
 export class InventoryModule {}

@@ -32,6 +32,7 @@ model User {
   stockDocuments StockDocument[] @relation("StockDocumentActor")
   stockDocumentsValidated StockDocument[] @relation("StockDocumentValidator")
   stockMovements StockMovement[]
+  allocations Allocation[]
   commands       Command[]
   surveysAssigned Survey[] @relation("SurveyTechnician")
   surveysDecided  Survey[] @relation("SurveyDecision")
@@ -246,6 +247,7 @@ model Product {
   stockDocumentLines StockDocumentLine[]
   stockMovements StockMovement[]
   units Unit[]
+  allocations Allocation[]
   costBasis ProductCostBasis?
   installationPackages Package[] @relation("PackageInstallationService")
   @@index([active, kind])
@@ -326,6 +328,7 @@ model StockLocation {
   documentsTo StockDocument[] @relation("StockDocumentTo")
   movementsFrom StockMovement[] @relation("StockMovementFrom")
   movementsTo StockMovement[] @relation("StockMovementTo")
+  allocations Allocation[]
   @@map("stock_locations")
 }
 model StockDocument {
@@ -413,6 +416,7 @@ model Unit {
   receiptLine StockDocumentLine @relation(fields: [receiptLineId], references: [id], onDelete: Restrict)
   movements UnitMovement[]
   plannedLines StockDocumentLineUnit[]
+  allocations Allocation[]
   @@unique([manufacturerId, productId, normalizedSerial], map: "units_identity_key")
   @@index([normalizedSerial])
   @@index([receiptLineId])
@@ -547,6 +551,7 @@ model QuoteLine {
   product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
   packingRequirement PackingRequirement?
   invoiceLines InvoiceLine[]
+  allocations Allocation[]
 
   @@unique([quoteId, position])
   @@index([productId])
@@ -746,7 +751,45 @@ model Job {
 
   order     Order     @relation("JobOrder", fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   linkedBy  Order?    @relation("OrderJob")
+  allocations Allocation[]
 
   @@unique([orderId, id])
   @@map("jobs")
+}
+
+// D3: a job's hold on stock. Only RESERVED reduces free stock, because dispatched goods have already left the ledger.
+enum AllocationStatus {
+  RESERVED
+  DISPATCHED
+  DELIVERED
+  INSTALLED
+  RELEASED
+}
+model Allocation {
+  id String @id @default(uuid()) @db.Uuid
+  jobId String @db.Uuid
+  // The sold requirement. Repair parts will use a ticket line instead, once ticket lines exist.
+  quoteLineId String? @db.Uuid
+  productId String @db.Uuid
+  unitId String? @db.Uuid
+  locationId String @db.Uuid
+  quantity Decimal @db.Decimal(12, 3)
+  status AllocationStatus @default(RESERVED)
+  version Int @default(1)
+  actorId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  quoteLine QuoteLine? @relation(fields: [quoteLineId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  unit Unit? @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([jobId, status])
+  @@index([productId, locationId, status])
+  @@index([quoteLineId])
+  @@index([unitId])
+  @@index([locationId])
+  @@index([actorId])
+  @@map("allocations")
 }
