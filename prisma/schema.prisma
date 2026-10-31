@@ -295,6 +295,8 @@ model ServiceTicket {
   status              TicketStatus         @default(OPEN)
   faultDescription    String
   assessmentSnapshot  Json?
+  resolutionDetails   String?
+  resolvedAt          DateTime?            @db.Timestamptz(3)
   // Customer's recorded name, mapped from CustomerConfirmation.confirmerName.
   confirmedBy         String?
   confirmationChannel ConfirmationChannel?

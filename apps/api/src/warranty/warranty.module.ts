@@ -12,6 +12,6 @@ import { WarrantyService } from './warranty.service';
     { provide: WarrantyEquipmentReader, useClass: UnavailableWarrantyEquipmentReader },
     { provide: WarrantyLookupAccess, useClass: UnavailableWarrantyLookupAccess },
   ],
-  exports: [WarrantyService],
+  exports: [WarrantyService, WarrantyEquipmentReader],
 })
 export class WarrantyModule {}

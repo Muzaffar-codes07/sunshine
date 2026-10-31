@@ -4,11 +4,11 @@ Health/readiness, public enquiries, staff authentication, the staff enquiry queu
 and catalogue/package reads are implemented. Warranty assessment and
 `GET /api/v1/warranties/lookup` are implemented with injected interfaces;
 production lookup returns 503 until staff authorization, Unit/Job reads and the
-coordinated warranty migration are integrated. Task 4.1 report calculations and
-routes are implemented with the integration gates described below. Other routes
-below remain planned and need shared schemas and tests before use. The readiness
-endpoint checks DB connectivity, not completion of migrations or business
-workflows.
+coordinated warranty migration are integrated. Task 2.2 ticket commands and Task
+4.1 report calculations/routes are implemented with the integration gates
+described below. Other routes below remain planned and need shared schemas and
+tests before use. The readiness endpoint checks DB connectivity, not completion
+of migrations or business workflows.
 
 ## Response convention
 
@@ -69,6 +69,46 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
 - Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
 - `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
 - `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.
+
+## Task 2.2 service ticket lifecycle
+
+The [service module](../../apps/api/src/service/README.md) implements four POST
+routes returning `{ data: ServiceTicket }`, with strict shared request contracts:
+
+- `/api/v1/tickets`: `{ unitId, faultDescription }`, 201 OPEN. Customer and job
+  IDs derive from the actual unit installation; client linkage/status overrides
+  are rejected. Missing installation association is 409 `INSTALLATION_REQUIRED`.
+- `/api/v1/tickets/:id/assess`: `{ version, asOfDate, requestedScope }`, 200
+  ASSESSED from OPEN. Input `asOfDate` is a timezone-qualified instant no later
+  than now. Snapshot contains the complete warranty result (including its IST
+  date, saved policy revision/scope/dates and reason), actual requested work scope
+  and server `assessedAt`. Snapshot billability is not a final invoice; component
+  coverage does not promise free unrelated labour. Later policy edits do not
+  recalculate the saved decision.
+- `/api/v1/tickets/:id/resolve`: `{ version, resolutionDetails }`, 200
+  AWAITING_CUSTOMER_CONFIRMATION from ASSESSED or IN_PROGRESS. Requires a saved
+  assessment, records work notes and server `resolvedAt`. Direct ASSESSED to
+  resolution is supported for Task 2.2; IN_PROGRESS is reserved for repair work.
+- `/api/v1/tickets/:id/confirm`: `{ version, confirmerName, channel, confirmedAt,
+  notes? }`, 200 CLOSED from AWAITING_CUSTOMER_CONFIRMATION only. Name must be
+  nonblank, channel is PHONE/WHATSAPP/IN_PERSON and confirmedAt is a timezone-
+  qualified instant at or after resolution and no later than now. Missing facts
+  fail with 400 `INVALID_INPUT`, leaving the ticket open. The response labels
+  these as staff-recorded confirmation facts; it is not a customer portal event.
+
+All actions require a positive integer `version`. Status/version compare-and-set
+saves each transition and facts atomically; conflicts return 409 `STALE_VERSION`
+or `INVALID_TICKET_TRANSITION`. CLOSED is terminal. The response contains
+identity/linkage, status/version, fault, nullable assessmentSnapshot,
+resolutionDetails/resolvedAt, nullable `confirmation: CustomerConfirmation`,
+closedAt, createdAt and updatedAt. No raw ORM rows or contact details are exposed.
+
+Production routes return 503 `SERVICE_AUTH_UNAVAILABLE` before reading tickets
+until D2 integrates verified cross-customer staff permission. Unit/Job reads and
+the coordinated D4 migration are also outstanding. Missing ticket tables/columns
+return `SERVICE_SCHEMA_UNAVAILABLE`. Resolution in this task records notes only;
+Task 3.1/3.2 must orchestrate stock/finance with command idempotency and one shared
+transaction. No billing or stock effects are posted by these commands.
 
 ## Task 4.1 director reports
 
