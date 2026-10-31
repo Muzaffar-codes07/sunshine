@@ -75,7 +75,12 @@ export class QuotesService {
   async requireAcceptedQuote(tx: Prisma.TransactionClient, id: string): Promise<Quote> {
     const found = await tx.quote.findUnique({ where: { id }, select: { enquiryId: true } });
     if (!found) throw notFound();
-    await tx.$queryRawUnsafe('SELECT id FROM enquiries WHERE id = $1::uuid FOR SHARE', found.enquiryId);
+    const [enquiry] = await tx.$queryRawUnsafe<{ id: string; status: string }[]>('SELECT id, status FROM enquiries WHERE id = $1::uuid FOR SHARE', found.enquiryId);
+    if (!enquiry) throw new ApiError(404, 'NOT_FOUND', 'Enquiry not found');
+    if (enquiry.status !== 'QUALIFIED') {
+      throw blocked('ENQUIRY_NOT_QUALIFIED', 'Only an open qualified enquiry can be confirmed.',
+        'Keep closed enquiries as history; confirm only a current qualified enquiry.');
+    }
     const row = await tx.quote.findUnique({ where: { id }, include: quoteInclude });
     if (!row) throw notFound();
     await this.requireLatest(tx, row);

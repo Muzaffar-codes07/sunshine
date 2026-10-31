@@ -43,7 +43,8 @@ winner. Historical accepted and declined revisions stay readable.
 QuotesModule exports QuotesService. C5 calls
 requireAcceptedQuote(tx, quoteId) inside its own transaction. The helper:
 
-- locks the enquiry FOR SHARE so a successor cannot race confirmation;
+- locks the enquiry FOR SHARE so a successor or closure cannot race confirmation;
+- requires the enquiry to remain QUALIFIED; archived/disqualified enquiries retain readable quotes but cannot create a new sale;
 - requires this to be the latest accepted quote;
 - validates and returns the immutable quote DTO, including COMPONENT line UUIDs;
 - uses the caller transaction and never commits independently.
