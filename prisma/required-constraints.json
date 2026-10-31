@@ -1338,6 +1338,13 @@
       "kind": "check",
       "owner": "D3",
       "definition": "CHECK (((status = 'DRAFT'::\"DispatchStatus\") OR ((\"dispatchedAt\" IS NOT NULL) AND (\"dispatchedById\" IS NOT NULL) AND (\"issueDocumentId\" IS NOT NULL))))"
+    },
+    {
+      "name": "product_warranty_policies_terms_valid",
+      "table": "product_warranty_policies",
+      "kind": "check",
+      "owner": "D4",
+      "definition": "CHECK (((btrim((\"policyName\")::text) <> ''::text) AND (btrim((revision)::text) <> ''::text) AND (btrim((scope)::text) <> ''::text) AND ((\"durationMonths\" >= 1) AND (\"durationMonths\" <= 1200))))"
     }
   ]
 }
