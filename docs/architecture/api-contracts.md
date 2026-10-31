@@ -13,8 +13,8 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D2 | `/auth/login`, `/auth/logout`, `/auth/me`; `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
 | D2 | `/products`, `/packages` (read APIs and caller-transaction catalogue helpers) |
 | D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
-| D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/locations`, `/units`, `/orders/:id/allocations` (implemented); `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
-| D4 | `/jobs` and schedule/start/complete actions, `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
+| D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule` (implemented); start/complete actions on `/jobs`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
+| D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
 ## H1.5 interfaces
 
