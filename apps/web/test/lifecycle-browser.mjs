@@ -43,7 +43,7 @@ try {
   await app.listen(0, '127.0.0.1');
   const prisma = app.get(PrismaService);
   await seedCatalogue(prisma);
-  vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), server: {
+  vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), cacheDir: resolve(root, 'var/issue44-browser-vite-cache'), server: {
     host: '127.0.0.1', port: 5145, strictPort: true, proxy: { '/api': await app.getUrl() },
   } });
   await vite.listen();
