@@ -65,7 +65,7 @@ const expectError = async (response, status, code) => {
   assert.equal(response.status, status, JSON.stringify(body)); assert.equal(body.error.code, code); return body.error;
 };
 // Posts a movement the way later slices will: through a document line and the single writer.
-const postMove = (kind, productId, quantity, locations) => prisma.$transaction(async (tx) => {
+const postMovement = (kind, productId, quantity, locations) => prisma.$transaction(async (tx) => {
   const document = await tx.stockDocument.create({ data: {
     kind, reference: 'TEST-' + randomUUID(), payloadHash: 'test', actorId: staff.WAREHOUSE, occurredAt: new Date(), ...locations,
   } });
@@ -113,7 +113,7 @@ test('bulk receipts keep a moving average with exact decimals, in posting order,
 test('quarantined stock is separate from usable stock and does not affect the average', async () => {
   const product = await prisma.product.findFirstOrThrow({ where: { trackingMode: 'BULK', active: true, id: { notIn: [bulk.id] }, costBasis: null } });
   assert.equal((await post(receipt([{ productId: product.id, quantity: '10', unitCost: '100.00' }]))).status, 201);
-  await postMove('TRANSFER', product.id, '4', { fromLocationId: main.id, toLocationId: quarantine.id });
+  await postMovement('TRANSFER', product.id, '4', { fromLocationId: main.id, toLocationId: quarantine.id });
   assert.equal(await onHand(product.id), '6.000'); assert.equal(await onHand(product.id, quarantine.id), '4.000');
   assert.equal((await post(receipt([{ productId: product.id, quantity: '6', unitCost: '200.00' }]))).status, 201);
   assert.equal((await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: product.id } })).averageCost.toFixed(6), '150.000000');
@@ -190,8 +190,8 @@ test('a duplicate serial is refused, including between concurrent receipts, with
 test('stock can never go negative, and two movements racing for the last stock have one winner', async () => {
   const product = await prisma.product.findFirstOrThrow({ where: { trackingMode: 'BULK', active: true, costBasis: null } });
   assert.equal((await post(receipt([{ productId: product.id, quantity: '5', unitCost: '10.00' }]))).status, 201);
-  await assert.rejects(postMove('ISSUE', product.id, '5.001', { fromLocationId: main.id }), (error) => error.code === 'INSUFFICIENT_STOCK');
-  const results = await Promise.allSettled([1, 2].map(() => postMove('ISSUE', product.id, '3', { fromLocationId: main.id })));
+  await assert.rejects(postMovement('ISSUE', product.id, '5.001', { fromLocationId: main.id }), (error) => error.code === 'INSUFFICIENT_STOCK');
+  const results = await Promise.allSettled([1, 2].map(() => postMovement('ISSUE', product.id, '3', { fromLocationId: main.id })));
   assert.deepEqual(results.map((result) => result.status).sort(), ['fulfilled', 'rejected']);
   assert.equal(results.find((result) => result.status === 'rejected').reason.code, 'INSUFFICIENT_STOCK');
   assert.equal(await onHand(product.id), '2.000');
