@@ -1,15 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { resolve } from 'node:path';
-import { PrismaService } from './platform/prisma.service';
+import { PlatformModule } from './platform/platform.module';
 import { HealthController } from './platform/health.controller';
+import { SalesModule } from './sales/sales.module';
 
 @Module({
-  imports: [ServeStaticModule.forRoot({
-    rootPath: resolve(__dirname, '../../web/dist'),
-    exclude: ['/api/{*path}'],
-  })],
+  imports: [
+    ServeStaticModule.forRoot({
+      rootPath: resolve(__dirname, '../../web/dist'),
+      exclude: ['/api/{*path}'],
+    }),
+    PlatformModule,
+    SalesModule,
+  ],
   controllers: [HealthController],
-  providers: [PrismaService],
 })
 export class AppModule {}
