@@ -296,8 +296,8 @@ model PackageItem {
 }
 
 // D4: warranty, service, cost ledger and subsidy projections (Task 1.2).
-// Unit/Job relations follow D3's reviewed handoff. The initial D4 migration at
-// 20261031260000 remains held for Files 20261031255000 and its actual evidence FK.
+// Unit/Job/File relations follow the reviewed D2/D3 handoffs. The initial D4
+// migration at 20261031260000 follows Files 20261031255000.
 // See docs/architecture/d4-schema-handoff.md.
 
 enum TicketStatus {
@@ -446,6 +446,7 @@ model SubsidyMilestone {
   approvalDate   DateTime?              @db.Timestamptz(3)
   amount         Decimal                @db.Decimal(14, 2)
   evidenceFileId String?                @db.Uuid
+  evidenceFile   File?                  @relation("SubsidyEvidence", fields: [evidenceFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   pendingDocuments   String[]           @default([])
   responsibleOwnerId String?             @db.Uuid
   responsibleOwner   User?               @relation("SubsidyResponsibleOwner", fields: [responsibleOwnerId], references: [id], onDelete: Restrict)
@@ -1014,6 +1015,7 @@ model File {
   contextId String? @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  subsidyEvidenceMilestones SubsidyMilestone[] @relation("SubsidyEvidence")
   @@index([contextType, contextId])
   @@index([uploadedById, createdAt])
   @@map("files")

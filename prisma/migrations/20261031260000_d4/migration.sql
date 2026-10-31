@@ -1,4 +1,4 @@
--- DRAFT: activate only after reviewed Files 20261031255000 is on main.
+-- D4: coordinated warranty/service/cost/subsidy migration after Files 20261031255000.
 -- D3 allocation ticketLineId/XOR and unit predecessor changes are separate.
 BEGIN;
 

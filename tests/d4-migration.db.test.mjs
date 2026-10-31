@@ -1,5 +1,5 @@
-// Opt-in database acceptance for the draft. Apply main, the explicit File
-// dependency and the draft first. No .env loading, resets or placeholder tables.
+// Opt-in database acceptance for the coordinated D4 migration. Apply the
+// active queue first. No .env loading, resets or placeholder tables.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -169,14 +169,14 @@ test('warranty uniqueness, replacement lineage pairing and confirmation ordering
   assert.equal(closed.status, 'CLOSED');
 });
 
-test('a missing File prerequisite rolls back the entire draft, including its new types', async () => {
+test('a missing File prerequisite rolls back the entire migration, including its new types', async () => {
   const schema = `d4_atomicity_${randomUUID().replaceAll('-', '')}`;
   const isolated = new Client({ connectionString: testUrl }); await isolated.connect();
   try {
     await isolated.query(`CREATE SCHEMA "${schema}"`);
     await isolated.query(`SET search_path TO "${schema}", public`);
-    const migration = await readFile(new URL('../prisma/drafts/20261031260000_d4/migration.sql', import.meta.url), 'utf8');
-    // Fault injection only: the real draft is unchanged. Its File dependency
+    const migration = await readFile(new URL('../prisma/migrations/20261031260000_d4/migration.sql', import.meta.url), 'utf8');
+    // Fault injection only: the real migration is unchanged. Its File dependency
     // fails late, after all five new tables have been created in this schema.
     await assert.rejects(isolated.query(migration.replace('REFERENCES "files"', 'REFERENCES "d4_missing_file_prerequisite"')), databaseError('42P01'));
     await isolated.query('ROLLBACK');

@@ -88,9 +88,10 @@ appropriate for current demo scope, not an unbounded bulk-export implementation.
    `<= asOf`; period `>= start AND < end AND <= asOf`. Read completion/unfinished
    workflow steps in that snapshot. Never multiply financial detail rows via joins.
    Missing jobs return null. Do not implement this interface with fixture data.
-3. D3 coordinates the queued D4 migration and upstream FKs. Task 4.1 adds
+3. The coordinated D4 migration and real upstream FKs are now in the PR queue. Task 4.1 adds
    `SubsidyMilestone.pendingDocuments` and optional `responsibleOwnerId` (Restrict
-   relation to User). These definitions are **not deployed**. Existing PENDING
+   relation to User). They have been replayed only on disposable test databases;
+   deploy the reviewed queue explicitly in the target environment. Existing PENDING
    maps to report PENDING_DOCS and RECEIVED to DISBURSED. REJECTED has its own
    bucket; no records disappear because they use the existing persisted enum.
    Missing schema maps to `REPORTING_SCHEMA_UNAVAILABLE` (503).
