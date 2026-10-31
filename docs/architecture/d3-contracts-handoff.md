@@ -1,6 +1,6 @@
 # D3 inventory and field contract handoff
 
-Status: shared contracts plus implemented inventory receipts, stock reads, serial traceability, order reservations/release, job creation/scheduling and dispatch draft/scan services. They follow the owner-selected [stock ledger rules](data-model.md#stock-ledger-owner-decision-31-oct). Actual dispatch cost/issue posting, delivery/warranty, repair-ticket stock and field evidence remain incomplete. D1 owns production UI and actual-device acceptance; Tuhin owns D3. Codex currently works independently under the owner's instruction.
+Status: shared contracts plus implemented inventory receipts, stock reads, serial traceability, order reservations/release, job creation/scheduling and dispatch draft/scan services. They follow the owner-selected [stock ledger rules](data-model.md#stock-ledger-owner-decision-31-oct). Installation start/completion with evidence and time records is implemented by #48; actual dispatch cost/issue posting, delivery/warranty, repair-ticket stock and labour cost posting remain incomplete. D1 owns production UI and actual-device acceptance; Tuhin owns D3. Codex currently works independently under the owner's instruction.
 
 ## Dependencies and scope
 
@@ -54,9 +54,9 @@ D3 consumes D4’s single cost writer and warranty activation helper, passing th
 
 The original eighteen D3 schema tests cover serials, exact quantities/costs, allocation sources, scan methods and field input. Later tests add runtime receipt/stock/reservation/traceability and draft/scan evidence cases; see the inventory README and issue #13 for head-pinned execution results. Contract tests alone do not prove authorization, concurrency, delivery activation, uploads or physical scanner support.
 
-Remaining integrated acceptance: connect D4's real source/cost/warranty helpers and D2 private files, finish issue/delivery/repair/field commands, prove their PostgreSQL races/retries, connect D1 UI and run actual-device checks. A draft with complete scan evidence is still not dispatched. Required baseline workflows remain incomplete until these gates have evidence.
+Remaining integrated acceptance: connect D4's real source/cost/warranty helpers and D2 private files, finish issue/delivery/repair and labour-cost commands, prove their PostgreSQL races/retries, connect D1 UI and run actual-device checks. A draft with complete scan evidence is still not dispatched. Required baseline workflows remain incomplete until these gates have evidence.
 
-D2 private files now use the D3 JOB access adapter: actual order/quote/enquiry/customer checks, current assignment, role matrix, completed-job write freeze and caller-transaction Job-before-File locking. TICKET remains unconfigured. Upload/attachment access is implemented, while photo/signature completion associations, completion commands and byte/evidence gates in those commands remain pending S03.
+D2 private files now use the D3 JOB access adapter: actual order/quote/enquiry/customer checks, current assignment, role matrix, completed-job write freeze and caller-transaction Job-before-File locking. TICKET remains unconfigured. Installation start/completion, photo/signature associations and byte/evidence gates were subsequently implemented in #48. Labour cost posting remains dependent on D4; start currently uses allocated stock rather than delivery pending I07. Production UI and actual-device acceptance remain separate.
 
 ### Review clarifications
 

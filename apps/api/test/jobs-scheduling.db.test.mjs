@@ -175,7 +175,7 @@ test('taking a technician off and putting them back keeps both records', async (
 test('a job that has started can no longer be rescheduled', async () => {
   const { jobId } = await newJob();
   await ok(schedule(jobId, {}));
-  await prisma.job.update({ where: { id: jobId }, data: { status: 'IN_PROGRESS' } });
+  await prisma.job.update({ where: { id: jobId }, data: { status: 'IN_PROGRESS', startedAt: new Date(), startedById: staff.TECH_A.id } });
   await refused(post(`/jobs/${jobId}/schedule`, { expectedVersion: 2, scheduledStart: start, scheduledFinish: finish, technicianIds: [staff.TECH_B.id] }), 409, 'JOB_ALREADY_STARTED');
   assert.deepEqual((await dbJob(jobId)).assignments.map((row) => row.technicianId), [staff.TECH_A.id]);
 });

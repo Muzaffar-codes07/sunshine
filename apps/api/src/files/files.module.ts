@@ -5,9 +5,9 @@ import { AuthGuard } from '../auth/auth.guard';
 import { AuthModule } from '../auth/auth.module';
 import type { AuthenticatedStaffRequest } from '../auth/auth.types';
 import { ZodValidationPipe } from '../platform/zod-validation.pipe';
+import { JobFileAccessModule } from '../field/job-file-access';
 import { FilesService, type UploadedBytes } from './files.service';
 import { PrivateFileStore } from './private-file.store';
-import { JobFileAccessModule } from '../field/job-file-access.module';
 
 @Controller('files')
 @UseGuards(AuthGuard)

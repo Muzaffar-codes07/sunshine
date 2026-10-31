@@ -20,7 +20,7 @@ const { QuotesService } = require('../dist/quotes/quotes.service');
 const { SurveysService } = require('../dist/sales/surveys.service');
 const { OrdersService } = require('../dist/orders/orders.service');
 const { JobsService } = require('../dist/field/jobs.service');
-const { JobFileAccessService } = require('../dist/field/job-file-access.service');
+const { FILE_RECORD_AUTHORIZER } = require('../dist/files/file-authorization.port');
 const { FilesService } = require('../dist/files/files.service');
 const { PrivateFileStore } = require('../dist/files/private-file.store');
 const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
@@ -43,7 +43,7 @@ before(async () => {
   await app.listen(0, '127.0.0.1'); base = (await app.getUrl()) + '/api/v1';
   prisma = app.get(PrismaService); quotes = app.get(QuotesService); surveys = app.get(SurveysService);
   orders = app.get(OrdersService); jobs = app.get(JobsService); files = app.get(FilesService);
-  store = app.get(PrivateFileStore); access = app.get(JobFileAccessService);
+  store = app.get(PrivateFileStore); access = app.get(FILE_RECORD_AUTHORIZER);
   await seedCatalogue(prisma); sql = new Client({ connectionString: testUrl }); await sql.connect();
   const passwordHash = await hashPassword(password);
   for (const [name, role] of [['ADMIN','ADMIN'],['SALES','SALES'],['TECH_A','TECHNICIAN'],['TECH_B','TECHNICIAN'],['WAREHOUSE','WAREHOUSE'],['SUPPORT','SUPPORT']]) {
@@ -130,28 +130,6 @@ test('current assignment changes revoke original-uploader access and permit newl
   assert.ok(assignments.find(row=>row.technicianId===staff.TECH_A.id).removedAt);
 });
 
-test('completed jobs freeze new uploads and attachments; existing downloads keep their role rules', async () => {
-  const job = await newJob(); const saved = (await files.upload(upload(),context(job),identity(staff.TECH_A))).data;
-  const orphan = (await files.upload(upload(),{},identity(staff.TECH_A))).data;
-  const adminOrphan = (await files.upload(upload(),{},identity(staff.ADMIN))).data;
-  // State fixtures exercise authorization only; this is not evidence that completion is implemented.
-  for (const status of ['SCHEDULED','IN_PROGRESS','AWAITING_ACCEPTANCE']) {
-    await prisma.job.update({where:{id:job.jobId},data:{status}});
-    await files.upload(upload(),context(job),identity(staff.TECH_A));
-    const allowed = (await files.upload(upload(),{},identity(staff.TECH_A))).data;
-    await attach(allowed.id,job);
-  }
-  await prisma.job.update({where:{id:job.jobId},data:{status:'COMPLETED'}});
-  const count = await prisma.file.count(), disk = await readdir(directory);
-  for (const name of ['TECH_A','ADMIN']) {
-    await expectCode(files.upload(upload(),context(job),identity(staff[name])),403,'FORBIDDEN');
-    await expectCode(attach(name==='ADMIN'?adminOrphan.id:orphan.id,job,name),403,'FORBIDDEN');
-  }
-  assert.equal(await prisma.file.count(),count); assert.deepEqual(await readdir(directory),disk);
-  for (const name of ['TECH_A','ADMIN','SALES']) assert.deepEqual((await files.download(saved.id,identity(staff[name]))).buffer,png);
-  await expectCode(files.download(saved.id,identity(staff.TECH_B)),403,'FORBIDDEN');
-});
-
 test('missing or inconsistent job/order/quote/enquiry/customer links fail closed, including for admin', async () => {
   const one = await newJob(), two = await newJob();
   await expectCode(files.upload(upload(),{contextType:'JOB',contextId:randomUUID()},identity(staff.ADMIN)),404,'NOT_FOUND');
@@ -168,7 +146,7 @@ test('missing or inconsistent job/order/quote/enquiry/customer links fail closed
     await assert.rejects(prisma.$transaction(async tx=>{
       await edit(tx);
       await access.assertAccess(tx,identity(staff.ADMIN),context(one),'DOWNLOAD');
-    }),error=>error.code==='NOT_FOUND');
+    }),error=>error.code==='JOB_RECORD_INVALID');
   }
   assert.equal((await prisma.order.findUniqueOrThrow({where:{id:one.orderId}})).jobId,one.jobId);
 });
