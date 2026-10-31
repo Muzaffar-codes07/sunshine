@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 
@@ -21,7 +21,7 @@ let commands;
 let actor;
 let otherActor;
 
-const phone = () => `6${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
+const phone = () => '6' + String(randomInt(1e9)).padStart(9, '0');
 const user = () => prisma.user.create({ data: { email: `${randomUUID()}@test.local`, displayName: 'Cashier', passwordHash: 'x', role: 'SALES' } });
 
 /** A stand-in business effect: creates one customer and returns the response body, counting how often it ran. */
