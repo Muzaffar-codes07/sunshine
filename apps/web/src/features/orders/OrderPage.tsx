@@ -7,6 +7,7 @@ import { DetailPattern, ListPattern } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { useStaffSession } from '../auth/session';
+import { CrewSchedule } from '../field/CrewSchedule';
 import { describeProblem, formatWhen, humanize } from '../sales/queries';
 import { PaymentForm } from './PaymentForm';
 
@@ -78,6 +79,7 @@ function FinancialOrder({ id, actor }: { id: string; actor: StaffIdentity }) {
     <p><Link to={`/workspace/sales/enquiries/${item.enquiryId}`}>Back to enquiry</Link></p>
     <h1>{item.displayNumber}</h1><button onClick={() => window.print()}>Print order and invoice</button>
     <OrderFacts order={item} />
+    {item.jobId && <CrewSchedule jobId={item.jobId} enquiryId={item.enquiryId} />}
     <DetailPattern title={invoice.displayNumber} entries={[
       { id: 'status', label: 'Status', value: humanize(invoice.status) },
       { id: 'subtotal', label: 'Subtotal', value: `₹${invoice.subtotal}` },
