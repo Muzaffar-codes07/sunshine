@@ -24,12 +24,13 @@ test('constraint checker rejects semantic drift and isolates schema/table identi
       CONSTRAINT probe_overlap EXCLUDE USING gist (during WITH &&));
       CREATE UNIQUE INDEX probe_active ON probe(unit_id) WHERE active;
       CREATE TABLE decoy (stock integer, CONSTRAINT probe_stock CHECK (true));`);
-    const { rows } = await client.query(`SELECT conname AS name, pg_get_constraintdef(oid) AS definition,
-      CASE contype WHEN 'c' THEN 'check' ELSE 'exclusion' END AS kind FROM pg_constraint
-      WHERE conrelid='probe'::regclass AND contype IN ('c','x') ORDER BY conname`);
+    const { rows } = await client.query(`SELECT c.conname AS name, t.relname AS "table", pg_get_constraintdef(c.oid) AS definition,
+      CASE c.contype WHEN 'c' THEN 'check' ELSE 'exclusion' END AS kind FROM pg_constraint c
+      JOIN pg_class t ON t.oid=c.conrelid
+      WHERE c.connamespace=$1::regnamespace AND c.contype IN ('c','x') ORDER BY t.relname,c.conname`, [schema]);
     const { rows: [index] } = await client.query(`SELECT pg_get_indexdef('probe_active'::regclass) AS definition`);
-    const required = [...rows, { name: 'probe_active', kind: 'unique_partial_index', definition: index.definition }]
-      .map((entry) => ({ ...entry, table: 'probe', owner: 'D3' }));
+    const required = [...rows, { name: 'probe_active', table: 'probe', kind: 'unique_partial_index', definition: index.definition }]
+      .map((entry) => ({ ...entry, owner: 'D3' }));
     const manifest = join(temp, 'manifest.json');
     const save = (entries = required) => writeFile(manifest, JSON.stringify({ required: entries }));
     await save();
@@ -67,6 +68,18 @@ test('constraint checker rejects semantic drift and isolates schema/table identi
     expect(1, 'duplicate manifest rejected');
     await save(required.map(({ definition, ...entry }) => entry));
     expect(1, 'missing expected definitions rejected');
+    await save([]);
+    assert.match(expect(1, 'empty manifest rejected').stderr, /empty manifest/);
+    await save();
+    await client.query('ALTER TABLE probe ADD CONSTRAINT extra_check CHECK (true)');
+    assert.match(expect(1, 'unlisted CHECK rejected').stderr, /unlisted check/);
+    await client.query('ALTER TABLE probe DROP CONSTRAINT extra_check');
+    await client.query('CREATE UNIQUE INDEX extra_partial ON probe(wrong_id) WHERE active');
+    assert.match(expect(1, 'unlisted partial unique index rejected').stderr, /unlisted unique_partial_index/);
+    await client.query('DROP INDEX extra_partial');
+    await client.query('ALTER TABLE probe ADD CONSTRAINT extra_exclusion EXCLUDE USING gist (during WITH =)');
+    assert.match(expect(1, 'unlisted exclusion rejected').stderr, /unlisted exclusion/);
+    await client.query('ALTER TABLE probe DROP CONSTRAINT extra_exclusion');
     console.log(`${checks} checker regression scenarios passed.`);
   } finally {
     // Only this test's UUID schema, on an explicitly named disposable test DB.
