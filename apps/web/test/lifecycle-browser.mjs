@@ -55,15 +55,25 @@ try {
   const password = 'issue44-browser-only-password';
   const staff = {};
   for (const role of ['ADMIN', 'SALES', 'TECHNICIAN', 'WAREHOUSE', 'SUPPORT']) staff[role] = await prisma.user.create({ data: {
-    email: `${randomUUID()}@issue44.test`, displayName: `${role} browser tester`, role, passwordHash: await hashPassword(password),
+    email: `${randomUUID()}@issue44.test`, displayName: `${role} browser tester ${randomUUID().slice(0, 6)}`, role, passwordHash: await hashPassword(password),
   } });
   const identity = role => ({ id: staff[role].id, email: staff[role].email, role, displayName: staff[role].displayName });
   const context = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(context);
   const login = await context.request.post('/api/v1/auth/login', { headers: { origin }, data: { email: staff.ADMIN.email, password } });
   assert.equal(login.status(), 200);
+  const roleContexts = new Map([['ADMIN', context]]);
   const page = await context.newPage();
   activePage = page;
   const errors = []; page.on('pageerror', error => { errors.push(error.message); console.error('BROWSER ERROR', error.message); });
+  async function rolePage(role) {
+    let scoped = roleContexts.get(role);
+    if (!scoped) {
+      scoped = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(scoped);
+      const response = await scoped.request.post('/api/v1/auth/login', { headers: { origin }, data: { email: staff[role].email, password } }); assert.equal(response.status(), 200);
+      roleContexts.set(role, scoped);
+    }
+    const scopedPage = await scoped.newPage(); scopedPage.on('pageerror', error => errors.push(error.message)); return scopedPage;
+  }
   async function post(path, body) {
     const response = await context.request.post('/api/v1' + path, { headers: { origin, 'idempotency-key': randomUUID() }, data: body });
     const json = await response.json(); assert.ok(response.ok(), JSON.stringify(json)); return json.data;
@@ -71,7 +81,7 @@ try {
   for (let run = 1; run <= 3; run++) {
     // Transparent synthetic fixture: approved survey, accepted quote, paid order and physical stock.
     let order, customer;
-    if (run === 1) ({ order, customer } = await createSalesOrderFromBrowser({ browser, adminPage: page, staff, password, prisma, origin, contexts, errors }));
+    if (run === 1) ({ order, customer } = await createSalesOrderFromBrowser({ browser, adminPage: page, staff, password, prisma, origin, contexts, errors, registerContext: (role, scoped) => roleContexts.set(role, scoped) }));
     else {
     customer = await prisma.customer.create({ data: { name: `Browser Customer ${run}`, phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '44 Solar Road', city: 'Nagpur', pincode: '440001' } });
     const enquiry = await prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'QUALIFIED', contactName: customer.name, siteAddressLine: customer.addressLine, siteCity: customer.city, sitePincode: customer.pincode } });
@@ -87,7 +97,7 @@ try {
     await app.get(IdempotencyService).run({ actorId: staff.ADMIN.id, key: randomUUID(), action: 'PAYMENT_RECEIPT', payload: payment }, tx => app.get(InvoicesService).recordPayment(tx, order.invoice.id, payment, identity('ADMIN')));
     }
     const job = await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } });
-    await app.get(JobsService).schedule(job.id, { expectedVersion: job.version, scheduledStart: new Date(Date.now() + 86400000).toISOString(), scheduledFinish: new Date(Date.now() + 90000000).toISOString(), technicianIds: [staff.TECHNICIAN.id] }, identity('SALES'));
+    if (run !== 1) await app.get(JobsService).schedule(job.id, { expectedVersion: job.version, scheduledStart: new Date(Date.now() + 86400000).toISOString(), scheduledFinish: new Date(Date.now() + 90000000).toISOString(), technicianIds: [staff.TECHNICIAN.id] }, identity('SALES'));
     const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
     const products = await prisma.product.findMany({ where: { id: { in: order.packing.map(line => line.productId) } } });
     for (const product of products) {
@@ -96,61 +106,68 @@ try {
     }
     console.log('Prepared fixture', run, order.id, job.id);
     const begin = Date.now();
-    await page.goto(`/workspace/warehouse/orders/${order.id}`);
-    await page.getByRole('button', { name: 'Reserve all stock' }).click();
-    await page.getByRole('button', { name: 'Prepare dispatch', exact: true }).click();
-    await page.getByRole('heading', { name: 'Scan equipment' }).waitFor();
+    const fulfilmentPage = run === 3 ? await rolePage('WAREHOUSE') : page;
+    activePage = fulfilmentPage;
+    fulfilmentPage.on('response', async response => { if (response.request().method() === 'POST' && response.status() >= 400) console.error('COMMAND REFUSED', response.status(), await response.text()); });
+    await fulfilmentPage.goto(`/workspace/warehouse/orders/${order.id}`);
+    await fulfilmentPage.getByRole('button', { name: 'Reserve all stock' }).click();
+    await fulfilmentPage.getByRole('button', { name: 'Prepare dispatch', exact: true }).click();
+    await fulfilmentPage.getByRole('heading', { name: 'Scan equipment' }).waitFor();
     const allocated = await prisma.allocation.findMany({ where: { jobId: job.id, unitId: { not: null } }, include: { unit: true } });
     // Typed input is persisted but never qualifies as physical scan evidence.
-    await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocated[0].unit.rawSerial);
-    await page.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
-    await page.getByText(`0 of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
-    await page.getByText('Recorded only', { exact: true }).waitFor();
-    await page.getByLabel('Input source', { exact: true }).selectOption('SCANNER');
+    await fulfilmentPage.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocated[0].unit.rawSerial);
+    await fulfilmentPage.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
+    await fulfilmentPage.getByText(`0 of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
+    await fulfilmentPage.getByText('Recorded only', { exact: true }).waitFor();
+    await fulfilmentPage.getByLabel('Input source', { exact: true }).selectOption('SCANNER');
     for (const [index, allocation] of allocated.entries()) {
-      await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocation.unit.rawSerial);
-      await page.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
-      await page.getByText(`${index + 1} of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
-      if (index + 1 < allocated.length) await page.waitForFunction(() => document.activeElement?.id.startsWith('scan-'));
+      await fulfilmentPage.getByRole('textbox', { name: 'Serial number', exact: true }).fill(allocation.unit.rawSerial);
+      await fulfilmentPage.getByRole('textbox', { name: 'Serial number', exact: true }).press('Enter');
+      await fulfilmentPage.getByText(`${index + 1} of ${allocated.length} required units scanned.`, { exact: true }).waitFor();
+      if (index + 1 < allocated.length) await fulfilmentPage.waitForFunction(() => document.activeElement?.id.startsWith('scan-'));
     }
     // Commit response loss: real server commits; browser retries the exact key and body.
     const commands = [];
     let lose = true;
-    await page.route('**/api/v1/dispatches/*/dispatch', async route => {
+    await fulfilmentPage.route('**/api/v1/dispatches/*/dispatch', async route => {
       const request = route.request(); commands.push({ key: request.headers()['idempotency-key'], body: request.postData() });
       const response = await route.fetch();
       if (lose) { lose = false; assert.equal(response.status(), 200); await route.abort('failed'); }
       else await route.fulfill({ response });
     });
-    await page.getByRole('button', { name: 'Post dispatch', exact: true }).click();
-    await page.getByRole('button', { name: 'Retry this request' }).click();
-    await page.getByRole('button', { name: 'Record delivery' }).waitFor();
+    await fulfilmentPage.getByRole('button', { name: 'Post dispatch', exact: true }).click();
+    await fulfilmentPage.getByRole('button', { name: 'Retry this request' }).click();
+    await fulfilmentPage.getByRole('button', { name: 'Record delivery' }).waitFor();
     assert.equal(commands.length, 2); assert.deepEqual(commands[0], commands[1]);
-    await page.unroute('**/api/v1/dispatches/*/dispatch');
-    await page.getByRole('button', { name: 'Record delivery' }).click();
-    await page.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
-    await page.reload(); await page.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
+    await fulfilmentPage.unroute('**/api/v1/dispatches/*/dispatch');
+    await fulfilmentPage.getByRole('button', { name: 'Record delivery' }).click();
+    await fulfilmentPage.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
+    await fulfilmentPage.reload(); await fulfilmentPage.getByRole('heading', { name: 'Delivered', exact: true }).waitFor();
     console.log('Delivered', run);
-    await page.goto(`/workspace/field-service/jobs/${job.id}`);
-    await page.getByRole('button', { name: 'Start job', exact: true }).click();
-    await page.getByRole('heading', { name: 'Complete the job', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Complete job', exact: true }).click();
-    await page.getByText('Add at least one roof photo.', { exact: true }).waitFor();
-    await page.locator('input[type=file]').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1sAAAAASUVORK5CYII=', 'base64') });
-    await page.getByRole('button', { name: "Don't use" }).waitFor();
-    await page.reload(); await page.getByRole('button', { name: "Don't use" }).waitFor();
-    const canvas = page.locator('canvas'); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox(); assert.ok(box);
-    await page.mouse.move(box.x + 20, box.y + 30); await page.mouse.down(); await page.mouse.move(box.x + 120, box.y + 60, { steps: 10 }); await page.mouse.up();
-    await page.getByRole('button', { name: 'Export PNG' }).click();
-    await page.getByText('Signature saved.', { exact: false }).waitFor();
-    for (const value of ['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION']) await page.locator(`input[name=check][value=${value}]`).check();
-    assert.equal(await page.locator('input[name=check]:checked').count(), 5);
-    await page.getByRole('button', { name: 'Complete job', exact: true }).click();
-    await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
-    await page.reload(); await page.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
-    assert.equal(await page.getByAltText('Roof photo 1').evaluate(img => img.complete && img.naturalWidth > 0), true);
-    assert.equal(await page.getByAltText('Customer signature').evaluate(img => img.complete && img.naturalWidth > 0), true);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const executionPage = run === 2 ? await rolePage('TECHNICIAN') : page;
+    activePage = executionPage;
+    await executionPage.goto(`/workspace/field-service/jobs/${job.id}`);
+    await executionPage.getByRole('button', { name: 'Start job', exact: true }).click();
+    await executionPage.getByRole('heading', { name: 'Complete the job', exact: true }).waitFor();
+    await executionPage.getByRole('button', { name: 'Complete job', exact: true }).click();
+    await executionPage.getByText('Add at least one roof photo.', { exact: true }).waitFor();
+    await executionPage.locator('input[type=file]').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOUi5rGwMDAxMDAwMDAAAAMWgESNbkt0AAAAABJRU5ErkJggg==', 'base64') });
+    await executionPage.getByRole('button', { name: "Don't use" }).waitFor();
+    await executionPage.reload(); await executionPage.getByRole('button', { name: "Don't use" }).waitFor();
+    const canvas = executionPage.locator('canvas'); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox(); assert.ok(box);
+    await executionPage.mouse.move(box.x + 20, box.y + 30); await executionPage.mouse.down(); await executionPage.mouse.move(box.x + 120, box.y + 60, { steps: 10 }); await executionPage.mouse.up();
+    await executionPage.getByRole('button', { name: 'Export PNG' }).click();
+    await executionPage.getByText('Signature saved.', { exact: false }).waitFor();
+    for (const value of ['MOUNTING', 'PANELS', 'WIRING', 'EARTHING', 'POWER_GENERATION']) await executionPage.locator(`input[name=check][value=${value}]`).check();
+    assert.equal(await executionPage.locator('input[name=check]:checked').count(), 5);
+    await executionPage.getByRole('button', { name: 'Complete job', exact: true }).click();
+    await executionPage.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
+    await executionPage.reload(); await executionPage.getByRole('heading', { name: 'Completed work', exact: true }).waitFor();
+    await executionPage.getByAltText('Roof photo 1').evaluate(image => image.decode());
+    await executionPage.getByAltText('Customer signature').evaluate(image => image.decode());
+    assert.equal(await executionPage.getByAltText('Roof photo 1').evaluate(img => img.complete && img.naturalWidth > 0), true);
+    assert.equal(await executionPage.getByAltText('Customer signature').evaluate(img => img.complete && img.naturalWidth > 0), true);
+    assert.equal(await executionPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     const saved = await prisma.job.findUniqueOrThrow({ where: { id: job.id }, include: { allocations: true } });
     assert.equal(saved.status, 'COMPLETED'); assert.ok(saved.allocations.every(row => row.status === 'INSTALLED'));
     assert.equal(await prisma.stockDocument.count({ where: { reference: `DISPATCH:${(await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } })).id}` } }), 1);
@@ -165,11 +182,10 @@ try {
     assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), true);
   }
   for (const role of ['SALES', 'WAREHOUSE', 'TECHNICIAN', 'SUPPORT']) {
-    const scoped = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(scoped);
-    const login = await scoped.request.post('/api/v1/auth/login', { headers: { origin }, data: { email: staff[role].email, password } }); assert.equal(login.status(), 200);
+    const scopedPage = await rolePage(role), scoped = scopedPage.context();
     const read = await scoped.request.get(`/api/v1/tickets/${lastTicket.id}`);
     assert.equal(read.status(), role === 'SUPPORT' ? 200 : 403);
-    const scopedPage = await scoped.newPage(); await scopedPage.goto(`/workspace/service?ticket=${lastTicket.id}`);
+    await scopedPage.goto(`/workspace/service?ticket=${lastTicket.id}`);
     if (role === 'SUPPORT') await scopedPage.getByRole('heading', { name: `Ticket ${lastTicket.ticketNumber}`, exact: true }).waitFor();
     else await scopedPage.getByText('Your role cannot open this workspace.', { exact: true }).waitFor();
   }

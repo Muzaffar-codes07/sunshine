@@ -60,8 +60,9 @@ try {
   await page.getByRole('textbox', { name: 'Barcode / serial number' }).press('Enter');
   await page.getByRole('heading', { name: 'Scanned codes (2)' }).waitFor();
   // Real image selection, preview, removal; no pretend server upload.
-  await page.locator('input[type=file]').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1sAAAAASUVORK5CYII=', 'base64') });
+  await page.locator('input[type=file]').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGOUi5rGwMDAxMDAwMDAAAAMWgESNbkt0AAAAABJRU5ErkJggg==', 'base64') });
   await page.getByAltText('Selected capture preview').waitFor();
+  await page.getByAltText('Selected capture preview').evaluate(image => image.decode());
   await page.getByRole('button', { name: 'Remove photo' }).click();
   assert.equal(await page.getByAltText('Selected capture preview').count(), 0);
   // Pointer signature and actual PNG export; clear restores disabled export.

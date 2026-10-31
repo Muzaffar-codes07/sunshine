@@ -1,11 +1,12 @@
 // Browser-only sales acceptance helper. Every business transition goes through the UI.
 import assert from 'node:assert/strict';
 import { randomInt } from 'node:crypto';
-export async function createSalesOrderFromBrowser({ browser, adminPage, staff, password, prisma, origin, contexts, errors }) {
+export async function createSalesOrderFromBrowser({ browser, adminPage, staff, password, prisma, origin, contexts, errors, registerContext }) {
   const start = Date.now();
   const name = `Public Browser ${randomInt(1e8)}`;
-  const newPage = async () => {
+  const newPage = async (role) => {
     const context = await browser.newContext({ baseURL: origin, viewport: { width: 360, height: 800 } }); contexts.push(context);
+    if (role) registerContext(role, context);
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); return page;
   };
   const publicPage = await newPage();
@@ -23,7 +24,7 @@ export async function createSalesOrderFromBrowser({ browser, adminPage, staff, p
   const persisted = await prisma.enquiry.findUniqueOrThrow({ where: { id: enquiryId } });
   const customer = await prisma.customer.findUniqueOrThrow({ where: { id: persisted.customerId } });
   assert.equal(customer.name, name);
-  const sales = await newPage();
+  const sales = await newPage('SALES');
   await sales.goto(`/workspace/sales/enquiries/${enquiryId}`);
   await sales.getByRole('textbox', { name: 'Email', exact: true }).fill(staff.SALES.email);
   await sales.getByLabel('Password', { exact: true }).fill(password);
@@ -45,7 +46,7 @@ export async function createSalesOrderFromBrowser({ browser, adminPage, staff, p
   await dialog.getByRole('button', { name: 'Schedule', exact: true }).click();
   await sales.getByRole('heading', { name: 'Revision 1: Scheduled', exact: true }).waitFor();
   assert.equal(await sales.getByRole('button', { name: 'Create quote', exact: true }).count(), 0, 'unapproved survey cannot quote');
-  const tech = await newPage();
+  const tech = await newPage('TECHNICIAN');
   await tech.goto('/workspace/sales');
   await tech.getByRole('textbox', { name: 'Email', exact: true }).fill(staff.TECHNICIAN.email);
   await tech.getByLabel('Password', { exact: true }).fill(password);
@@ -56,7 +57,7 @@ export async function createSalesOrderFromBrowser({ browser, adminPage, staff, p
   await dialog.getByLabel('Roof direction', { exact: true }).selectOption('S');
   for (const [label, value] of [['Roof tilt (degrees)', '18.5'], ['Cable distance (m)', '22.00'], ['Usable roof area (m²)', '80.00']]) await dialog.getByRole('textbox', { name: label, exact: true }).fill(value);
   const submitted = tech.waitForResponse(response => response.request().method() === 'POST' && /\/surveys\/[^/]+\/submit$/.test(new URL(response.url()).pathname));
-  await dialog.getByRole('button', { name: 'Submit survey', exact: true }).click(); assert.equal((await submitted).status(), 200);
+  await dialog.getByRole('button', { name: 'Submit survey', exact: true }).click(); assert.equal((await submitted).status(), 201);
   await sales.reload();
   await sales.getByRole('button', { name: 'Approve survey', exact: true }).click();
   await sales.getByRole('button', { name: 'Create quote', exact: true }).click();
@@ -65,6 +66,7 @@ export async function createSalesOrderFromBrowser({ browser, adminPage, staff, p
   await dialog.getByRole('button', { name: 'Save quote', exact: true }).click();
   await sales.getByRole('heading', { name: 'Quote revision 1: Draft', exact: true }).waitFor();
   await sales.reload(); await sales.getByRole('heading', { name: 'Quote revision 1: Draft', exact: true }).waitFor();
+  await sales.getByRole('table', { name: 'Frozen component requirements', exact: true }).waitFor();
   await sales.getByRole('button', { name: 'Record quote sent', exact: true }).click();
   dialog = sales.getByRole('dialog', { name: 'Record manual sending' });
   await dialog.getByLabel('Sent by', { exact: true }).selectOption('PRINT');
@@ -86,6 +88,15 @@ export async function createSalesOrderFromBrowser({ browser, adminPage, staff, p
   await adminPage.getByText('This invoice is fully paid.', { exact: true }).waitFor();
   await adminPage.reload(); await adminPage.getByText('This invoice is fully paid.', { exact: true }).waitFor();
   assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: order.invoice.id } })).status, 'PAID');
+  await adminPage.getByRole('button', { name: 'Schedule crew', exact: true }).click();
+  dialog = adminPage.getByRole('dialog', { name: 'Schedule crew' });
+  await dialog.getByLabel('Starts (local time)', { exact: true }).fill(new Date(Date.now() + 86400000).toISOString().slice(0, 16));
+  await dialog.getByLabel('Finishes (local time)', { exact: true }).fill(new Date(Date.now() + 90000000).toISOString().slice(0, 16));
+  await dialog.getByRole('checkbox', { name: staff.TECHNICIAN.displayName, exact: true }).check();
+  await dialog.getByRole('button', { name: 'Save schedule', exact: true }).click();
+  await adminPage.getByRole('button', { name: 'Change schedule', exact: true }).waitFor();
+  await adminPage.reload(); await adminPage.getByRole('button', { name: 'Change schedule', exact: true }).waitFor();
+
   assert.equal(await adminPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log('PASS public/sales/technician/quote/order/payment UI', JSON.stringify({ enquiryId, orderId: order.id, seconds: ((Date.now() - start) / 1000).toFixed(1) }));
   return { order, customer };
