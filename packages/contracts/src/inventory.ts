@@ -121,3 +121,39 @@ export type DispatchRequest = z.infer<typeof dispatchRequestSchema>;
 export type DispatchView = z.infer<typeof dispatchViewSchema>;
 export type ReturnUnitRequest = z.infer<typeof returnUnitRequestSchema>;
 export type ReturnStockRequest = z.infer<typeof returnStockRequestSchema>;
+
+export const stockLocationKindSchema = z.enum(['USABLE', 'QUARANTINE']);
+export const stockLocationViewSchema = z.object({
+  id: z.uuid(), code: z.string().min(1), name: z.string().min(1), kind: stockLocationKindSchema,
+});
+export const stockLocationListResponseSchema = z.object({ data: z.array(stockLocationViewSchema) });
+export const stockLevelListQuerySchema = z.object({
+  productId: z.uuid().optional(), locationId: z.uuid().optional(),
+  page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+export const stockLevelViewSchema = z.object({
+  productId: z.uuid(), sku: z.string().min(1), productName: z.string().min(1), locationId: z.uuid(),
+  locationCode: z.string().min(1), locationKind: stockLocationKindSchema, onHand: quantitySchema,
+});
+export const stockLevelListResponseSchema = z.object({ data: z.object({
+  items: z.array(stockLevelViewSchema), total: z.number().int().nonnegative(), page: z.number().int().positive(), pageSize: z.number().int().positive(),
+}) });
+export const stockReceiptViewSchema = z.object({
+  id: z.uuid(), reference: z.string().min(1), status: z.literal('DONE'), locationId: z.uuid(), actorId: z.uuid(),
+  receivedAt: z.iso.datetime({ offset: true }), recordedAt: z.iso.datetime({ offset: true }),
+  lines: z.array(z.object({
+    id: z.uuid(), productId: z.uuid(), quantity: positiveQuantitySchema, unitCost: moneySchema,
+    zeroCostReason: z.string().nullable(), movementId: z.uuid(), unitIds: z.array(z.uuid()),
+  })),
+});
+export const stockReceiptResponseSchema = z.object({ data: stockReceiptViewSchema });
+export const unitLookupQuerySchema = z.object({ serial: equipmentSerialSchema, productId: z.uuid().optional() }).strict();
+// Location comes from the unit's latest movement; null means the unit has left company stock.
+export const unitLocationViewSchema = unitViewSchema.extend({ locationId: z.uuid().nullable() });
+export const unitLookupResponseSchema = z.object({ data: z.array(unitLocationViewSchema) });
+export type StockLocationView = z.infer<typeof stockLocationViewSchema>;
+export type StockLevelListQuery = z.infer<typeof stockLevelListQuerySchema>;
+export type StockLevelView = z.infer<typeof stockLevelViewSchema>;
+export type StockReceiptView = z.infer<typeof stockReceiptViewSchema>;
+export type UnitLookupQuery = z.infer<typeof unitLookupQuerySchema>;
+export type UnitLocationView = z.infer<typeof unitLocationViewSchema>;
