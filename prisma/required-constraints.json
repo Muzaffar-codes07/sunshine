@@ -32,7 +32,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR (\"monthlyBillInr\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR ((\"monthlyBillInr\" >= (0)::numeric) AND (\"monthlyBillInr\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_capacity_range",
@@ -53,7 +53,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR (\"shadowFreeRoofAreaSqm\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR ((\"shadowFreeRoofAreaSqm\" >= (0)::numeric) AND (\"shadowFreeRoofAreaSqm\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_site_pincode_format",
@@ -159,6 +159,27 @@
       "kind": "unique_partial_index",
       "owner": "D2",
       "definition": "CREATE UNIQUE INDEX packages_one_active_revision ON public.packages USING btree (\"capacityKw\", \"systemType\") WHERE active"
+    },
+    {
+      "name": "commands_action_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((action ~ '^[A-Z][A-Z0-9_]*$'::text))"
+    },
+    {
+      "name": "commands_key_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"idempotencyKey\" ~ '^[A-Za-z0-9_-]{8,128}$'::text))"
+    },
+    {
+      "name": "commands_payload_hash_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"payloadHash\" ~ '^[0-9a-f]{64}$'::text))"
     },
     {
       "name": "surveys_cable_distance_nonnegative",
