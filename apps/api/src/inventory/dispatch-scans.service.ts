@@ -45,8 +45,9 @@ export class DispatchScansService {
   async record(actorId: string, key: string, id: string, input: RecordScanRequest) {
     id = id.toLowerCase();
     return this.idempotency.run({ actorId, key, action: 'DISPATCH_SCAN', payload: { id, ...input } }, async (tx) => {
-      const dispatch = await tx.dispatch.findUnique({ where: { id }, select: { orderId: true } });
+      const dispatch = await tx.dispatch.findUnique({ where: { id }, select: { orderId: true, status: true } });
       if (!dispatch) throw notFound();
+      if (dispatch.status !== 'DRAFT') throw blocked('DISPATCH_ALREADY_POSTED', 'This dispatch has already left the warehouse, so it takes no more scans.');
       // Allocation, release and schedule commands claim this job too, so evidence can't race a reallocation.
       await this.lockJob(tx, dispatch.orderId);
       await tx.$queryRaw`SELECT "id" FROM "dispatches" WHERE "id" = ${id}::uuid FOR NO KEY UPDATE`;
@@ -75,7 +76,7 @@ export class DispatchScansService {
     });
   }
 
-  private async lockJob(tx: Prisma.TransactionClient, orderId: string) {
+  async lockJob(tx: Prisma.TransactionClient, orderId: string) {
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { jobId: true } });
     if (!order) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Order not found');
     if (!order.jobId) throw blocked('DISPATCH_NOT_READY', 'This order has no job.');
@@ -85,7 +86,7 @@ export class DispatchScansService {
     return job;
   }
 
-  private async source(tx: Prisma.TransactionClient, orderId: string) {
+  async source(tx: Prisma.TransactionClient, orderId: string) {
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { packing: { include: { product: { select: { trackingMode: true } } } } } });
     const rows = order.jobId ? await tx.allocation.findMany({ where: { jobId: order.jobId, status: { not: 'RELEASED' } },
       include: { unit: true, location: true }, orderBy: { id: 'asc' } }) : [];
@@ -115,24 +116,35 @@ export class DispatchScansService {
     return { order, rows, valid };
   }
 
-  private async view(tx: Prisma.TransactionClient, id: string) {
+  async view(tx: Prisma.TransactionClient, id: string) {
     const dispatch = await tx.dispatch.findUnique({ where: { id }, include: { scans: { include: { allocation: { include: { unit: true } } }, orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }] } } });
     if (!dispatch) throw notFound();
     const source = await this.source(tx, dispatch.orderId);
     const activeIds = new Set(source.rows.map((row) => row.id));
+    const posted = dispatch.status !== 'DRAFT';
     const scans = dispatch.scans.map((scan) => ({ id: scan.id, unitId: scan.allocation.unitId!, rawValue: scan.rawValue,
       normalizedSerial: scan.normalizedSerial, method: scan.method, actorId: scan.actorId, recordedAt: scan.recordedAt.toISOString(),
-      countsForDispatch: scan.method !== 'TYPED' && activeIds.has(scan.allocationId) && scan.allocation.status === 'RESERVED' && scan.allocation.unit?.status === 'RESERVED',
+      countsForDispatch: scan.method !== 'TYPED' && activeIds.has(scan.allocationId) && (posted || (scan.allocation.status === 'RESERVED' && scan.allocation.unit?.status === 'RESERVED')),
     }));
     const requiredUnitIds = source.rows.flatMap((row) => row.unitId ? [row.unitId] : []).sort();
     const scanned = new Set(scans.filter((scan) => scan.countsForDispatch).map((scan) => scan.unitId));
     const missingUnitIds = requiredUnitIds.filter((unitId) => !scanned.has(unitId));
+    const warranties = dispatch.status === 'DELIVERED' ? await tx.warranty.findMany({ where: { unitId: { in: requiredUnitIds } } }) : [];
+    const coverage = dispatch.status !== 'DELIVERED' ? [] : requiredUnitIds.map((unitId) => {
+      const warranty = warranties.find((row) => row.unitId === unitId);
+      return warranty
+        ? { unitId, status: 'ACTIVE' as const, startDate: warranty.startDate.toISOString().slice(0, 10), expiryDate: warranty.expiryDate.toISOString().slice(0, 10), policyName: warranty.policyName }
+        : { unitId, status: 'NO_POLICY' as const, startDate: null, expiryDate: null, policyName: null };
+    });
     return dispatchResponseSchema.parse({ data: {
-      id: dispatch.id, orderId: dispatch.orderId, jobId: source.order.jobId, status: 'DRAFT', version: dispatch.version,
-      dispatchedAt: null, deliveredAt: null,
+      id: dispatch.id, orderId: dispatch.orderId, jobId: source.order.jobId, status: dispatch.status, version: dispatch.version,
+      dispatchedAt: dispatch.dispatchedAt?.toISOString() ?? null, deliveredAt: dispatch.deliveredAt?.toISOString() ?? null,
       allocations: source.rows.map((row) => ({ id: row.id, jobId: row.jobId, productId: row.productId, unitId: row.unitId,
         quantity: row.quantity.toFixed(3), status: row.status, source: { kind: 'QUOTE_LINE', quoteLineId: row.quoteLineId },
-      })), scans, scanReadiness: { reservationValid: source.valid, requiredUnitIds, missingUnitIds, complete: source.valid && missingUnitIds.length === 0 },
+      })), scans, scanReadiness: posted
+        ? { reservationValid: true, requiredUnitIds, missingUnitIds: [], complete: true }
+        : { reservationValid: source.valid, requiredUnitIds, missingUnitIds, complete: source.valid && missingUnitIds.length === 0 },
+      coverage,
     } });
   }
 }

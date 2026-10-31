@@ -114,6 +114,16 @@ async function allocate(order) {
   }
   await ok(send(`/orders/${order.id}/allocations`, { expectedVersion: await version(order.jobId) }, 'WAREHOUSE'), 201);
 }
+/** Allocated, scanned, dispatched and delivered: everything a job needs before it can start. */
+async function deliver(order) {
+  await allocate(order);
+  const draft = await ok(send(`/orders/${order.id}/dispatches`, { expectedVersion: await version(order.jobId) }, 'WAREHOUSE'), 201);
+  const units = await prisma.allocation.findMany({ where: { jobId: order.jobId, unitId: { not: null } }, include: { unit: true } });
+  for (const row of units) await ok(send(`/dispatches/${draft.id}/scans`, { rawValue: row.unit.rawSerial, method: 'SCANNER', unitId: row.unitId }, 'WAREHOUSE'), 201);
+  const current = await prisma.dispatch.findUniqueOrThrow({ where: { id: draft.id } });
+  const posted = await ok(send(`/dispatches/${draft.id}/dispatch`, { expectedVersion: current.version }, 'WAREHOUSE'));
+  await ok(send(`/dispatches/${draft.id}/deliver`, { expectedVersion: posted.version, deliveredAt: new Date().toISOString() }, 'WAREHOUSE'));
+}
 const crew = async (jobId, names = ['TECH_A']) => ok(send(`/jobs/${jobId}/schedule`, {
   expectedVersion: await version(jobId), scheduledStart: '2026-11-03T04:00:00.000Z', scheduledFinish: '2026-11-03T10:00:00.000Z', technicianIds: names.map((name) => staff[name].id),
 }, 'SALES'));
@@ -124,7 +134,7 @@ const start = async (jobId, startedAt, role = 'TECH_A', key) => send(`/jobs/${jo
 /** Allocated, crewed, started, with a photo and a signature uploaded to the job. */
 async function startedJob({ names = ['TECH_A'], window = nextWindow(), ...options } = {}) {
   const order = await newOrder(options);
-  await allocate(order);
+  await deliver(order);
   await crew(order.jobId, names);
   await ok(start(order.jobId, window.start));
   const photo = await ok(upload(order.jobId), 201);
@@ -163,20 +173,30 @@ test('a technician starts and completes a job, and the evidence survives a refre
   assert.ok(records.every((record) => record.recordedById === staff.TECH_A.id));
   const download = await get(`/files/${job.photo.id}`, 'SALES');
   assert.equal(download.status, 200); assert.deepEqual(Buffer.from(await download.arrayBuffer()), jpeg);
+  const allocations = await prisma.allocation.findMany({ where: { jobId: job.jobId }, include: { unit: true } });
+  assert.ok(allocations.every((row) => row.status === 'INSTALLED' && (!row.unit || row.unit.status === 'INSTALLED')));
+  assert.equal(await prisma.stockMovement.count({ where: { documentLine: { document: { reference: { startsWith: 'INSTALL' } } } } }), 0, 'installation posts no stock');
+});
+
+test('a reserved but undelivered job cannot start', async () => {
+  const order = await newOrder();
+  await allocate(order);
+  await crew(order.jobId);
+  await refused(start(order.jobId, nextWindow().start), 409, 'JOB_MATERIAL_NOT_DELIVERED');
 });
 
 test('start needs a crew, a payment and allocated equipment, and lists every gap', async () => {
   const order = await newOrder({ paid: false });
   const window = nextWindow();
   const error = await refused(start(order.jobId, window.start, 'ADMIN'), 409, 'NOT_READY');
-  assert.deepEqual(error.reasons.map((reason) => reason.code).sort(), ['JOB_MATERIAL_NOT_ALLOCATED', 'JOB_NOT_SCHEDULED', 'ORDER_NOT_RELEASED']);
+  assert.deepEqual(error.reasons.map((reason) => reason.code).sort(), ['JOB_MATERIAL_NOT_DELIVERED', 'JOB_NOT_SCHEDULED', 'ORDER_NOT_RELEASED']);
   const row = await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } });
   assert.equal(row.status, 'SCHEDULED'); assert.equal(row.startedAt, null); assert.equal(row.version, 1);
 });
 
 test('start refuses bad times, stale versions and people who are not on the job, and a retry replays', async () => {
   const order = await newOrder();
-  await allocate(order);
+  await deliver(order);
   await crew(order.jobId);
   const window = nextWindow();
   await refused(start(order.jobId, new Date(Date.now() + 60_000).toISOString()), 400, 'INVALID_INPUT');

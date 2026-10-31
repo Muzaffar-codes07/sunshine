@@ -959,7 +959,7 @@
       "table": "dispatches_guard_identity",
       "kind": "function",
       "owner": "D3",
-      "definition": "CREATE OR REPLACE FUNCTION public.dispatches_guard_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR ROW(NEW.\"id\",NEW.\"orderId\",NEW.\"createdById\",NEW.\"createdAt\")\n    IS DISTINCT FROM ROW(OLD.\"id\",OLD.\"orderId\",OLD.\"createdById\",OLD.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1 THEN\n    RAISE EXCEPTION 'dispatch identity is fixed and changes need the next version' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+      "definition": "CREATE OR REPLACE FUNCTION public.dispatches_guard_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR ROW(NEW.\"id\",NEW.\"orderId\",NEW.\"createdById\",NEW.\"createdAt\")\n    IS DISTINCT FROM ROW(OLD.\"id\",OLD.\"orderId\",OLD.\"createdById\",OLD.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1 THEN\n    RAISE EXCEPTION 'dispatch identity is fixed and changes need the next version' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"status\" <> OLD.\"status\" AND NOT ((OLD.\"status\" = 'DRAFT' AND NEW.\"status\" = 'DISPATCHED') OR (OLD.\"status\" = 'DISPATCHED' AND NEW.\"status\" = 'DELIVERED')) THEN\n    RAISE EXCEPTION 'a dispatch cannot move from % to %', OLD.\"status\", NEW.\"status\" USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF (OLD.\"status\" <> 'DRAFT' AND ROW(NEW.\"dispatchedAt\",NEW.\"dispatchedById\",NEW.\"issueDocumentId\") IS DISTINCT FROM ROW(OLD.\"dispatchedAt\",OLD.\"dispatchedById\",OLD.\"issueDocumentId\"))\n    OR (OLD.\"status\" = 'DELIVERED' AND ROW(NEW.\"deliveredAt\",NEW.\"deliveredById\") IS DISTINCT FROM ROW(OLD.\"deliveredAt\",OLD.\"deliveredById\")) THEN\n    RAISE EXCEPTION 'dispatch facts are final' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF NEW.\"issueDocumentId\" IS NOT NULL AND OLD.\"issueDocumentId\" IS NULL AND NOT EXISTS (\n    SELECT 1 FROM \"stock_documents\" WHERE \"id\" = NEW.\"issueDocumentId\" AND \"kind\" = 'ISSUE' AND \"status\" = 'DONE'\n  ) THEN\n    RAISE EXCEPTION 'a dispatch needs its issue document posted' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
     },
     {
       "name": "dispatches_identity_frozen",
@@ -1317,6 +1317,27 @@
       "kind": "trigger",
       "owner": "D3",
       "definition": "CREATE TRIGGER jobs_guarded BEFORE UPDATE ON public.jobs FOR EACH ROW EXECUTE FUNCTION jobs_guard()"
+    },
+    {
+      "name": "dispatches_delivered_facts",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status <> 'DELIVERED'::\"DispatchStatus\") OR ((\"deliveredAt\" IS NOT NULL) AND (\"deliveredById\" IS NOT NULL))))"
+    },
+    {
+      "name": "dispatches_delivery_ordered",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"deliveredAt\" IS NULL) OR (\"deliveredAt\" >= \"dispatchedAt\")))"
+    },
+    {
+      "name": "dispatches_dispatched_facts",
+      "table": "dispatches",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status = 'DRAFT'::\"DispatchStatus\") OR ((\"dispatchedAt\" IS NOT NULL) AND (\"dispatchedById\" IS NOT NULL) AND (\"issueDocumentId\" IS NOT NULL))))"
     }
   ]
 }
