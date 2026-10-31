@@ -95,7 +95,7 @@ test('ensureJob returns the same job when called again', async () => {
 
 test('ensureJob checks the supplied facts against the real order', async () => {
   const order = await confirm();
-  for (const wrong of [{ orderId: randomUUID() }, { quoteId: randomUUID() }, { enquiryId: randomUUID() }, { customerId: randomUUID() }]) {
+  for (const wrong of [{ orderId: randomUUID() }, { quoteId: randomUUID() }, { enquiryId: randomUUID() }, { customerId: randomUUID() }, { capacityKw: 5 }, { systemType: 'OFF_GRID' }]) {
     await assert.rejects(prisma.$transaction((tx) => jobs.ensureJob(tx, orderFacts(order, wrong))), (error) => error.code === 'JOB_SOURCE_INVALID');
   }
 });

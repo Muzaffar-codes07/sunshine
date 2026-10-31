@@ -10,9 +10,11 @@ export class JobsService implements OrderJobCreator {
   async ensureJob(tx: Prisma.TransactionClient, facts: ConfirmedOrderFacts): Promise<{ jobId: string }> {
     const order = await tx.order.findUnique({
       where: { id: facts.orderId },
-      select: { enquiryId: true, customerId: true, quoteId: true, quote: { select: { status: true } } },
+      select: { enquiryId: true, customerId: true, quoteId: true, quote: { select: { status: true, packageSnapshot: true } } },
     });
-    if (!order || order.quote.status !== 'ACCEPTED' || order.quoteId !== facts.quoteId || order.enquiryId !== facts.enquiryId || order.customerId !== facts.customerId) {
+    const accepted = order?.quote.packageSnapshot as { capacityKw?: unknown; systemType?: unknown } | null | undefined;
+    if (!order || order.quote.status !== 'ACCEPTED' || order.quoteId !== facts.quoteId || order.enquiryId !== facts.enquiryId || order.customerId !== facts.customerId
+      || accepted?.capacityKw !== facts.capacityKw || accepted?.systemType !== facts.systemType) {
       throw refusal({
         code: 'JOB_SOURCE_INVALID', reason: "These details don't match a confirmed order with an accepted quote.", source: 'JOBS',
         nextAction: 'Reload the order and try again.',
