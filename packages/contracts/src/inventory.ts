@@ -27,7 +27,7 @@ export const stockReceiptLineSchema = z.object({
 });
 // The service must reject receivedAt > serverNow and record the staff actor.
 export const receiveStockRequestSchema = z.object({
-  reference, receivedAt: z.iso.datetime({ offset: true }), lines: z.array(stockReceiptLineSchema).min(1).max(100),
+  reference, locationId: z.uuid(), receivedAt: z.iso.datetime({ offset: true }), lines: z.array(stockReceiptLineSchema).min(1).max(100),
 }).strict().superRefine((receipt, ctx) => {
   const seen = new Set<string>();
   receipt.lines.forEach((line, i) => line.serials.forEach((serial, j) => {
