@@ -10,6 +10,12 @@ test('receipt preserves exact costs/quantities and original serial text', () => 
   assert.equal(result.lines[0].serials[0], ' INV-A ');
   assert.equal(c.normalizeEquipmentSerial(result.lines[0].serials[0]), 'INV-A');
 });
+test('receipt requires a canonical destination location UUID', () => {
+  const { locationId, ...missingLocation } = receipt;
+  assert.equal(c.receiveStockRequestSchema.parse(receipt).locationId, id(8));
+  assert.equal(c.receiveStockRequestSchema.safeParse(missingLocation).success, false);
+  assert.equal(c.receiveStockRequestSchema.safeParse({ ...receipt, locationId: 'Warehouse' }).success, false);
+});
 test('duplicate normalized serials across same-product receipt lines are rejected', () => {
   const line = { ...receipt.lines[0], quantity: '1', serials: [' inv-a '] };
   assert.equal(c.receiveStockRequestSchema.safeParse({ ...receipt, lines: [line, { ...line, serials: ['INV-A'] }] }).success, false);

@@ -1,7 +1,7 @@
 // Development/test examples only. No production API imports these values.
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const at = '2026-10-01T10:00:00.000Z';
-const receipt = { reference: 'D3-DEMO-RECEIPT-1', receivedAt: at, lines: [
+const receipt = { reference: 'D3-DEMO-RECEIPT-1', locationId: id(8), receivedAt: at, lines: [
   { productId: id(1), quantity: '2.000', unitCost: '14000.00', serials: [' INV-A ', 'INV-B'] },
 ] };
 const typedScan = { id: id(2), unitId: id(3), actorId: id(4), rawValue: ' INV-A ',
