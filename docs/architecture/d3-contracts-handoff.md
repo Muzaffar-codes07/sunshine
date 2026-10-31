@@ -4,9 +4,9 @@ Status: transport contracts and development fixtures only. No stock/field databa
 
 ## Dependencies and scope
 
-This branch is explicitly stacked on [D4 PR #8](https://github.com/Muzaffar-codes07/sunshine/pull/8) for `moneySchema`, `quantitySchema` and `positiveQuantitySchema`. No duplicate finance helpers or edits to D4 source files. Do not merge it before the shared contracts land. D3 requested that PR #8 separate preparatory database definitions from contracts to protect the migration queue; this branch does not approve or deploy those definitions. Retarget/rebase this PR after that upstream change.
+This branch is explicitly stacked on [D2 catalogue PR #19](https://github.com/Muzaffar-codes07/sunshine/pull/19) for the canonical catalogue and shared exact numeric schemas. Its `shared.ts` is byte-identical to the original D4 shared helpers. D3's earlier dependency on PR #8 has been removed: no D4 models, repositories or preparatory schema are inherited. Do not merge before #19 lands; retarget to main afterwards and verify the combined tree.
 
-D3 adds `inventory.ts`, `field.ts`, their exported inferred TypeScript types, and the examples in `packages/contracts/test/fixtures/d3.cjs`. Examples are for development/tests only; the application does not import them. The existing health, error, sales and D4 contracts remain available.
+D3 adds `inventory.ts`, `field.ts`, their exported inferred TypeScript types, and the examples in `packages/contracts/test/fixtures/d3.cjs`. Examples are for development/tests only; the application does not import them. The existing health, error, sales, auth and catalogue contracts remain available. D4 retains its own contracts in its separate PR.
 
 ## Planned command handoffs
 
@@ -14,7 +14,7 @@ Paths are planned interfaces, not existing routes. Staff identity comes from D2 
 
 | Planned consumer | Request schema | Service responsibility beyond transport validation |
 |---|---|---|
-| `POST /stock/receipts` | `receiveStockRequestSchema` | D2 canonical product/manufacturer/tracking; unique receipt reference/source; serialized count required when product is serialized; actual acquisition cost; no future event |
+| `POST /stock/receipts` | `receiveStockRequestSchema` | D2 canonical product/manufacturer/tracking; active authorized destination locationId; unique receipt reference/source; serialized count required when product is serialized; actual acquisition cost; no future event |
 | `POST /orders/:id/allocations` | `allocateOrderRequestSchema` | Read frozen approved requirements/payment from D2; all-or-none allocation; lock ordering; no client BOM or paid flag |
 | D4 ticket-parts helper | `reserveTicketPartsRequestSchema` / `allocationSourceSchema` | Canonical ticket line; quote-line XOR ticket-line source; correct job/customer; caller transaction |
 | `POST /dispatches/:id/scans` | `recordScanRequestSchema` | Resolve authorized allocated physical unit; serial ambiguity; correct product; TYPED recorded but never sufficient for a required scan |
@@ -26,7 +26,7 @@ Paths are planned interfaces, not existing routes. Staff identity comes from D2 
 | `POST /jobs/:id/start` | `startInstallationRequestSchema` | Assigned staff, eligible job/payment/material state, nonfuture time |
 | `POST /jobs/:id/complete` | `completeInstallationRequestSchema` | Matching installed system/package, valid nonfuture crew time, persisted authorized private photos/signature, all required package checks, cost posting once |
 
-Only allocation `RESERVED` quantities reduce free stock; the final domain service must separately retain the exclusive physical-unit assignment through dispatch/delivery/installation. Contracts do not implement either rule. No `StockBalance` or derived-ledger choice is embedded in them.
+Only allocation `RESERVED` quantities reduce free stock; the final domain service must separately retain the exclusive physical-unit assignment through dispatch/delivery/installation. Contracts do not implement either rule. The runtime follows the owner-selected derived-ledger specification on main; transport contracts do not implement that ledger.
 
 ## Identity, quantities and evidence
 
@@ -47,9 +47,9 @@ D3 consumes D4’s single cost writer and warranty activation helper, passing th
 
 ## Verification and remaining gates
 
-Sixteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
+Eighteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
 
-Before runtime acceptance: settle stock model; land D2 catalogue/order/auth/files; agree D4 source/cost/warranty helpers and D2 refusal nesting; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
+Before runtime acceptance: implement the confirmed ledger specification; land D2 catalogue/order/files; agree D4 source/cost/warranty helpers and D2 refusal nesting; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
 
 ### Review clarifications
 
