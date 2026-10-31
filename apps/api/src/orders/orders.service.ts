@@ -62,6 +62,14 @@ export class OrdersService {
     const quote = await this.quotes.requireAcceptedQuote(tx, quoteId);
     const existing = await tx.order.findUnique({ where: { enquiryId: quote.enquiryId }, select: { id: true } });
     if (existing) throw orderAlreadyConfirmed();
+    // Release is gated on a recorded payment, which a ₹0 invoice can never receive. How free installations are
+    // settled is an owner policy we don't have, so refuse rather than invent one (Codex review on #29).
+    if (/^0(\.0+)?$/.test(quote.totalPrice)) {
+      throw refusal({
+        code: 'ORDER_TOTAL_ZERO', reason: 'The accepted quote totals ₹0.00, so no payment can release the job.', source: 'ORDER',
+        nextAction: 'Revise the quote with the package and installation prices, or ask the owner how a free installation is settled.',
+      });
+    }
     const components = quote.lines.filter((line) => line.kind === 'COMPONENT');
     const order = await tx.order.create({
       data: {

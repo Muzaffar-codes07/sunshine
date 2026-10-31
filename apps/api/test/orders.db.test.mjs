@@ -252,3 +252,32 @@ test('HTTP: sales confirms with a key, only admin records receipts, warehouse re
   assert.equal(again.status, 409);
   assert.equal((await again.json()).error.reasons[0].code, 'ORDER_ALREADY_CONFIRMED');
 });
+
+test('a ₹0 accepted quote cannot be confirmed, because no payment could ever release it', async () => {
+  // The catalogue allows zero prices; free-installation settlement is an owner policy we don't have. Temporarily
+  // zero one seeded kit (restored below) rather than adding rows, so other test files still see the plain seed.
+  const original = await prisma.package.findUniqueOrThrow({ where: { id: id(2005) } });
+  const free = await prisma.package.update({ where: { id: original.id }, data: { hardwarePrice: '0.00', installationPrice: '0.00' } });
+  try {
+    const customer = await prisma.customer.create({ data: {
+      name: 'Free Customer', phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '1 Free Road', city: 'Nagpur', pincode: '440001',
+    } });
+    const enquiry = await prisma.enquiry.create({ data: {
+      customerId: customer.id, source: 'PHONE', requestedCapacityKw: 5, status: 'QUALIFIED',
+      contactName: 'Free Customer', siteAddressLine: '1 Free Road', siteCity: 'Nagpur', sitePincode: '440001',
+    } });
+    const survey = (await surveys.schedule(enquiry.id, { technicianId: tech.id, scheduledFor: when })).data;
+    await surveys.submit(survey.id, { version: 1, ...facts }, staff(tech));
+    await surveys.approve(survey.id, { version: 2 }, staff(sales));
+    const draft = (await quotes.create(enquiry.id, { surveyId: survey.id, packageId: free.id }, staff(sales))).data;
+    assert.equal(draft.totalPrice, '0.00');
+    await quotes.send(draft.id, { version: 1, channel: 'PRINT' }, staff(sales));
+    await quotes.accept(draft.id, { version: 2, acceptedByName: 'Free Customer', channel: 'IN_PERSON' }, staff(sales));
+    const k = key();
+    await refuses(orders.confirm({ quoteId: draft.id }, k, staff(sales)), 409, 'ORDER_TOTAL_ZERO');
+    assert.equal(await prisma.order.count({ where: { quoteId: draft.id } }), 0);
+    assert.equal(await prisma.command.count({ where: { idempotencyKey: k } }), 0);
+  } finally {
+    await prisma.package.update({ where: { id: original.id }, data: { hardwarePrice: original.hardwarePrice, installationPrice: original.installationPrice } });
+  }
+});
