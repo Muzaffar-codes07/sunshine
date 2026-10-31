@@ -26,7 +26,7 @@ The [supplied organizer-video extraction](../requirements/organizer-video-delive
 
 **Decision M1 (31 Oct, Bridge thread 13): keep this stack.** The reason is schedule, not familiarity. The scaffold passed `npm run check` and smoke when it was prepared (a fresh run needs `npm ci`, `.env` and PostgreSQL), and Next.js/Drizzle would discard verified integration with about 18 hours left. The four members' current familiarity with these pinned majors is **unknown and not claimed**.
 
-StockSense, an earlier project, used NestJS 10 and Prisma 5. Sunshine uses NestJS 12 and Prisma 7, so the pinned majors differ. Prisma 7 introduces the driver adapter/configuration arrangement visible in this repo; Nest's module/runtime compatibility was checked in the scaffold. Earlier Nest 11 dependencies retained an audit finding, so the scaffold moved to the patched Nest release and was rebuilt and runtime-checked on Node 22. This is evidence of **foundation compatibility**, not proof of unimplemented domain behavior.
+Sunshine uses NestJS 12 and Prisma 7. Prisma 7 introduces the driver adapter/configuration arrangement visible in this repo; Nest's module/runtime compatibility was checked in the scaffold. Earlier Nest 11 dependencies retained an audit finding, so the scaffold moved to the patched Nest release and was rebuilt and runtime-checked on Node 22. This is evidence of **foundation compatibility**, not proof of unimplemented domain behavior.
 
 Do not change majors again during feature development without a concrete blocker. Freeze the lockfile and use `npm ci`. If a domain developer cannot use a selected API, inspect the pinned version's official documentation before proposing a framework change.
 

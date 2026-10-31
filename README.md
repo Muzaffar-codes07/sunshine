@@ -83,7 +83,7 @@ tests/e2e/             Future integrated browser scenarios
 
 ## Ownership and contribution
 
-The [role document](docs/team/roles.md) is authoritative for ownership. D2 owns finance writes; D3 owns warranty activation; D4 owns warranty decisions and read-only reports. Every member contributes commits and explains their work. Use short branches and small reviewed PRs. Do not copy StockSense code unless the organizers explicitly permit reuse.
+The [role document](docs/team/roles.md) is authoritative for ownership. D2 owns finance writes; D3 owns warranty activation; D4 owns warranty decisions and read-only reports. Every member contributes commits and explains their work. Use short branches and small reviewed PRs. All code is written fresh for Sunshine; do not copy source from earlier projects.
 
 The contents of `docs/research/history/` are retained discussion history, including the original Wedding/Solar comparison. They contain superseded stack and role proposals and are **not implementation instructions**.
 

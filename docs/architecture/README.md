@@ -4,7 +4,7 @@ Status: selected implementation direction. Only the foundation described in the 
 
 ## Stack decision
 
-React/Vite/TypeScript + Tailwind; NestJS REST modular monolith; Prisma; local PostgreSQL; private filesystem uploads; eventual server-side cookie sessions. Nest serves the compiled SPA for one deployed origin. This internal dashboard needs neither SEO/SSR nor separate frontend/backend hosting. Team familiarity is with the patterns: StockSense used Nest 10/Prisma 5, while this scaffold pins Nest 12/Prisma 7 and was checked on Node 22. Do not equate familiar concepts with identical version experience. See the [full stack comparison and reasoning](technology-decisions.md).
+React/Vite/TypeScript + Tailwind; NestJS REST modular monolith; Prisma; local PostgreSQL; private filesystem uploads; eventual server-side cookie sessions. Nest serves the compiled SPA for one deployed origin. This internal dashboard needs neither SEO/SSR nor separate frontend/backend hosting. Team familiarity is with the patterns; this scaffold pins Nest 12/Prisma 7 and was checked on Node 22. Do not equate familiar concepts with identical version experience. See the [full stack comparison and reasoning](technology-decisions.md).
 
 The supplied deliverables explicitly require local relational storage/custom APIs and exclude Supabase/BaaS. Vercel plus a remote DB is therefore not the baseline. No Redis, queues, Kafka, Kubernetes, AI, or distributed workflow platform is required.
 
