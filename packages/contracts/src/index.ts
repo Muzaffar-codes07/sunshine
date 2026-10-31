@@ -42,11 +42,14 @@ export const apiErrorSchema = z.object({
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
 export * from './sales';
+export * from './commands';
 export * from './enquiry-queue';
+export * from './survey';
 export * from './auth';
 
 export * from './shared';
 export * from './catalogue';
+export * from './idempotency';
 
 // D3 operational transport contracts; no runtime stock or field behavior implied.
 export * from './inventory';

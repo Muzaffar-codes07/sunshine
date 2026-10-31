@@ -35,7 +35,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR (\"monthlyBillInr\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"monthlyBillInr\" IS NULL) OR ((\"monthlyBillInr\" >= (0)::numeric) AND (\"monthlyBillInr\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_capacity_range",
@@ -56,7 +56,7 @@
       "table": "enquiries",
       "kind": "check",
       "owner": "D2",
-      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR (\"shadowFreeRoofAreaSqm\" >= (0)::numeric)))"
+      "definition": "CHECK (((\"shadowFreeRoofAreaSqm\" IS NULL) OR ((\"shadowFreeRoofAreaSqm\" >= (0)::numeric) AND (\"shadowFreeRoofAreaSqm\" <> 'NaN'::numeric))))"
     },
     {
       "name": "enquiries_site_pincode_format",
@@ -162,6 +162,90 @@
       "kind": "unique_partial_index",
       "owner": "D2",
       "definition": "CREATE UNIQUE INDEX packages_one_active_revision ON public.packages USING btree (\"capacityKw\", \"systemType\") WHERE active"
+    },
+    {
+      "name": "commands_action_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((action ~ '^[A-Z][A-Z0-9_]*$'::text))"
+    },
+    {
+      "name": "commands_key_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"idempotencyKey\" ~ '^[A-Za-z0-9_-]{8,128}$'::text))"
+    },
+    {
+      "name": "commands_payload_hash_format",
+      "table": "commands",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((\"payloadHash\" ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "name": "surveys_cable_distance_nonnegative",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"cableDistanceM\" IS NULL) OR ((\"cableDistanceM\" >= (0)::numeric) AND (\"cableDistanceM\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_decision_recorded",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status = ANY (ARRAY['APPROVED'::\"SurveyStatus\", 'REJECTED'::\"SurveyStatus\"])) = ((\"decidedById\" IS NOT NULL) AND (\"decidedAt\" IS NOT NULL))))"
+    },
+    {
+      "name": "surveys_one_open_per_enquiry",
+      "table": "surveys",
+      "kind": "unique_partial_index",
+      "owner": "D2",
+      "definition": "CREATE UNIQUE INDEX surveys_one_open_per_enquiry ON public.surveys USING btree (\"enquiryId\") WHERE (status = ANY (ARRAY['SCHEDULED'::\"SurveyStatus\", 'SUBMITTED'::\"SurveyStatus\"]))"
+    },
+    {
+      "name": "surveys_rejected_has_reason",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status <> 'REJECTED'::\"SurveyStatus\") OR ((\"decisionReason\" IS NOT NULL) AND (length(btrim(\"decisionReason\")) > 0))))"
+    },
+    {
+      "name": "surveys_revision_positive",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((revision >= 1))"
+    },
+    {
+      "name": "surveys_roof_area_nonnegative",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"usableRoofAreaSqm\" IS NULL) OR ((\"usableRoofAreaSqm\" >= (0)::numeric) AND (\"usableRoofAreaSqm\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_submitted_has_measurements",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((status = 'SCHEDULED'::\"SurveyStatus\") OR ((\"roofDirection\" IS NOT NULL) AND (\"roofTiltDeg\" IS NOT NULL) AND (\"cableDistanceM\" IS NOT NULL) AND (\"usableRoofAreaSqm\" IS NOT NULL) AND (\"submittedAt\" IS NOT NULL))))"
+    },
+    {
+      "name": "surveys_tilt_range",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK (((\"roofTiltDeg\" IS NULL) OR ((\"roofTiltDeg\" >= (0)::numeric) AND (\"roofTiltDeg\" <= (90)::numeric) AND (\"roofTiltDeg\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "surveys_version_positive",
+      "table": "surveys",
+      "kind": "check",
+      "owner": "D2",
+      "definition": "CHECK ((version >= 1))"
     },
     {
       "name": "product_cost_bases_average_nonnegative",

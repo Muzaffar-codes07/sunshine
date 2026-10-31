@@ -6,6 +6,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { randomInt } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 
@@ -26,7 +27,8 @@ let app;
 let baseUrl;
 let prisma;
 // Unique per run so reruns never collide with earlier rows.
-const runPhone = () => `9${String(Date.now()).slice(-8)}${Math.floor(Math.random() * 10)}`;
+// Random, not time-based, so two runs in the same millisecond still get distinct customers.
+const runPhone = () => `9${String(randomInt(1e9)).padStart(9, '0')}`;
 
 before(async () => {
   app = await NestFactory.create(AppModule, { logger: false });
