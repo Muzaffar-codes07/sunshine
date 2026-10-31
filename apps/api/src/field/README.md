@@ -17,3 +17,6 @@ Completion needs the sold capacity, every check for the system type (`BATTERY` o
 Time records can't overlap for one technician, even across jobs. Their IDs are the durable source for D4's labour cost (`TIME_RECORD:<id>`), which isn't posted yet.
 
 `job-file-access.ts` holds the job file rules agreed on #39. It stays in its own module so Files can use it without a module cycle. Ticket files stay closed until D4 supplies its own rules.
+
+
+File attachment integration claims Job before File, then repeats ownership/association checks under the file lock. This avoids a lock cycle with installation completion and preserves one-record binding. The added `job-files.db.test.mjs` suite uses the production provider to cover every role/action, revoked uploader access, invalid source chains, rollback, concurrent binding and the Job-before-File race. D4 ticket access remains unavailable.
