@@ -10,7 +10,7 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 
 | Owner | Planned routes |
 |---|---|
-| D2 | `/auth/login`, `/auth/logout`, `/auth/me`; `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
+| D2 | `/auth/login`, `/auth/logout`, `/auth/me`, `/staff` (active staff for pickers, SALES and ADMIN); `/customers`, `/enquiries`, `/surveys` and approval; `/quotes` and acceptance; `/orders` and confirmation |
 | D2 | `/products`, `/packages` (read APIs and caller-transaction catalogue helpers) |
 | D2 | `/invoices`, `/payments`, `/files`, `/subsidy-milestones` |
 | D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/movements`, `/stock/as-of`, `/stock/value`, `/stock/integrity`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule` (implemented); start/complete actions on `/jobs`, `/dispatches` and scan/dispatch/deliver actions, `/warranties` |

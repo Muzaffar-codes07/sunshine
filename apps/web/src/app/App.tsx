@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Route, Routes } from 'react-router-dom';
 import { healthResponseSchema, readinessResponseSchema } from '@sunshine/contracts';
 import { PublicEnquiryPage } from '../features/sales/PublicEnquiryPage';
+import { EnquiryDetailPage } from '../features/sales/EnquiryDetailPage';
+import { SalesWorkspacePage } from '../features/sales/EnquiryQueuePage';
 import { apiGet } from '../lib/api';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PlannedWorkspace, Workspace, WorkspaceOverview, workspaces } from './Workspace';
@@ -17,7 +19,9 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/workspace" element={<Workspace />}>
         <Route index element={<WorkspaceOverview />} />
-        {workspaces.map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
+        <Route path="sales" element={<SalesWorkspacePage />} />
+        <Route path="sales/enquiries/:id" element={<EnquiryDetailPage />} />
+        {workspaces.filter(([path]) => path !== 'sales').map(([path, title]) => <Route key={path} path={path} element={<PlannedWorkspace title={title} />} />)}
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}
