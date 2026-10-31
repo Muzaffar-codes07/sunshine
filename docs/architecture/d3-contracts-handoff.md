@@ -43,13 +43,13 @@ Only allocation `RESERVED` quantities reduce free stock; the final domain servic
 
 D3 consumes D4’s single cost writer and warranty activation helper, passing the caller transaction and canonical source facts. Cost source identifiers must distinguish STOCK_MOVEMENT and installation TIME_RECORD; reversal gets a distinct reversal source. D4 must settle occurrence versus posting time before the cost helper is integrated. D3 never writes CostEntry or Warranty directly.
 
-400 errors keep `{error:{code,message,fieldErrors,requestId}}`. The current TRD also requires safe 409 refusal facts `{code,reason,source,nextAction}`. D2 owns the shared nesting and mapping; the proposed `error.reasons[]` extension is pending agreement, so this slice does not modify `apiErrorSchema` or publish an alternative error envelope. No extra readiness-preview endpoint is added.
+400 errors keep `{error:{code,message,fieldErrors,requestId}}`. D2’s shared 409 nesting is now `error.reasons?: [{code,reason,source,nextAction}]` and is included in this catalogue base. D3 consumes the shared `refusal(...)` helper and adds its database-rule mappings with its actual migrations; it does not publish an alternative error envelope. No extra readiness-preview endpoint is added.
 
 ## Verification and remaining gates
 
 Eighteen D3 schema tests cover duplicate serials, exact quantities/costs, whole-unit counts, XOR allocation sources, physical-unit quantity, client-owned fields, typed-scan representation, negative availability reporting, quarantine/replacement, crew/schedule validation, evidence/time/capacity and timezone-aware instants. Existing contract tests also run. These tests validate transport contracts only; they do not prove authorization, stock concurrency, delivery activation, ledger queries, uploads or scanner behavior.
 
-Before runtime acceptance: implement the confirmed ledger specification; land D2 catalogue/order/files; agree D4 source/cost/warranty helpers and D2 refusal nesting; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
+Before runtime acceptance: implement the confirmed ledger specification; land D2 catalogue/order/files; agree D4 source/cost/warranty helpers; implement D3 schema and commands through the queue; run real PostgreSQL races/retries and real-device checks; then connect D1 UI. Required baseline workflows remain incomplete until that evidence exists.
 
 ### Review clarifications
 
