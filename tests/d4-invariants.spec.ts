@@ -48,6 +48,7 @@ function fixture() {
       rows.set(row.id, row); return structuredClone(row);
     },
     async findById(id) { return structuredClone(rows.get(id) ?? null); },
+    async list() { return { rows: [], total: 0 }; },
     async transition(current, patch: TicketPatch) {
       const row = rows.get(current.id)!;
       if (row.version !== current.version || row.status !== current.status) throw new ApiError(409, 'STALE_VERSION', 'Changed');

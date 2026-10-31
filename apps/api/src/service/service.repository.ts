@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma, ServiceTicket as TicketRow } from '../generated/prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ApiError } from '../platform/api-error';
+import type { TicketListQuery } from '@sunshine/contracts';
 
 export type { TicketRow };
 export type NewTicket = Pick<TicketRow, 'ticketNumber' | 'customerId' | 'unitId' | 'jobId' | 'faultDescription'>;
@@ -12,6 +13,7 @@ export type TicketPatch = Pick<Prisma.ServiceTicketUpdateManyMutationInput,
 export abstract class TicketRepository {
   abstract create(input: NewTicket): Promise<TicketRow>;
   abstract findById(id: string): Promise<TicketRow | null>;
+  abstract list(query: TicketListQuery): Promise<{ rows: TicketRow[]; total: number }>;
   /** Compare-and-set must atomically save all facts and increment the version. */
   abstract transition(current: TicketRow, patch: TicketPatch): Promise<TicketRow>;
 }
@@ -26,6 +28,23 @@ export class PrismaTicketRepository extends TicketRepository {
 
   async findById(id: string): Promise<TicketRow | null> {
     return this.storage(() => this.prisma.serviceTicket.findUnique({ where: { id } }));
+  }
+
+  async list(query: TicketListQuery): Promise<{ rows: TicketRow[]; total: number }> {
+    return this.storage(async () => {
+      const where: Prisma.ServiceTicketWhereInput = {
+        ...(query.unitId ? { unitId: query.unitId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      };
+      const [rows, total] = await Promise.all([
+        this.prisma.serviceTicket.findMany({
+          where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip: (query.page - 1) * query.pageSize, take: query.pageSize,
+        }),
+        this.prisma.serviceTicket.count({ where }),
+      ]);
+      return { rows, total };
+    });
   }
 
   async transition(current: TicketRow, patch: TicketPatch): Promise<TicketRow> {
