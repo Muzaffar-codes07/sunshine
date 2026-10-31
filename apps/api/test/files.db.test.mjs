@@ -88,7 +88,8 @@ test('failed disk persistence or a failed metadata transaction never creates usa
 });
 
 test('bound upload and download fail closed without the record adapter, including for the uploader', async () => {
-  const context = { contextType: 'JOB', contextId: randomUUID() }, disk = await readdir(directory);
+  // Jobs have their rules now. Ticket files stay closed until D4 supplies its own.
+  const context = { contextType: 'TICKET', contextId: randomUUID() }, disk = await readdir(directory);
   await expectCode(files.upload(upload(), context, actor(technician)), 503, 'FILE_AUTHORIZATION_UNAVAILABLE');
   assert.deepEqual(await readdir(directory), disk);
   const allowed = new FilesService(prisma, store, { assertAccess: async () => {} });

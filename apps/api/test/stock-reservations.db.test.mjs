@@ -385,9 +385,9 @@ test('release rejects stale versions, started jobs and a partly dispatched reser
   const order = await confirmedOrder(); await stock(order); const allocated = await ok(allocate(order));
   const v = await version(order); const before = await held(order);
   await refused(release(order, { expectedVersion: v + 1 }), 409, 'STALE_VERSION');
-  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'IN_PROGRESS' } });
-  await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
-  await prisma.job.update({ where: { id: order.jobId }, data: { status: 'SCHEDULED' } });
+  const started = await confirmedOrder(); await stock(started); await ok(allocate(started));
+  await prisma.job.update({ where: { id: started.jobId }, data: { status: 'IN_PROGRESS', startedAt: new Date(), startedById: staff.WAREHOUSE.id } });
+  await refused(release(started), 409, 'ALLOCATION_NOT_RELEASABLE');
   await prisma.allocation.update({ where: { id: allocated[0].id }, data: { status: 'DISPATCHED' } });
   await refused(release(order), 409, 'ALLOCATION_NOT_RELEASABLE');
   assert.equal(await version(order), v);

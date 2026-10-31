@@ -175,3 +175,11 @@ test('stock read queries are bounded, and a movement window must run forwards', 
   assert.equal(c.stockAsOfQuerySchema.safeParse({ at, extra: '1' }).success, false);
   assert.equal(c.stockValueQuerySchema.parse({ productId: id(1).toUpperCase() }).productId, id(1).toLowerCase());
 });
+
+test('completion lowercases IDs, so a photo cannot pass as the signature by changing case', () => {
+  const photo = 'abcdef00-0000-4000-8000-000000000005';
+  assert.equal(c.completeInstallationRequestSchema.safeParse({ ...completion, photoFileIds: [photo], signatureFileId: photo.toUpperCase() }).success, false);
+  const technician = 'abcdef00-0000-4000-8000-000000000007';
+  const parsed = c.completeInstallationRequestSchema.parse({ ...completion, timeRecords: [{ ...completion.timeRecords[0], technicianId: technician.toUpperCase() }] });
+  assert.equal(parsed.timeRecords[0].technicianId, technician);
+});
