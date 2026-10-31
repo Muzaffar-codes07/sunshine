@@ -1,6 +1,6 @@
 # Job file authorization policy
 
-Status: accepted by D3 for S03 implementation. [Recorded decision](https://github.com/Muzaffar-codes07/sunshine/pull/39#issuecomment-6547084464). Depends on [private Files transport, PR32](https://github.com/Muzaffar-codes07/sunshine/pull/32). This policy document registers no runtime provider and enables no access.
+Status: accepted by D3 for S03 implementation. [Recorded decision](https://github.com/Muzaffar-codes07/sunshine/pull/39#issuecomment-6547084464). Depends on [private Files transport, PR32](https://github.com/Muzaffar-codes07/sunshine/pull/32). Implemented by [S03, PR49](https://github.com/Muzaffar-codes07/sunshine/pull/49) in `apps/api/src/field/job-file-access.ts`, which registers the JOB provider. TICKET files stay closed until D4 supplies its adapter.
 
 ## Existing facts
 
@@ -34,7 +34,7 @@ No upload or attach is allowed on a COMPLETED job. Those actions stay open in SC
 4. Apply the role/assignment rule for this action, using current database facts.
 5. Refuse upload or attach when the job is COMPLETED.
 
-Use the shared safe error envelope: forbidden actor 403, unavailable record 404, unconfigured authorization dependency 503. A broken internal relationship refuses access with a safe error and a request ID. Never return a server storage key or filesystem path.
+Use the shared safe error envelope: forbidden actor 403, unavailable record 404, upload or attach on a COMPLETED job 409 (`JOB_ALREADY_COMPLETED`), unconfigured authorization dependency 503. A broken internal relationship refuses access with 503 (`JOB_RECORD_INVALID`) and a request ID. Never return a server storage key or filesystem path.
 
 Files core still enforces uploader ownership for an unbound attachment and prevents moving a bound file to another record. An ADMIN entry in the matrix does not override either invariant. Once bound, original uploader status alone does not grant download access after reassignment.
 
@@ -52,7 +52,7 @@ flowchart LR
 
 The FieldModule-to-FilesModule edge is for the later completion workflow. Files imports only the low-level access module, so a completion command can use Files without creating a module cycle. The access adapter performs database reads only; no file/network I/O or independent commit.
 
-D3 owns the S03 adapter implementation after Files lands on main. Keep provider registration disabled until that implementation and its integration proof are reviewed. The accepted policy and this documentation update do not register the provider.
+D3 owns the S03 adapter. PR49 implemented it with its integration proof, and FilesModule now imports JobFileAccessModule. A write takes `FOR SHARE` on the job row, so completion cannot commit between the check and the write.
 
 ## Evidence use by a completion command
 
@@ -60,7 +60,7 @@ Before a critical job/stock/money transaction, Files.download(fileId, actor) ver
 
 A successful upload is not a completed installation or an authenticated customer signature. An orphan, missing blob, wrong-job file or unauthorized attachment cannot satisfy the gate.
 
-## Required integration proof before enabling access
+## Integration proof required before enabling access (delivered in PR49)
 
 - Check every matrix row for upload, download and attach against real job records.
 - Verify current assignment changes revoke access, including for the original uploader; an unrelated technician cannot read or bind evidence.
@@ -71,4 +71,4 @@ A successful upload is not a completed installation or an authenticated customer
 - Prove missing/altered bytes fail preflight and that completion uses persisted, correctly bound metadata inside its transaction.
 - Prove COMPLETED refuses upload/attach while other statuses follow the matrix; downloads still require current role/assignment.
 
-The role matrix, assignment authority, job-stage rule and module placement are accepted in the linked D3 decision. Remaining work is the D3-owned S03 implementation and the integration proof above, reviewed with the existing Files transport tests.
+The role matrix, assignment authority, job-stage rule and module placement are accepted in the linked D3 decision. PR49 delivered the D3-owned S03 implementation and this proof. The remaining gap is TICKET access, which needs D4's adapter.
