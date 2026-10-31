@@ -68,3 +68,6 @@ tests. Never activate SQL whose schema counterpart is still missing.
 D3 still owns `allocations.ticketLineId`, quote/ticket XOR and corresponding
 source-validation changes, plus `Unit.replacesUnitId` and the real replacement
 writer. The default replacement adapter remains unavailable until those land.
+
+See the [verification record](../../../docs/reviews/d4-coordinated-migration-verification.md)
+for exact code provenance, passed checks and the remaining acceptance boundaries.
