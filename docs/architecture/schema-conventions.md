@@ -45,7 +45,7 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 4b | `Order`, `PackingRequirement`, `Invoice`, `InvoiceLine`, `Payment` (`20261031180000_orders`) | D2 | C5; eleven CHECKs registered here; see [orders handoff](orders-handoff.md) |
 | 5 | `Job`, `JobAssignment`, installation time records | D3 | Queued |
 | 6 | `CostEntry` | D4 | Queued; D3 calls its single writer with typed unique source IDs; do not require an FK to an uncreated stock table |
-| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | Queued after D2 catalogue. Derived ledger, with no stored balance; see the [data model](data-model.md) |
+| 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `Allocation`, `Dispatch` and scan records follow. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Queued |
 
 **To land a migration:**
@@ -117,6 +117,8 @@ SELECT pg_get_indexdef('allocations_one_active_per_unit'::regclass);
 ```
 
 Copy the returned definition exactly into the manifest’s `definition` field, alongside `name`, `table`, `kind` and `owner`. Do not blindly update the manifest to match a changed database: first establish that the new definition is the intended migration. Canonical text can change with PostgreSQL versions; a version upgrade needs explicit review rather than weakened matching. PostgreSQL 17.11 is pinned in the checker CI job. Arbitrary equivalent SQL formatting is not normalized away, and wrong predicates must fail.
+
+The checker also covers triggers, views and functions, because the append-only ledger and derived on-hand depend on them. A disabled trigger counts as wrong, and a trigger whose function was emptied fails on the function's definition. For a view or function, `table` repeats its name.
 
 Run `npm run test:constraints` with an explicit `TEST_DATABASE_URL` naming a disposable test database. The suite creates only its own UUID schema and removes it afterwards. It does not load the normal application database configuration. Sixteen scenarios cover valid custom-schema definitions, a same-name table decoy, weakened CHECK, unvalidated CHECK, wrong index key/predicate/uniqueness, altered/missing exclusion, restoration, duplicate entries, missing definitions, empty manifests and unlisted rules of all three supported kinds. CI runs the suite serially after migrations and the real manifest check.
 

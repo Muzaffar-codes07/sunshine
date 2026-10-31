@@ -12,7 +12,7 @@ assert.ok(schema.length > 0, 'Database schema must not be empty.');
 const manifestPath = resolve(process.argv[2] ?? resolve(root, 'prisma/required-constraints.json'));
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const constraintType = { check: 'c', exclusion: 'x' };
-const supportedKinds = ['check', 'exclusion', 'unique_partial_index'];
+const supportedKinds = ['check', 'exclusion', 'unique_partial_index', 'trigger', 'view', 'function'];
 assert.ok(Array.isArray(manifest.required), 'Manifest required must be an array.');
 assert.ok(manifest.required.length > 0, 'Manifest must list the required database rules; an empty manifest is not verified.');
 const seen = new Set();
@@ -40,7 +40,20 @@ try {
      SELECT c.relname AS name, t.relname AS "table", 'unique_partial_index' AS kind
        FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
        JOIN pg_class t ON t.oid = i.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace
-      WHERE n.nspname = $1 AND i.indisunique AND i.indpred IS NOT NULL`, [schema],
+      WHERE n.nspname = $1 AND i.indisunique AND i.indpred IS NOT NULL
+      UNION ALL
+     SELECT t.tgname AS name, c.relname AS "table", 'trigger' AS kind
+       FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND NOT t.tgisinternal
+      UNION ALL
+     SELECT c.relname AS name, c.relname AS "table", 'view' AS kind
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relkind = 'v'
+      UNION ALL
+     SELECT p.proname AS name, p.proname AS "table", 'function' AS kind
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = $1 AND p.prokind = 'f'
+        AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')`, [schema],
   );
   for (const rule of actualRules) {
     if (!manifest.required.some((entry) => entry.name === rule.name && entry.table === rule.table && entry.kind === rule.kind)) {
@@ -62,6 +75,23 @@ try {
       else if (!found.unique || !found.partial || !found.valid || found.definition !== definition) {
         failures.push(`wrong definition: ${label}`);
       }
+    } else if (kind === 'trigger' || kind === 'view' || kind === 'function') {
+      // A trigger that exists but is disabled protects nothing, so "enabled" is part of the definition.
+      const { rows: [found] } = await client.query(kind === 'trigger'
+        ? `SELECT t.tgenabled = 'O' AS valid, pg_get_triggerdef(t.oid) AS definition
+             FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE t.tgname = $1 AND c.relname = $2 AND n.nspname = $3 AND NOT t.tgisinternal`
+        : kind === 'view'
+          ? `SELECT true AS valid, pg_get_viewdef(c.oid) AS definition
+               FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE c.relname = $1 AND c.relname = $2 AND n.nspname = $3 AND c.relkind = 'v'`
+          : `SELECT true AS valid, pg_get_functiondef(p.oid) AS definition
+               FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE p.proname = $1 AND p.proname = $2 AND n.nspname = $3 AND p.prokind = 'f'`,
+        [name, table, schema],
+      );
+      if (!found) failures.push(`missing ${label}`);
+      else if (!found.valid || found.definition !== definition) failures.push(`wrong definition: ${label}`);
     } else {
       const { rows: [found] } = await client.query(
         `SELECT c.contype AS type, c.convalidated AS valid, pg_get_constraintdef(c.oid) AS definition

@@ -9,6 +9,7 @@ import { HealthController } from './platform/health.controller';
 import { SalesModule } from './sales/sales.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CatalogModule } from './catalog/catalog.module';
     AuthModule,
     SalesModule,
     CatalogModule,
+    InventoryModule,
     QuotesModule,
     OrdersModule,
     SummaryModule,

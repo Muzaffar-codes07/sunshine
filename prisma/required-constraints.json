@@ -1,9 +1,12 @@
 {
-  "description": "Canonical PostgreSQL 17 definitions for hand-written rules. Update with each reviewed migration; db:check verifies schema, table, kind, validity and full definition.",
+  "description": "Canonical PostgreSQL 17 definitions for hand-written rules. Update with each reviewed migration; db:check verifies schema, table, kind, validity and full definition. For views and functions, table repeats the name.",
   "kinds": [
     "check",
     "exclusion",
-    "unique_partial_index"
+    "unique_partial_index",
+    "trigger",
+    "view",
+    "function"
   ],
   "required": [
     {
@@ -453,6 +456,251 @@
       "kind": "check",
       "owner": "D2",
       "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
+    },
+    {
+      "name": "product_cost_bases_average_nonnegative",
+      "table": "product_cost_bases",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"averageCost\" >= (0)::numeric) AND (\"averageCost\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "stock_document_lines_cost_nonnegative",
+      "table": "stock_document_lines",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"unitCost\" IS NULL) OR ((\"unitCost\" >= (0)::numeric) AND (\"unitCost\" <> 'NaN'::numeric))))"
+    },
+    {
+      "name": "stock_document_lines_number_positive",
+      "table": "stock_document_lines",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((\"lineNumber\" >= 1))"
+    },
+    {
+      "name": "stock_document_lines_quantity_positive",
+      "table": "stock_document_lines",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "stock_document_lines_zero_cost_reason",
+      "table": "stock_document_lines",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"unitCost\" IS NULL) OR (\"unitCost\" > (0)::numeric) OR (\"zeroCostReason\" IS NOT NULL)))"
+    },
+    {
+      "name": "stock_documents_done_has_time",
+      "table": "stock_documents",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((status <> 'DONE'::\"StockDocumentStatus\") OR (\"validatedAt\" IS NOT NULL)))"
+    },
+    {
+      "name": "stock_documents_reference_not_blank",
+      "table": "stock_documents",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((length(btrim((reference)::text)) > 0))"
+    },
+    {
+      "name": "stock_documents_version_positive",
+      "table": "stock_documents",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "stock_locations_code_not_blank",
+      "table": "stock_locations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((length(btrim((code)::text)) > 0))"
+    },
+    {
+      "name": "stock_locations_name_not_blank",
+      "table": "stock_locations",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((length(btrim((name)::text)) > 0))"
+    },
+    {
+      "name": "stock_movements_has_location",
+      "table": "stock_movements",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"fromLocationId\" IS NOT NULL) OR (\"toLocationId\" IS NOT NULL)))"
+    },
+    {
+      "name": "stock_movements_locations_differ",
+      "table": "stock_movements",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((\"fromLocationId\" IS DISTINCT FROM \"toLocationId\"))"
+    },
+    {
+      "name": "stock_movements_quantity_positive",
+      "table": "stock_movements",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((quantity > (0)::numeric) AND (quantity <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "units_cost_nonnegative",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((\"acquisitionCost\" >= (0)::numeric) AND (\"acquisitionCost\" <> 'NaN'::numeric)))"
+    },
+    {
+      "name": "units_serial_not_blank",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK (((length(btrim((\"rawSerial\")::text)) > 0) AND (length(btrim((\"normalizedSerial\")::text)) > 0)))"
+    },
+    {
+      "name": "units_version_positive",
+      "table": "units",
+      "kind": "check",
+      "owner": "D3",
+      "definition": "CHECK ((version >= 1))"
+    },
+    {
+      "name": "quote_lines_preserve_sent_terms",
+      "table": "quote_lines_preserve_sent_terms",
+      "kind": "function",
+      "owner": "D2",
+      "definition": "CREATE OR REPLACE FUNCTION public.quote_lines_preserve_sent_terms()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE parent_status \"QuoteStatus\";\nBEGIN\n  SELECT \"status\" INTO parent_status FROM \"quotes\" WHERE \"id\" = CASE WHEN TG_OP = 'DELETE' THEN OLD.\"quoteId\" ELSE NEW.\"quoteId\" END FOR SHARE;\n  IF parent_status <> 'DRAFT' THEN\n    RAISE EXCEPTION 'violates check constraint \"quote_lines_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quote_lines_frozen_terms';\n  END IF;\n  IF TG_OP = 'UPDATE' AND NEW.\"quoteId\" <> OLD.\"quoteId\" THEN\n    RAISE EXCEPTION 'violates check constraint \"quote_lines_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quote_lines_frozen_terms';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND $function$\n"
+    },
+    {
+      "name": "quotes_preserve_frozen_terms",
+      "table": "quotes_preserve_frozen_terms",
+      "kind": "function",
+      "owner": "D2",
+      "definition": "CREATE OR REPLACE FUNCTION public.quotes_preserve_frozen_terms()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'INSERT' THEN\n    IF NEW.\"status\" <> 'DRAFT' OR NEW.\"version\" <> 1 THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF TG_OP = 'DELETE' THEN\n    IF OLD.\"status\" <> 'DRAFT' THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n    END IF;\n    RETURN OLD;\n  END IF;\n  IF ROW(OLD.\"id\", OLD.\"enquiryId\", OLD.\"surveyId\", OLD.\"packageId\", OLD.\"customerId\", OLD.\"revision\", OLD.\"supersedesQuoteId\", OLD.\"revisionReason\",\n      OLD.\"customerSnapshot\", OLD.\"packageSnapshot\", OLD.\"hardwarePrice\", OLD.\"installationPrice\", OLD.\"totalPrice\", OLD.\"createdById\", OLD.\"createdAt\")\n    IS DISTINCT FROM ROW(NEW.\"id\", NEW.\"enquiryId\", NEW.\"surveyId\", NEW.\"packageId\", NEW.\"customerId\", NEW.\"revision\", NEW.\"supersedesQuoteId\", NEW.\"revisionReason\",\n      NEW.\"customerSnapshot\", NEW.\"packageSnapshot\", NEW.\"hardwarePrice\", NEW.\"installationPrice\", NEW.\"totalPrice\", NEW.\"createdById\", NEW.\"createdAt\")\n    OR NEW.\"version\" <> OLD.\"version\" + 1\n    OR NOT ((OLD.\"status\" = 'DRAFT' AND NEW.\"status\" = 'SENT') OR (OLD.\"status\" = 'SENT' AND NEW.\"status\" IN ('ACCEPTED', 'REJECTED')))\n    OR (OLD.\"status\" = 'SENT' AND ROW(OLD.\"sentAt\", OLD.\"sentById\", OLD.\"sentChannel\") IS DISTINCT FROM ROW(NEW.\"sentAt\", NEW.\"sentById\", NEW.\"sentChannel\"))\n  THEN\n    RAISE EXCEPTION 'violates check constraint \"quotes_frozen_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_frozen_terms';\n  END IF;\n  IF NEW.\"status\" = 'SENT' THEN\n    IF (SELECT count(*) FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'PACKAGE' AND \"lineTotal\" = NEW.\"hardwarePrice\") <> 1\n      OR (SELECT count(*) FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'SERVICE' AND \"lineTotal\" = NEW.\"installationPrice\") <> 1\n      OR EXISTS (SELECT 1 FROM unnest(ARRAY['PANEL','INVERTER','CHARGE_CONTROLLER','MOUNTING','WIRING_BOX','SWITCHGEAR','CABLE','EARTHING','CONNECTOR']) AS required(category)\n        WHERE NOT EXISTS (SELECT 1 FROM \"quote_lines\" line WHERE line.\"quoteId\" = NEW.\"id\" AND line.\"kind\" = 'COMPONENT' AND line.\"productSnapshot\"->>'category' = required.category))\n      OR ((NEW.\"packageSnapshot\"->>'systemType' = 'OFF_GRID') IS DISTINCT FROM EXISTS (\n        SELECT 1 FROM \"quote_lines\" WHERE \"quoteId\" = NEW.\"id\" AND \"kind\" = 'COMPONENT' AND \"productSnapshot\"->>'category' = 'BATTERY'))\n    THEN\n      RAISE EXCEPTION 'violates check constraint \"quotes_complete_terms\"' USING ERRCODE = '23514', CONSTRAINT = 'quotes_complete_terms';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND $function$\n"
+    },
+    {
+      "name": "stock_document_lines_guard",
+      "table": "stock_document_lines_guard",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_document_lines_guard()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  old_document uuid;\n  new_document uuid;\n  parent RECORD;\nBEGIN\n  IF TG_OP <> 'INSERT' THEN old_document := OLD.\"documentId\"; END IF;\n  IF TG_OP <> 'DELETE' THEN new_document := NEW.\"documentId\"; END IF;\n  FOR parent IN\n    SELECT \"status\" FROM \"stock_documents\" WHERE \"id\" IN (old_document, new_document) ORDER BY \"id\" FOR SHARE\n  LOOP\n    IF parent.\"status\" IN ('DONE', 'CANCELED') THEN\n      RAISE EXCEPTION 'lines of a closed stock document cannot change' USING ERRCODE = 'restrict_violation';\n    END IF;\n  END LOOP;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_documents_guard",
+      "table": "stock_documents_guard",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_documents_guard()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'INSERT' THEN\n    IF NEW.\"status\" <> 'DRAFT' THEN\n      RAISE EXCEPTION 'a stock document starts as a draft' USING ERRCODE = 'restrict_violation';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF OLD.\"status\" IN ('DONE', 'CANCELED') THEN\n    RAISE EXCEPTION 'a closed stock document cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  IF NEW.\"status\" = 'DONE' AND NOT EXISTS (SELECT 1 FROM \"stock_document_lines\" WHERE \"documentId\" = NEW.\"id\") THEN\n    RAISE EXCEPTION 'a stock document needs lines before validation' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_ledger_refuse_change",
+      "table": "stock_ledger_refuse_change",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_ledger_refuse_change()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'stock ledger table % is append-only', TG_TABLE_NAME USING ERRCODE = 'restrict_violation';\nEND;\n$function$\n"
+    },
+    {
+      "name": "stock_movements_check_source",
+      "table": "stock_movements_check_source",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.stock_movements_check_source()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  source RECORD;\nBEGIN\n  SELECT d.\"status\", d.\"actorId\", d.\"occurredAt\", d.\"fromLocationId\", d.\"toLocationId\", l.\"productId\", l.\"quantity\" INTO source\n  FROM \"stock_document_lines\" l JOIN \"stock_documents\" d ON d.\"id\" = l.\"documentId\"\n  WHERE l.\"id\" = NEW.\"documentLineId\";\n  IF NOT FOUND OR source.\"status\" <> 'DONE' THEN\n    RAISE EXCEPTION 'a stock movement needs a validated document' USING ERRCODE = 'restrict_violation';\n  END IF;\n  IF source.\"productId\" <> NEW.\"productId\" OR source.\"quantity\" <> NEW.\"quantity\" OR source.\"actorId\" <> NEW.\"actorId\"\n    OR source.\"occurredAt\" <> NEW.\"occurredAt\" OR source.\"fromLocationId\" IS DISTINCT FROM NEW.\"fromLocationId\"\n    OR source.\"toLocationId\" IS DISTINCT FROM NEW.\"toLocationId\" THEN\n    RAISE EXCEPTION 'a stock movement must match its document line' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "units_freeze_identity",
+      "table": "units_freeze_identity",
+      "kind": "function",
+      "owner": "D3",
+      "definition": "CREATE OR REPLACE FUNCTION public.units_freeze_identity()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' OR NEW.\"productId\" <> OLD.\"productId\" OR NEW.\"manufacturerId\" <> OLD.\"manufacturerId\"\n    OR NEW.\"rawSerial\" <> OLD.\"rawSerial\" OR NEW.\"normalizedSerial\" <> OLD.\"normalizedSerial\"\n    OR NEW.\"acquisitionCost\" <> OLD.\"acquisitionCost\" OR NEW.\"receiptLineId\" <> OLD.\"receiptLineId\" THEN\n    RAISE EXCEPTION 'a unit''s identity and cost cannot change' USING ERRCODE = 'restrict_violation';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "quote_lines_preserve_sent_terms",
+      "table": "quote_lines",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER quote_lines_preserve_sent_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quote_lines FOR EACH ROW EXECUTE FUNCTION quote_lines_preserve_sent_terms()"
+    },
+    {
+      "name": "quotes_preserve_frozen_terms",
+      "table": "quotes",
+      "kind": "trigger",
+      "owner": "D2",
+      "definition": "CREATE TRIGGER quotes_preserve_frozen_terms BEFORE INSERT OR DELETE OR UPDATE ON public.quotes FOR EACH ROW EXECUTE FUNCTION quotes_preserve_frozen_terms()"
+    },
+    {
+      "name": "stock_document_lines_guarded",
+      "table": "stock_document_lines",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_document_lines_guarded BEFORE INSERT OR DELETE OR UPDATE ON public.stock_document_lines FOR EACH ROW EXECUTE FUNCTION stock_document_lines_guard()"
+    },
+    {
+      "name": "stock_documents_guarded",
+      "table": "stock_documents",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_documents_guarded BEFORE INSERT OR DELETE OR UPDATE ON public.stock_documents FOR EACH ROW EXECUTE FUNCTION stock_documents_guard()"
+    },
+    {
+      "name": "stock_movements_append_only",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_append_only BEFORE DELETE OR UPDATE ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "stock_movements_no_truncate",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_no_truncate BEFORE TRUNCATE ON public.stock_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "stock_movements_source_valid",
+      "table": "stock_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER stock_movements_source_valid BEFORE INSERT ON public.stock_movements FOR EACH ROW EXECUTE FUNCTION stock_movements_check_source()"
+    },
+    {
+      "name": "unit_movements_append_only",
+      "table": "unit_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER unit_movements_append_only BEFORE DELETE OR UPDATE ON public.unit_movements FOR EACH ROW EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "unit_movements_no_truncate",
+      "table": "unit_movements",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER unit_movements_no_truncate BEFORE TRUNCATE ON public.unit_movements FOR EACH STATEMENT EXECUTE FUNCTION stock_ledger_refuse_change()"
+    },
+    {
+      "name": "units_identity_frozen",
+      "table": "units",
+      "kind": "trigger",
+      "owner": "D3",
+      "definition": "CREATE TRIGGER units_identity_frozen BEFORE DELETE OR UPDATE ON public.units FOR EACH ROW EXECUTE FUNCTION units_freeze_identity()"
+    },
+    {
+      "name": "stock_on_hand",
+      "table": "stock_on_hand",
+      "kind": "view",
+      "owner": "D3",
+      "definition": " SELECT \"productId\",\n    \"locationId\",\n    sum(delta) AS quantity\n   FROM ( SELECT stock_movements.\"productId\",\n            stock_movements.\"toLocationId\" AS \"locationId\",\n            stock_movements.quantity AS delta\n           FROM stock_movements\n          WHERE (stock_movements.\"toLocationId\" IS NOT NULL)\n        UNION ALL\n         SELECT stock_movements.\"productId\",\n            stock_movements.\"fromLocationId\",\n            (- stock_movements.quantity)\n           FROM stock_movements\n          WHERE (stock_movements.\"fromLocationId\" IS NOT NULL)) legs\n  GROUP BY \"productId\", \"locationId\";"
+    },
+    {
+      "name": "unit_locations",
+      "table": "unit_locations",
+      "kind": "view",
+      "owner": "D3",
+      "definition": " SELECT DISTINCT ON (um.\"unitId\") um.\"unitId\",\n    m.\"toLocationId\" AS \"locationId\"\n   FROM (unit_movements um\n     JOIN stock_movements m ON ((m.id = um.\"movementId\")))\n  ORDER BY um.\"unitId\", m.sequence DESC;"
     }
   ]
 }
