@@ -52,7 +52,7 @@ There's no "absent" value, because we have almost no evidence of confirmed absen
 
 ## Still needed from Tuhin or the team
 
-1. May StockSense code be reused? Ask the evaluator.
+1. May code from earlier projects be reused? Ask the evaluator.
 2. Must it be built on Odoo itself?
 3. Would someone try a SolarBuddy or Solar Ladder demo, or call two or three installers? Those are the quickest ways to test the gaps.
 

@@ -6,7 +6,7 @@ Merged by Claude from `claude-research.md`, `codex-research.md` and both critiqu
 
 **Choose Solar, with moderate confidence.**
 
-The reason is the team, not an empty market. Both markets are crowded, and Odoo publishes an official industry solution for each. Claude's review of StockSense repository history reports a stock-ledger implementation produced in about seven hours. That is evidence of relevant experience, rather than verification of production correctness. If the same backend skills are available this weekend, Solar offers a strong engineering story and a clear demo.
+The reason is the team, not an empty market. Both markets are crowded, and Odoo publishes an official industry solution for each. The team has relevant stock-ledger experience, which is not verification of production correctness. If the same backend skills are available this weekend, Solar offers a strong engineering story and a clear demo.
 
 **Choose Wedding instead if** the people building this weekend have little backend capacity, or the team can't show a stock movement and a serial-to-customer history early in the build. Wedding is the safer delivery and the easier demo to understand.
 
@@ -16,13 +16,13 @@ We've dropped the earlier numeric scores. They were judgement with invented weig
 
 | Situation | Choice |
 |---|---|
-| Same backend people, and StockSense code may be reused | Solar |
+| Same backend people, and code from earlier projects may be reused | Solar |
 | Same backend people, but no code reuse | Close. We lean Solar for the team's ledger experience. |
 | Fresh build, or limited backend capacity | Wedding |
 
 **Market evidence:** public evidence of real pain is stronger for Solar, including World Bank, CEEW and KPMG sources in India. That is not proof of an unserved software gap, because Solar Ladder, SolarBuddy, Odoo and others already claim much of this. Wedding has thinner India evidence, partly because we found no planner interviews, which doesn't mean the pain is smaller.
 
-**StockSense evidence:** the repo shows 53 commits between 09:17 and 16:15 IST on 26 Sept 2026, from 4 contributors: 29 Muzaffar-codes07, 14 Tuhin-void, 5 Eupho, 5 VBTG. It has auth, RBAC, warehouses and an append-only stock ledger. It has no serial or warranty model, so that part is new either way. Confirm the same people are building this weekend.
+**Team evidence:** the team has auth, RBAC, warehouse and append-only stock-ledger experience. Serial and warranty models are new either way. Confirm the same people are building this weekend.
 
 ## Are existing products failing?
 
@@ -89,7 +89,7 @@ The demo must show its date override openly. "SunPower Solutions" in the PDF is 
 ## Questions for Tuhin and the leader
 
 1. Which problem does the leader select?
-2. May StockSense code be reused? Ask the evaluator; we found no rule.
+2. May code from earlier projects be reused? Ask the evaluator; we found no rule.
 3. Must it be built on Odoo? The PDFs say only "one unified software platform", and the rubric wasn't found.
 4. Are the same four people building, and who has backend capacity?
 

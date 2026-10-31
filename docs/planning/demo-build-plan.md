@@ -19,13 +19,13 @@ The current stack remains React/Vite, NestJS, Prisma and local PostgreSQL. No Ba
 - The [specific event URL](https://hackathon.odoo.com/hackathon/details/69159) was inaccessible on recheck. The [general official page](https://hackathon.odoo.com/) supports hiring/teamwork and a 24-hour final, not this event's exact rubric weights or submission fields. Reconfirm those with organizers; do not invent them.
 - Use relative hours as requested. H0 is a budgeting reference after the plan is accepted, not permission to reset a real event clock.
 - One company/warehouse; manually recorded payments; no live WhatsApp/payment/government integrations; staff-recorded customer repair confirmation; explicit local demo accounts.
-- Examples are synthetic, pre-tax management figures. No quoted GST/subsidy amount is asserted as current law. No copied StockSense code without permission.
+- Examples are synthetic, pre-tax management figures. No quoted GST/subsidy amount is asserted as current law. All code is written fresh; no source is copied from earlier projects.
 
 ## 3. Tech Stack Comparison
 
 The [detailed comparison](../architecture/technology-decisions.md) evaluates the problem solved, speed, learning, integration, demo reliability, risk, alternatives and necessity for each decision. In brief: React/Vite avoids unnecessary SSR work; Nest provides explicit custom-API modules; Prisma and PostgreSQL support relational modeling with manual locking constraints; local files and a local release reduce external dependencies.
 
-Familiarity means concepts, not identical versions: StockSense used Nest 10/Prisma 5; Sunshine pins Nest 12/Prisma 7. Existing CI/build/runtime checks establish scaffold compatibility only. Do not use that evidence to claim stock, auth, money or warranty correctness.
+Familiarity means concepts, not identical versions: Sunshine pins Nest 12/Prisma 7. Existing CI/build/runtime checks establish scaffold compatibility only. Do not use that evidence to claim stock, auth, money or warranty correctness.
 
 ## 4. System Architecture
 

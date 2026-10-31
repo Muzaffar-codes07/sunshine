@@ -9,4 +9,4 @@
 7. Backend owners may use fixtures while implementing, but final production routes must read/write PostgreSQL. Fixtures are never a substitute for a successful business action.
 8. No secrets, `.env`, actual customer data, uploads, DB dumps or generated Prisma client in Git. `.env.example` uses local demonstration credentials only.
 9. Run `npm run check` and relevant domain tests. For stock/money rules use a real test PostgreSQL instance, not mocks alone.
-10. No copied StockSense source until the organizer explicitly permits reuse. All members commit and can explain their own code.
+10. All code is written fresh for Sunshine; do not copy source from earlier projects. All members commit and can explain their own code.

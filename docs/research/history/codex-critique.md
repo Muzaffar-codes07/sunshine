@@ -6,7 +6,7 @@
 
 Claude correctly distinguishes installer failures from software failures, rejects unsupported absence claims, and identifies real solar-specific pain. A portable customer warranty record is a strong, modest extension. A next-owner subsidy checklist is useful without pretending to integrate government systems. Both proposals agree the wedding extra-plates variation log is the strongest wedding demonstration and that neither category is novel simply by integrating ERP functions.
 
-My independent recommendation assumed a fresh small full-stack team. Claude introduces potentially decisive context: StockSense inventory/ledger experience. I did not have that fact in the thread. If this is confirmed team experience, solar's implementation risk falls even without code reuse. My wedding preference should not override known team strengths.
+My independent recommendation assumed a fresh small full-stack team. Claude introduces potentially decisive context: inventory/ledger experience. I did not have that fact in the thread. If this is confirmed team experience, solar's implementation risk falls even without code reuse. My wedding preference should not override known team strengths.
 
 ## Changes needed before a merged recommendation
 
@@ -19,7 +19,7 @@ My independent recommendation assumed a fresh small full-stack team. Claude intr
 
 ## Proposed merger
 
-Conditional final recommendation: **Solar if StockSense experience is confirmed; Wedding if the team is starting from scratch or has stronger wedding access.** If Claude has direct prior-user context confirming StockSense competence, lead with Solar at moderate confidence and clearly state the dependency. Ask Tuhin/leader for the selection and whether stack/reuse constraints apply. Do not ask agents to settle that choice.
+Conditional final recommendation: **Solar if inventory-ledger experience is confirmed; Wedding if the team is starting from scratch or has stronger wedding access.** If Claude has direct prior-user context confirming that competence, lead with Solar at moderate confidence and clearly state the dependency. Ask Tuhin/leader for the selection and whether stack/reuse constraints apply. Do not ask agents to settle that choice.
 
 Solar demo should be one persistent case: qualified enquiry → approved survey → 3 kW quote/kit → recorded advance → unique serial dispatch → customer acceptance → month-18 covered fault → owner dashboard. Keep typed serial fallback; camera scanning is an enhancement. Show an explicit demo-date override. Show an out-of-coverage case with configured service coverage disabled, so it does not contradict any scheme obligation. Internal repair costs still exist even when customer charge is zero; profit, cash and subsidy tracking must remain distinct.
 

@@ -84,7 +84,7 @@ Coverage needs start/expiry/policy/scope and a saved decision. Supplier claim, i
 - Panels are also serialized to support their specified warranty; delivery and commissioning are separate dates.
 - Customer repair confirmation can be recorded by staff with confirmer/channel/time; never imply the customer authenticated when they did not.
 - Event rules come from the event page for 69158, captured 31 Oct (`docs/requirements/hackathon-requirements.md`, added in PR #1); see section 11. The event page lists the ability to design backend APIs, model data and set up a local database as nice-to-have. No BaaS and minimal third-party APIs come from the [2025 organizer video](requirements/organizer-video-deliverables.md), not the event page. The team has adopted all of these as mandatory (ADR-03). The video submission is required by the event page's timeline.
-- One dedicated frontend owner and three component-based backend owners (owner decision, 31 Oct). No copied prior source without organizer permission.
+- One dedicated frontend owner and three component-based backend owners (owner decision, 31 Oct). All code is written fresh for Sunshine; no source is copied from earlier projects.
 - Stack: keep the existing React/Vite + NestJS + Prisma + PostgreSQL scaffold (decision M1, see [TRD](TRD.md) section 1).
 - Feature-report upgrades: only minimal refusal reasons and command readiness guards are in scope. The exception queue, cost variance, second-person installation check and every other enhancement are deferred. They can be reopened only after R1–R25, device and release checks pass, and before 01 Nov 05:00.
 

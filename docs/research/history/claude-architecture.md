@@ -28,8 +28,8 @@ Most of the pain is about being unable to answer "what was agreed, what happened
 | Decision | Choice | Why |
 |---|---|---|
 | Deployment | One modular app with Postgres | A team of four in 24h can't run microservices |
-| Stack, unless Odoo is mandatory | NestJS, Prisma, Postgres, React | The team has used it in StockSense |
-| Correcting mistakes | Add a reversing fact, never edit | Keeps the audit trail. StockSense already does this for stock. |
+| Stack, unless Odoo is mandatory | NestJS, Prisma, Postgres, React | The team has used it before |
+| Correcting mistakes | Add a reversing fact, never edit | Keeps the audit trail. |
 | Retries | Unique client-made operation ID on each command | A double tap or a retry can't apply twice |
 | Time | Rules read an injected clock, with a visible demo override | "18 months later" can be shown without faking data |
 | Offline | Phone queues commands and replays them. The server decides. | [CRDT merges don't check business rules](https://omr.it.com/blog/offline-first-state-sync-crdts-production/), and these actions have strict ones |
@@ -47,7 +47,7 @@ Most of the pain is about being unable to answer "what was agreed, what happened
 |---|---|---|---|
 | Job workflow gate | Moves a job from lead to closed | No quote until the survey is approved. Each step lists the evidence it needs. | Must |
 | Kit resolver | Turns "3 kW On-Grid" into a parts list | The BoM version is frozen on the order, so later edits don't change old jobs | Must |
-| Stock ledger | Quantities by location | Append-only, with on-hand calculated. Same design as StockSense. | Must |
+| Stock ledger | Quantities by location | Append-only, with on-hand calculated. | Must |
 | Asset ledger | One timeline per serial | received → allocated → dispatched → delivered → installed → replaced or returned | Must |
 | Coverage engine | Decides who pays | See below | Must (simple form) |
 | Field capture | Phone form, photos, signature | Works offline. Sign-off fixes a hash of the job summary. | Must |
@@ -205,7 +205,6 @@ incident:      item_id, description, owner, opened_at, resolved_at
 |---|---|---|
 | New components beyond a standard CRUD app | Asset ledger, coverage engine, offline form, money ledger | Quote formula, variation log, run-of-show timer, money ledger |
 | Must-have components | 8 | 8 |
-| Reused from StockSense, if allowed | Auth, RBAC, warehouses, stock ledger | Auth, RBAC only |
 | Live or real-time need | Low | High on the wedding day |
 | Hardest part | Keeping stock, assets and money consistent | Making the live day feel real |
 | Biggest demo risk | Time jump looks staged | Live screen needs events to arrive during the demo |
