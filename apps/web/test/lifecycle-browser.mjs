@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createSalesOrderFromBrowser } from './sales-browser-flow.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const apiRequire = createRequire(resolve(root, 'apps/api/package.json'));
 const webRequire = createRequire(resolve(root, 'apps/web/package.json'));
@@ -69,7 +70,10 @@ try {
   }
   for (let run = 1; run <= 3; run++) {
     // Transparent synthetic fixture: approved survey, accepted quote, paid order and physical stock.
-    const customer = await prisma.customer.create({ data: { name: `Browser Customer ${run}`, phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '44 Solar Road', city: 'Nagpur', pincode: '440001' } });
+    let order, customer;
+    if (run === 1) ({ order, customer } = await createSalesOrderFromBrowser({ browser, adminPage: page, staff, password, prisma, origin, contexts, errors }));
+    else {
+    customer = await prisma.customer.create({ data: { name: `Browser Customer ${run}`, phone: `7${String(randomInt(1e9)).padStart(9, '0')}`, addressLine: '44 Solar Road', city: 'Nagpur', pincode: '440001' } });
     const enquiry = await prisma.enquiry.create({ data: { customerId: customer.id, source: 'PHONE', requestedCapacityKw: 3, status: 'QUALIFIED', contactName: customer.name, siteAddressLine: customer.addressLine, siteCity: customer.city, sitePincode: customer.pincode } });
     const surveys = app.get(SurveysService), quotes = app.get(QuotesService);
     const survey = (await surveys.schedule(enquiry.id, { technicianId: staff.TECHNICIAN.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() })).data;
@@ -78,9 +82,10 @@ try {
     const quote = (await quotes.create(enquiry.id, { surveyId: survey.id, packageId: catalogueDemoId(1003) }, identity('SALES'))).data;
     await quotes.send(quote.id, { version: 1, channel: 'PRINT' }, identity('SALES'));
     await quotes.accept(quote.id, { version: 2, acceptedByName: customer.name, channel: 'IN_PERSON' }, identity('SALES'));
-    const order = (await app.get(OrdersService).confirm({ quoteId: quote.id }, randomUUID(), identity('SALES'))).data;
+    order = (await app.get(OrdersService).confirm({ quoteId: quote.id }, randomUUID(), identity('SALES'))).data;
     const payment = { amountInr: order.invoice.total, method: 'UPI', reference: `UTR-${randomUUID().slice(0, 10)}`, receivedAt: new Date().toISOString() };
     await app.get(IdempotencyService).run({ actorId: staff.ADMIN.id, key: randomUUID(), action: 'PAYMENT_RECEIPT', payload: payment }, tx => app.get(InvoicesService).recordPayment(tx, order.invoice.id, payment, identity('ADMIN')));
+    }
     const job = await prisma.job.findUniqueOrThrow({ where: { id: order.jobId } });
     await app.get(JobsService).schedule(job.id, { expectedVersion: job.version, scheduledStart: new Date(Date.now() + 86400000).toISOString(), scheduledFinish: new Date(Date.now() + 90000000).toISOString(), technicianIds: [staff.TECHNICIAN.id] }, identity('SALES'));
     const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
