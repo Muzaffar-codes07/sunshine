@@ -54,7 +54,23 @@ test('ticket mutations are disabled by default while warranty lookup remains usa
   assert.match(markup, /Ticket actions are unavailable/);
   assert.match(markup, /<fieldset disabled=""/);
   assert.match(markup, /Look up serial/);
+  assert.match(markup, /Load ticket/);
   assert.doesNotMatch(markup, /Ticket closed/);
+});
+
+test('saved ticket read uses the authorized route and validates the complete response', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (...args) => {
+    calls.push(args);
+    return json({ data: ticket });
+  });
+  const saved = await serviceApi.getTicket(ticketId);
+  assert.equal(calls[0][0], `/api/v1/tickets/${ticketId}`);
+  assert.equal(calls[0][1].method, 'GET');
+  assert.equal(calls[0][1].credentials, 'same-origin');
+  assert.equal(saved.data.version, 1);
+  globalThis.fetch.mock.mockImplementation(async () => json({ data: { id: ticketId, status: 'CLOSED' } }));
+  await assert.rejects(serviceApi.getTicket(ticketId), { code: 'CONTRACT_MISMATCH' });
 });
 
 test('ticket view shows saved coverage, lineage and only the current lifecycle action', () => {

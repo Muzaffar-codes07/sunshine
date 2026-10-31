@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent, type MutableRefObject } from 'react';
+import { z } from 'zod';
 import {
   assessTicketInputSchema,
   confirmTicketInputSchema,
@@ -12,7 +13,7 @@ import { DetailPattern, FormPattern, TimelinePattern } from '../../components/sh
 import { Field } from '../../components/ui/Field';
 import { newIdempotencyKey } from '../../lib/api';
 import { D4RequestError, describeD4Error } from './d4-http';
-import { assessTicket, confirmTicket, createTicket, lookupWarranty, resolveTicket } from './service-api';
+import { assessTicket, confirmTicket, createTicket, getTicket, lookupWarranty, resolveTicket } from './service-api';
 import { coverageLabel, nextTicketAction, warrantyPeriod } from './service-model';
 
 type FormFailure = { message: string; fields: Record<string, string[]> };
@@ -43,12 +44,34 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
   const [lookupFailure, setLookupFailure] = useState<FormFailure | null>(null);
   const [lookupPending, setLookupPending] = useState(false);
   const [ticket, setTicket] = useState<ServiceTicket | null>(initialTicket);
+  const [ticketId, setTicketId] = useState(initialTicket?.id ?? '');
+  const [readFailure, setReadFailure] = useState<FormFailure | null>(null);
+  const [readPending, setReadPending] = useState(false);
   const [unitId, setUnitId] = useState('');
   const [ticketFailure, setTicketFailure] = useState<FormFailure | null>(null);
   const [ticketPending, setTicketPending] = useState(false);
   const keyCache = useRef<CommandKey | null>(null);
   const commandPending = useRef(false);
   const lookupInFlight = useRef(false);
+  const readInFlight = useRef(false);
+
+  async function submitRead(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (readInFlight.current || commandPending.current) return;
+    const parsed = z.uuid().safeParse(ticketId.trim());
+    setReadFailure(null);
+    if (!parsed.success) {
+      setReadFailure({ message: 'Enter a valid ticket ID.', fields: { ticketId: ['Enter a valid ticket ID.'] } });
+      return;
+    }
+    readInFlight.current = true;
+    setReadPending(true);
+    setTicket(null);
+    keyCache.current = null;
+    try { setTicket((await getTicket(parsed.data)).data); }
+    catch (error) { setReadFailure(failure(error)); }
+    finally { setReadPending(false); readInFlight.current = false; }
+  }
 
   async function submitLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,12 +144,12 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
   }
 
   async function runCommand(action: string, body: unknown, request: (key: string) => Promise<{ data: ServiceTicket }>) {
-    if (!ticketCommandsEnabled || commandPending.current) return;
+    if (!ticketCommandsEnabled || commandPending.current || readInFlight.current) return;
     commandPending.current = true;
     setTicketFailure(null); setTicketPending(true);
     try {
       const response = await request(commandKey(keyCache, action, body));
-      setTicket(response.data); keyCache.current = null;
+      setTicket(response.data); setTicketId(response.data.id); keyCache.current = null;
     } catch (error) { setTicketFailure(failure(error)); }
     finally { setTicketPending(false); commandPending.current = false; }
   }
@@ -158,7 +181,14 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
       { id: 'reason', label: 'Saved reason', value: lookup.assessment.reason },
     ]} />}
 
-    {!ticketCommandsEnabled && <p role="status">Ticket actions are unavailable until authorized reads, retry handling and billing are connected. Warranty lookup can also be unavailable while equipment and policy integration is pending.</p>}
+    <FormPattern title="Saved service ticket" submitLabel={ticket ? 'Refresh ticket' : 'Load ticket'} pending={readPending}
+      error={readFailure?.message} onSubmit={(event) => void submitRead(event)}>
+      <Field label="Ticket ID" error={readFailure?.fields.ticketId?.[0]}>
+        {(control) => <input {...control} name="ticketId" value={ticketId} onChange={(event) => setTicketId(event.target.value)} autoComplete="off" required />}
+      </Field>
+    </FormPattern>
+
+    {!ticketCommandsEnabled && <p role="status">Ticket commands remain unavailable until server replay and billing are connected. Saved-ticket reads can also be unavailable while their production adapter is pending.</p>}
     <fieldset disabled={!ticketCommandsEnabled} style={{ border: 0, padding: 0, minWidth: 0 }}>
     <legend>Service ticket actions</legend>
     {!ticket && <FormPattern title="Create service ticket" submitLabel="Create ticket" pending={ticketPending}
