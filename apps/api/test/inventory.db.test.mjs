@@ -209,6 +209,35 @@ test('a documented zero cost is accepted', async () => {
   assert.equal((await response.json()).data.lines[0].zeroCostReason, 'Supplier replacement at no charge');
 });
 
+test('receipt reload preserves original costs and serial IDs after later receipts change the average', async () => {
+  const response = await post(receipt([
+    bulkLine('1.125', '12.34'), serializedLine([serial()], '54321.09'),
+    { ...bulkLine('1', '0.00'), zeroCostReason: 'Supplier replacement at no charge' },
+  ]));
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  const average = await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } });
+  assert.equal((await post(receipt([bulkLine('100', '999.99')]))).status, 201);
+  assert.ok(!(await prisma.productCostBasis.findUniqueOrThrow({ where: { productId: bulk.id } })).averageCost.equals(average.averageCost));
+  for (const role of ['WAREHOUSE', 'ADMIN']) {
+    const response = await get(`/stock/receipts/${created.data.id}`, role);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), created, 'reload comes from persisted immutable receipt facts');
+  }
+});
+
+test('receipt lookup excludes other documents and returns safe input, missing and authorization errors', async () => {
+  const response = await post(receipt([bulkLine('1', '10.00')]));
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  await expectError(await get(`/stock/receipts/${created.data.id}`, 'SALES'), 403, 'FORBIDDEN');
+  await expectError(await get(`/stock/receipts/${created.data.id}`, null), 401, 'UNAUTHENTICATED');
+  await expectError(await get('/stock/receipts/not-a-uuid'), 400, 'INVALID_INPUT');
+  await expectError(await get(`/stock/receipts/${randomUUID()}`), 404, 'NOT_FOUND');
+  const draft = await prisma.$transaction((tx) => draftLine(tx, 'TRANSFER', bulk.id, '1', { fromLocationId: main.id, toLocationId: quarantine.id }));
+  await expectError(await get(`/stock/receipts/${draft.documentId}`), 404, 'NOT_FOUND');
+});
+
 test('a duplicate serial is refused, including between concurrent receipts, with one winner', async () => {
   const taken = serial();
   assert.equal((await post(receipt([serializedLine([taken])]))).status, 201);
