@@ -1,3 +1,5 @@
+BEGIN;
+
 -- CreateEnum
 CREATE TYPE "QuoteStatus" AS ENUM ('DRAFT', 'SENT', 'ACCEPTED', 'REJECTED');
 
@@ -239,3 +241,5 @@ BEGIN
 END $$;
 CREATE TRIGGER "quotes_preserve_frozen_terms" BEFORE INSERT OR UPDATE OR DELETE ON "quotes"
   FOR EACH ROW EXECUTE FUNCTION "quotes_preserve_frozen_terms"();
+
+COMMIT;
