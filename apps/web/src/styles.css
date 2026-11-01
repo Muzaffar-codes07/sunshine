@@ -212,6 +212,7 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .money-strip .is-strong dd { font-weight: 600; }
 .money-bar { height: .3125rem; background: var(--beige-soft); }
 .money-bar i { display: block; height: 100%; background: var(--gold); }
+.scan-bar { margin: -.25rem 0 1rem; border-radius: var(--r-pill); overflow: hidden; }
 .fold { margin: .75rem 0; border-top: 1px solid var(--line); }
 .fold > summary { padding: .75rem 0; font-weight: 550; cursor: pointer; }
 .fold > p { color: var(--muted); font-size: .875rem; }
@@ -225,6 +226,26 @@ header { display: flex; align-items: center; justify-content: space-between; gap
   .progress-hero a, .hero-facts dt, .hero-next span { color: var(--ink); }
   .pattern-card, .table-scroll, .money-strip { box-shadow: none; break-inside: avoid; }
 }
+
+.detail-layout--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.job-steps { counter-reset: step; }
+.step-title, .job-steps legend { display: flex; align-items: center; gap: .625rem; margin: 1.25rem 0 .75rem; font-size: 1rem; font-weight: 600; }
+.job-steps form > fieldset > legend { margin-top: 1.25rem; }
+.step-title::before, .job-steps legend::before { content: counter(step); counter-increment: step; flex: none; display: grid; place-items: center; width: 1.625rem; height: 1.625rem; color: var(--navy); font-size: .8125rem; font-weight: 600; background: var(--beige); border-radius: 50%; }
+.step-title.is-done::before { content: "✓"; color: var(--white); background: var(--ok); }
+.evidence-grid { display: flex; flex-wrap: wrap; gap: .75rem; }
+.evidence-grid > h2 { flex-basis: 100%; }
+.evidence-grid .photo-preview { max-height: 14rem; margin: 0; }
+@media (max-width: 1099px) { .detail-layout--even { grid-template-columns: 1fr; } }
+
+.alert-card { margin: .75rem 0; padding: .75rem 1rem; color: var(--ink); background: #f8e5e3; border: 1px solid #a8322a33; border-radius: var(--r-md); }
+.alert-card.form-error { color: #7d231d; }
+.alert-card p { margin: 0 0 .25rem; font-size: .875rem; }
+.alert-card p:last-of-type { margin-bottom: 0; }
+.alert-card p:last-of-type:not(:first-child) { margin-top: .5rem; font-weight: 600; }
+.alert-card button { margin-top: .5rem; }
+#workspace-content td, #workspace-content th { overflow-wrap: break-word; }
+td .nowrap { white-space: nowrap; }
 
 /* Public enquiry */
 .enquiry-scene { min-height: 100svh; padding: .75rem; background: var(--canvas); }

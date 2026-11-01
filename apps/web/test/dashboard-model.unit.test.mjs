@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { attentionItems, barsFor, documentRows, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
+import { attentionItems, barsFor, documentRows, formatDay, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
 
 const NOW = new Date(2026, 10, 4, 12, 0);
 const at = (day, hour) => new Date(2026, 10, day, hour).toISOString();
@@ -106,6 +106,7 @@ test('status filters show live counts, and hide a status with no jobs', () => {
 });
 
 test('formatting helpers', () => {
+  assert.equal(formatDay('2046-11-01'), '1 Nov 2046');
   assert.equal(formatInr('55000.00'), '₹55,000'); assert.equal(formatInr('1234.50'), '₹1,234.50');
   assert.equal(linePath([1], 10, 10), ''); assert.match(linePath([0, 2, 1], 100, 20), /^M0\.0 16\.0 C/);
 });

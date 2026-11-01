@@ -2,13 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { allocationListResponseSchema, deliverDispatchRequestSchema, dispatchResponseSchema, recordScanRequestSchema, type AllocationView, type OrderFulfilment } from '@sunshine/contracts';
-import { DetailPattern, ListPattern, TimelinePattern } from '../../components/shared/patterns';
+import { DetailPattern, ListPattern, StatusPill, TimelinePattern } from '../../components/shared/patterns';
+import { StageHero } from '../../components/shared/StageHero';
 import { ScanInput } from '../../components/device/ScanInput';
 import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
 import { describeProblem, formatWhen, humanize, localToIso } from '../sales/queries';
 import { checkInput, useAllocations, useDispatch, useFulfilment, useJob, useStockCommand, useUnit } from './queries';
+import { formatDay } from '../dashboard/dashboard-model';
 
 type Dispatch = z.infer<typeof dispatchResponseSchema>['data'];
 
@@ -25,8 +27,9 @@ function Reserved({ order, allocations, dispatch }: { order: OrderFulfilment; al
     columns={[{ id: 'item', label: 'Component' }, { id: 'serial', label: 'Serial' }, { id: 'quantity', label: 'Quantity' }, { id: 'scan', label: 'Scan' }]}
     rows={allocations.map((row) => ({ id: row.id, cells: {
       item: row.source.kind === 'QUOTE_LINE' ? names.get(row.source.quoteLineId) ?? 'Component' : 'Repair part',
-      serial: <Serial unitId={row.unitId} />, quantity: row.quantity,
-      scan: !row.unitId ? 'Not needed' : !dispatch ? 'Waiting for dispatch' : scanned.has(row.unitId) ? 'Scanned' : 'Needs scan',
+      serial: <Serial unitId={row.unitId} />, quantity: String(Number(row.quantity)),
+      scan: !row.unitId ? <span className="status-pill status-pill--muted">Not needed</span> : !dispatch ? <span className="status-pill status-pill--muted">Waiting for dispatch</span>
+        : scanned.has(row.unitId) ? <span className="status-pill status-pill--ok">Scanned</span> : <span className="status-pill status-pill--active">Needs scan</span>,
     } }))} />;
 }
 
@@ -34,7 +37,7 @@ function PostDispatch({ dispatch }: { dispatch: Dispatch }) {
   const command = useStockCommand(dispatchResponseSchema);
   return <>
     <p>Every required unit is scanned. Posting takes the goods out of stock and records their cost.</p>
-    <button type="button" disabled={command.busy || command.uncertain} onClick={() => command.run(`/dispatches/${dispatch.id}/dispatch`, { expectedVersion: dispatch.version })}>{command.busy ? 'Posting…' : 'Post dispatch'}</button>
+    <button type="button" className="button-primary" disabled={command.busy || command.uncertain} onClick={() => command.run(`/dispatches/${dispatch.id}/dispatch`, { expectedVersion: dispatch.version })}>{command.busy ? 'Posting…' : 'Post dispatch'}</button>
     <CommandFeedback problem={command.problem} uncertain={command.uncertain} busy={command.busy} onRetry={command.retry} />
   </>;
 }
@@ -74,7 +77,7 @@ function Delivered({ dispatch }: { dispatch: Dispatch }) {
       columns={[{ id: 'serial', label: 'Serial' }, { id: 'cover', label: 'Cover' }, { id: 'from', label: 'From' }, { id: 'to', label: 'Until' }]}
       rows={dispatch.coverage.map((row) => ({ id: row.unitId, cells: {
         serial: <Serial unitId={row.unitId} />, cover: row.status === 'NO_POLICY' ? 'No warranty terms on the quote' : `${row.status}: ${row.policyName}`,
-        from: row.startDate ?? 'Not started', to: row.expiryDate ?? 'Not started',
+        from: row.startDate ? <span className="nowrap">{formatDay(row.startDate)}</span> : 'Not started', to: row.expiryDate ? <span className="nowrap">{formatDay(row.expiryDate)}</span> : 'Not started',
       } }))} />
   </section>;
 }
@@ -98,6 +101,7 @@ function ScanForm({ dispatch }: { dispatch: Dispatch }) {
   return <section className="pattern-card">
     <h2>Scan equipment</h2>
     <p role="status">{done} of {required} required units scanned.</p>
+    <div className="money-bar scan-bar" role="progressbar" aria-label="Units scanned" aria-valuenow={done} aria-valuemin={0} aria-valuemax={required}><i style={{ width: `${required ? done / required * 100 : 0}%` }} /></div>
     {!dispatch.scanReadiness.reservationValid && <p role="alert">The reservation has changed. Check the stock before scanning.</p>}
     {dispatch.scanReadiness.complete
       ? <PostDispatch dispatch={dispatch} />
@@ -122,13 +126,13 @@ function Actions({ order, version, hasAllocations, dispatch, syncing }: { order:
   if (!hasAllocations) {
     return <section className="pattern-card"><h2>Reserve stock</h2>
       <p>Reserves every component on this order, or none if anything is short.</p>
-      <button type="button" disabled={syncing || reserve.busy || reserve.uncertain} onClick={() => reserve.run(`/orders/${order.id}/allocations`, { expectedVersion: version })}>{reserve.busy ? 'Reserving…' : 'Reserve all stock'}</button>
+      <button type="button" className="button-primary" disabled={syncing || reserve.busy || reserve.uncertain} onClick={() => reserve.run(`/orders/${order.id}/allocations`, { expectedVersion: version })}>{reserve.busy ? 'Reserving…' : 'Reserve all stock'}</button>
       <CommandFeedback problem={reserve.problem} uncertain={reserve.uncertain} busy={reserve.busy} onRetry={reserve.retry} />
     </section>;
   }
   if (!dispatch) {
     return <section className="pattern-card"><h2>Dispatch</h2>
-      <button type="button" disabled={syncing || reserve.busy || reserve.uncertain || prepare.busy || prepare.uncertain} onClick={() => prepare.run(`/orders/${order.id}/dispatches`, { expectedVersion: version })}>{prepare.busy ? 'Preparing…' : 'Prepare dispatch'}</button>
+      <button type="button" className="button-primary" disabled={syncing || reserve.busy || reserve.uncertain || prepare.busy || prepare.uncertain} onClick={() => prepare.run(`/orders/${order.id}/dispatches`, { expectedVersion: version })}>{prepare.busy ? 'Preparing…' : 'Prepare dispatch'}</button>
       <CommandFeedback problem={prepare.problem} uncertain={prepare.uncertain} busy={prepare.busy} onRetry={prepare.retry} />
     </section>;
   }
@@ -147,21 +151,36 @@ function Fulfilment({ id }: { id: string }) {
   if (failed) return <div role="alert"><p>{describeProblem(failed).message}</p><button type="button" onClick={refetch}>Retry</button></div>;
   if (!order.data || !allocations.data || dispatch.data === undefined || !job.data) return <p role="status">Loading order…</p>;
   const item = order.data.data, rows = allocations.data.data.filter((row) => row.status !== 'RELEASED');
+  const live = dispatch.data?.data ?? null, jobView = job.data.data;
+  const missing = live?.scanReadiness.missingUnitIds.length ?? 0;
+  const stage = !rows.length ? 0 : !live || (live.status === 'DRAFT' && missing > 0) ? 1 : live.status === 'DRAFT' ? 2 : live.status === 'DISPATCHED' ? 3 : 5;
+  const next = stage === 0 ? 'Reserve the stock for this order.'
+    : !live ? 'Prepare the dispatch, then scan each serial unit.'
+      : stage === 1 ? `Scan the remaining ${missing} ${missing === 1 ? 'unit' : 'units'}.`
+        : stage === 2 ? 'Post the dispatch to take the goods out of stock.'
+          : stage === 3 ? 'Record the delivery when the goods reach the site.' : 'Delivered. This order is with the installation team.';
   return <>
-    <h1>{item.displayNumber}</h1>
-    <DetailPattern title="Order" entries={[
-      { id: 'confirmed', label: 'Confirmed', value: formatWhen(item.confirmedAt) },
+    <p className="back-link"><Link to="/workspace/warehouse"><span aria-hidden="true">← </span>Back to the warehouse</Link></p>
+    <div className="page-head"><div><h1>{item.displayNumber}</h1><p className="page-sub"><StatusPill status={jobView.status} /> Confirmed {formatWhen(item.confirmedAt)}</p></div></div>
+    <StageHero label="Fulfilment progress" stages={['Reserve', 'Scan', 'Dispatch', 'Deliver', 'Done']} current={stage} next={next} facts={[
+      { id: 'customer', label: 'Customer', value: jobView.contactName },
+      { id: 'site', label: 'Site', value: jobView.siteAddress },
       { id: 'payment', label: 'Payment', value: item.released ? 'Released after recorded payment' : 'Awaiting advance payment' },
-      { id: 'job', label: 'Job status', value: humanize(job.data.data.status) },
+      { id: 'job', label: 'Job status', value: humanize(jobView.status) },
     ]} />
-    {/* Readbacks arrive independently. Do not submit a new command with an older cached job version. */}
-    <Actions order={item} version={job.data.data.version} hasAllocations={rows.length > 0} dispatch={dispatch.data?.data ?? null}
-      syncing={order.isFetching || job.isFetching || allocations.isFetching || dispatch.isFetching} />
-    {rows.length > 0
-      ? <Reserved order={item} allocations={rows} dispatch={dispatch.data?.data ?? null} />
-      : <ListPattern title="Packing requirements" columns={[{ id: 'item', label: 'Component' }, { id: 'quantity', label: 'Quantity' }]}
-        rows={item.packing.map((line) => ({ id: line.id, cells: { item: line.description, quantity: line.quantity } }))} />}
-    <p><Link to="/workspace/warehouse">Back to the warehouse</Link></p>
+    <div className="detail-layout detail-layout--even">
+      <div className="detail-main">
+        {/* Readbacks arrive independently. Do not submit a new command with an older cached job version. */}
+        <Actions order={item} version={jobView.version} hasAllocations={rows.length > 0} dispatch={live}
+          syncing={order.isFetching || job.isFetching || allocations.isFetching || dispatch.isFetching} />
+      </div>
+      <div className="detail-main">
+        {rows.length > 0
+          ? <Reserved order={item} allocations={rows} dispatch={live} />
+          : <ListPattern title="Packing requirements" columns={[{ id: 'item', label: 'Component' }, { id: 'quantity', label: 'Quantity' }]}
+            rows={item.packing.map((line) => ({ id: line.id, cells: { item: line.description, quantity: String(Number(line.quantity)) } }))} />}
+      </div>
+    </div>
   </>;
 }
 
