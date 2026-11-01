@@ -137,7 +137,7 @@ test('reports render server monetary totals, cutoff and empty states', () => {
   assert.match(markup, /No approved technician time/);
   assert.match(markup, /No subsidy milestones recorded/);
   assert.match(markup, /end excluded/);
-  assert.match(markup, /2026-11-01T00:00:00.000Z/);
+  assert.match(markup, /1 Nov 2026/);
   assert.match(markup, /Download this period as CSV/);
   client.clear();
 });
