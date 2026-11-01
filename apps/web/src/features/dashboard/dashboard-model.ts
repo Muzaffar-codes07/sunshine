@@ -185,8 +185,8 @@ export function linePath(values: number[], width: number, height: number, pad = 
 }
 
 export function formatInr(amount: string) {
-  const value = Number(amount);
-  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: Number.isInteger(value) ? 0 : 2, minimumFractionDigits: Number.isInteger(value) ? 0 : 2 })}`;
+  const value = Number(amount), whole = Number.isInteger(value), digits = whole ? 0 : 2;
+  return `${value < 0 ? '−' : ''}₹${Math.abs(value).toLocaleString('en-IN', { maximumFractionDigits: digits, minimumFractionDigits: digits })}`;
 }
 
 /** A calendar date such as a warranty start, shown the same way in every timezone. */

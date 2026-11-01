@@ -7,6 +7,7 @@ import { apiGet } from '../lib/api';
 import { useDashboardJobs, useOpenTickets } from '../features/dashboard/dashboard-data';
 import { attentionItems, onDay, projectHref } from '../features/dashboard/dashboard-model';
 import { humanize } from '../features/sales/queries';
+import { shortTicketNumber } from '../features/service/service-model';
 import { AccountChip } from './Sidebar';
 import { workspaceLabel, workspaces } from './Workspace';
 
@@ -52,7 +53,7 @@ function GlobalSearch({ role }: { role: StaffRole }) {
     { title: 'Projects', items: (jobs.data?.items ?? []).filter((job) => `${job.orderDisplayNumber} ${job.contactName} ${job.siteAddress}`.toLowerCase().includes(term)).slice(0, 5).map((job) => ({ id: job.id, title: `${job.orderDisplayNumber} · ${job.contactName}`, detail: job.siteAddress, href: projectHref(job, role) })) },
     { title: 'Customers', items: (enquiries.data?.data.items ?? []).filter((item) => `${item.contactName} ${item.phone}`.toLowerCase().includes(term)).slice(0, 5).map((item) => ({ id: item.id, title: item.contactName, detail: `${item.siteCity} · ${humanize(item.status)}`, href: `/workspace/sales/enquiries/${item.id}` })) },
     { title: 'Serial numbers', items: (units.data ?? []).map((unit) => ({ id: unit.id, title: unit.serial, detail: humanize(unit.status), href: unit.activeAssignment ? `/workspace/warehouse/orders/${unit.activeAssignment.orderId}` : '/workspace/warehouse' })) },
-    { title: 'Service tickets', items: (tickets.data?.items ?? []).filter((ticket) => `${ticket.ticketNumber} ${ticket.faultDescription}`.toLowerCase().includes(term)).slice(0, 5).map((ticket) => ({ id: ticket.id, title: ticket.ticketNumber, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })) },
+    { title: 'Service tickets', items: (tickets.data?.items ?? []).filter((ticket) => `${ticket.ticketNumber} ${ticket.faultDescription}`.toLowerCase().includes(term)).slice(0, 5).map((ticket) => ({ id: ticket.id, title: shortTicketNumber(ticket.ticketNumber), detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })) },
   ].filter((group) => group.items.length > 0);
   return <div className="search" ref={root} role="search">
     <div className="search-box">
@@ -75,7 +76,7 @@ function AttentionMenu({ role }: { role: StaffRole }) {
   const tickets = useOpenTickets(role);
   const items = [
     ...attentionItems(jobs.data?.items ?? [], role, new Date()),
-    ...(tickets.data?.items ?? []).filter((ticket) => ticket.status === 'OPEN').slice(0, 5).map((ticket) => ({ id: ticket.id, title: `${ticket.ticketNumber} is waiting for assessment`, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })),
+    ...(tickets.data?.items ?? []).filter((ticket) => ticket.status === 'OPEN').slice(0, 5).map((ticket) => ({ id: ticket.id, title: `${shortTicketNumber(ticket.ticketNumber)} is waiting for assessment`, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })),
   ];
   return <div className="menu" ref={root}>
     <button type="button" className="bell" aria-haspopup="true" aria-expanded={open} aria-label={`Needs attention: ${items.length}`} onClick={() => setOpen(!open)}>

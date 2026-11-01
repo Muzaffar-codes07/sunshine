@@ -20,9 +20,9 @@ export function FilterChips<T extends string>({ label, options, value, onChange 
 }
 
 const STATUS_TONES: Record<string, string> = {
-  COMPLETED: 'ok', PAID: 'ok', APPROVED: 'ok', DELIVERED: 'ok', INSTALLED: 'ok', ACTIVE: 'ok', RESOLVED: 'ok', CLOSED: 'ok', AVAILABLE: 'ok', QUALIFIED: 'ok',
-  IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
-  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
+  COVERED: 'ok', COMPLETED: 'ok', PAID: 'ok', APPROVED: 'ok', DELIVERED: 'ok', INSTALLED: 'ok', ACTIVE: 'ok', RESOLVED: 'ok', CLOSED: 'ok', AVAILABLE: 'ok', QUALIFIED: 'ok',
+  AWAITING_CUSTOMER_CONFIRMATION: 'active', OUT_OF_SCOPE: 'active', NOT_STARTED: 'active', IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
+  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', NO_WARRANTY: 'muted', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
 };
 /** Status in words, with colour as a second signal only. */
 export function StatusPill({ status }: { status: string }) {
@@ -50,7 +50,7 @@ export function FormPattern({ title, onSubmit, pending = false, error, submitLab
 }
 
 export function TimelinePattern({ title, events }: { title: string; events: { id: string; label: string; at: string; detail?: ReactNode }[] }) {
-  return <section className="pattern-card"><h2>{title}</h2>{events.length ? <ol className="timeline">{events.map((event) => <li key={event.id}><strong>{event.label}</strong> <time dateTime={event.at}>{new Date(event.at).toLocaleString('en-IN')}</time>{event.detail && <p>{event.detail}</p>}</li>)}</ol> : <p>No activity recorded.</p>}</section>;
+  return <section className="pattern-card"><h2>{title}</h2>{events.length ? <ol className="timeline">{events.map((event) => <li key={event.id}><strong>{event.label}</strong> <time dateTime={event.at}>{new Date(event.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</time>{event.detail && <p>{event.detail}</p>}</li>)}</ol> : <p>No activity recorded.</p>}</section>;
 }
 
 export function ActionDrawer({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
