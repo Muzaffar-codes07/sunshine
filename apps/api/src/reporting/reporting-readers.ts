@@ -17,6 +17,7 @@ export type ReportTimeEntry = {
   id: string; technicianId: string; technicianName: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   hours: string; frozenHourlyRate: string; occurredAt: Date; approvedAt: Date | null;
+  elapsedMs?: string; frozenAmount?: string;
 };
 
 /** Integrate only with persisted Job/Order/Invoice/Payment models.
@@ -28,6 +29,7 @@ export type ReportTimeEntry = {
  * Job completion/unfinished steps must reflect the same snapshot/cutoff.
  */
 export abstract class ReportingSourceReader {
+  readonly payScope: 'INSTALLATION_ONLY' | 'ALL_TIME' = 'ALL_TIME';
   abstract readJob(tx: Prisma.TransactionClient, jobId: string, asOf: Date): Promise<JobFinancialSnapshot | null>;
   abstract readPeriod(tx: Prisma.TransactionClient, window: ReportWindow): Promise<FinancialActivity>;
   /** Persisted installation AND service time, once per entry, without detail joins.

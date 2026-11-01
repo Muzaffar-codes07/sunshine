@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { jobProfitabilityReportSchema, reportPeriodSchema, periodSummarySchema,
   profitabilityQuerySchema, subsidyReportMilestoneSchema, subsidyReportSchema, subsidyReportStatusSchema,
   type ReportPeriod, operationsReportSchema, type OperationsQuery } from '@sunshine/contracts';
-import { moneySchema, positiveQuantitySchema, technicianPayReportSchema } from '@sunshine/contracts';
+import { moneySchema, positiveQuantitySchema, quantitySchema, technicianPayReportSchema } from '@sunshine/contracts';
 import { z } from 'zod';
 import { ApiError } from '../platform/api-error';
 import { ReportingReader } from './reporting.repository';
@@ -38,9 +38,12 @@ function validDate(date: Date) {
 }
 const timeEntrySchema = z.object({
   id: z.uuid(), technicianId: z.uuid(), technicianName: z.string().trim().min(1),
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']), hours: positiveQuantitySchema,
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']), hours: quantitySchema,
   frozenHourlyRate: moneySchema, occurredAt: z.date(), approvedAt: z.date().nullable(),
-}).refine((row) => row.status !== 'APPROVED' || (row.approvedAt !== null && row.approvedAt >= row.occurredAt));
+  elapsedMs: z.string().regex(/^[1-9]\d*$/).optional(), frozenAmount: moneySchema.optional(),
+}).refine(row => (row.elapsedMs === undefined) === (row.frozenAmount === undefined))
+  .refine(row => row.elapsedMs !== undefined || positiveQuantitySchema.safeParse(row.hours).success)
+  .refine((row) => row.status !== 'APPROVED' || (row.approvedAt !== null && row.approvedAt >= row.occurredAt));
 function milliHours(value: string): bigint {
   const [whole = '0', fraction = ''] = value.split('.');
   return BigInt(whole) * 1000n + BigInt(fraction.padEnd(3, '0'));
@@ -87,12 +90,19 @@ export class ReportingService {
       }
       const duration = milliHours(row.hours);
       // Round each entry's frozen hours * rate half-up to cents, then sum.
-      const pay = (duration * cents(row.frozenHourlyRate) + 500n) / 1000n;
+      let pay = (duration * cents(row.frozenHourlyRate) + 500n) / 1000n;
+      if (row.elapsedMs !== undefined && row.frozenAmount !== undefined) {
+        const elapsed = BigInt(row.elapsedMs);
+        pay = (elapsed*cents(row.frozenHourlyRate)+1800000n)/3600000n;
+        if ((elapsed+1800n)/3600n !== duration || cents(row.frozenAmount) !== pay) {
+          throw new ApiError(503, 'INVALID_REPORT_RECORD', 'Frozen time and posted pay do not reconcile');
+        }
+      }
       technician.hours += duration; technician.pay += pay;
       totalHours += duration; totalPay += pay;
       technicians.set(row.technicianId, technician);
     }
-    return technicianPayReportSchema.parse({ period, timezone: 'Asia/Kolkata', asOf: asOf.toISOString(),
+    return technicianPayReportSchema.parse({ period, timezone: 'Asia/Kolkata', asOf: asOf.toISOString(), scope: this.reader.payScope ?? 'ALL_TIME',
       startDate: window.startDate, endDate: window.endDate, startUtc: window.start.toISOString(), endUtc: window.end.toISOString(),
       technicians: [...technicians.values()].sort((a, b) => a.technicianId.localeCompare(b.technicianId)).map((row) => ({
         technicianId: row.technicianId, technicianName: row.technicianName, totalHours: hours(row.hours), totalPay: money(row.pay),

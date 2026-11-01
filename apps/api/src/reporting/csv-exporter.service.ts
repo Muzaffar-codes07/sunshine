@@ -57,9 +57,9 @@ export class CsvExporterService {
     }
     if (query.report === 'pay') {
       const report = await this.reporting.getTechnicianPaySummary(query.period);
-      return this.exportRows(['period', 'startUtc', 'endUtc', 'asOf', 'technicianId', 'technicianName', 'totalHours', 'totalPay'],
+      return this.exportRows(['period', 'startUtc', 'endUtc', 'asOf', 'technicianId', 'technicianName', 'totalHours', 'totalPay', 'scope'],
         report.technicians.map((row) => [report.period, report.startUtc, report.endUtc, report.asOf,
-          row.technicianId, row.technicianName, numeric(row.totalHours), numeric(row.totalPay)]));
+          row.technicianId, row.technicianName, numeric(row.totalHours), numeric(row.totalPay), report.scope]));
     }
     const report = await this.reporting.getPeriodSummary(query.period);
     return this.exportRows(['period', 'startUtc', 'endUtc', 'asOf', 'invoicedRevenue', 'cashReceived',

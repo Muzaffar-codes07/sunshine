@@ -396,7 +396,8 @@ test('the database keeps a job moving forward and its evidence final', async () 
   await assert.rejects(update(done.jobId, `status = 'IN_PROGRESS'`), /cannot move from COMPLETED/);
   for (const table of ['job_photos', 'installation_time_records']) {
     await assert.rejects(sql.query(`DELETE FROM ${table} WHERE "jobId" = $1`, [done.jobId]), /append-only/);
-    await assert.rejects(sql.query(`TRUNCATE ${table}`), /append-only/);
+    // Exercise the evidence trigger even when approval rows now reference the time table.
+    await assert.rejects(sql.query(`TRUNCATE ${table} CASCADE`), /append-only/);
   }
   await assert.rejects(sql.query('UPDATE installation_time_records SET "finishedAt" = now() WHERE "jobId" = $1', [done.jobId]), /append-only/);
   await assert.rejects(insertPhoto(done.jobId, unbound.id), /only be added to a job in progress/);

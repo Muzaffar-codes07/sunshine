@@ -5,6 +5,7 @@ export * from './warranty';
 export * from './service';
 export * from './costs';
 export * from './reports';
+export * from './labour';
 
 export const healthResponseSchema = z.object({
   data: z.object({
