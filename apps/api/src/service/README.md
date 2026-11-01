@@ -34,6 +34,20 @@ Run the root `npm run check`, then on an explicitly disposable PostgreSQL 17.11 
 
 ## Task 3.1 repair billing
 
+### Persisted part requirements
+
+ADMIN approves part requirements at `GET/POST /tickets/:id/parts`; SUPPORT retains the existing ticket lifecycle, without access to part prices/internal costs. This role boundary is an MVP implementation decision. POST requires `{version,productId,quantity,scope,reason}` plus Idempotency-Key. It derives description/Product identity, current catalogue selling price and coverage billability server-side. Clients cannot supply costs, prices, customer/job, creator, phase or billability. The explicit scope must match the saved assessment. Serialized requirements are one physical unit per line; bulk quantity has three decimal places. Adding another physical unit means another requirement, preserving one future allocation/consumed-source per line.
+
+`POST /tickets/:id/parts/:lineId/cancel` takes `{version,lineVersion,reason}` and an Idempotency-Key. Only an unused PLANNED requirement can cancel. Its original Product, quantity, price, scope, creator and description remain frozen, with cancellation actor/time/reason retained. Issued/legacy/cancelled lines cannot be edited or deleted. There is currently no issued-PART producer: requirements do not reserve or consume stock, and the real repair-source/replacement adapters remain gated.
+
+Command response: `{data:{ticketVersion,part}}`; create/cancel return 201. Reads use page 1–10000 and pageSize 1–50, default 20, returning `{data:{items,total,page,pageSize}}` in one RepeatableRead transaction. Product UUID/quantity normalization happens before replay hashing. Identical retries return the saved result even after catalogue changes or cancellation; changed intent conflicts. Two independent commands claiming one version have one winner. The command, line, ticket version and ticket event commit together. Creation locks Command → Job → Ticket → Product before reading its price; cancellation locks Command → Job → Ticket → line. Future stock mutations extend this to line → sorted Products → sorted stock keys → sorted Units; no receipt may acquire Job/Ticket after stock locks.
+
+Migration `20261031850000_ticket_part_requirements` gives PART a restrictive Product FK and PLANNED/ISSUED/CANCELLED phase. All older lines receive LEGACY with null Product/creator/scope/price; no historical requirement or consumption state is guessed. New lines cannot select LEGACY. Planned costs are null, representing unknown cost rather than zero expense. Cancelled, unused requirements are excluded from no-work/reassessment obligations; any active work still blocks bypass. The SQL source/immutability/shape guards verify the assessed ticket, real actor, stocked Product, whole serialized quantity and frozen catalogue price. Actual issue requires a later allocation/movement/cost source adapter and will not be simulated by changing a phase.
+
+Internal unit-cost rates retain six decimals, matching existing bulk moving-average precision; posted totals and customer prices remain cents. Quantity millis × cost micros / 10^7 rounds half-up once to cents. For example, 1.500 × 12.345678 posts 18.52; rounding the rate to 12.35 first would incorrectly post 18.53. Existing two-decimal snapshots remain readable and unchanged. New requirements have no internal cost until real consumption; widening a numeric column never posts money.
+
+`/workspace/service?ticket=<id>` exposes the ADMIN requirement form, paged saved rows, explicit unused cancellation, error states and exact-body/key retry after an uncertain result. Historical rows display their missing Product/source state explicitly. This is a real persisted planning/cancellation workflow, not repair completion or an inventory shortcut.
+
 `ServiceModule` exports `RepairBillingService.executeRepairBilling(tx, ticketId,
 repairItems)`. This is an internal transaction helper, not a public route. Items
 are strict `{ type: 'PART' | 'LABOUR', sourceId: UUID }` references (1–200,

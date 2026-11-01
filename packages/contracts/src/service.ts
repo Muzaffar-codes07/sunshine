@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { moneySchema, positiveQuantitySchema } from './shared';
+import { moneySchema, positiveQuantitySchema, unitCostRateSchema } from './shared';
 import { warrantyAssessmentResultSchema } from './warranty';
 
 export const ticketStatusSchema = z.enum([
@@ -13,7 +13,7 @@ export const ticketLineSchema = z.object({
   type: z.enum(['PART', 'LABOUR']),
   description: z.string().trim().min(1),
   quantity: positiveQuantitySchema,
-  unitCost: moneySchema,
+  unitCost: unitCostRateSchema,
   totalCost: moneySchema,
   // Set by the service from the saved coverage decision, never a client override.
   billableToCustomer: z.boolean(),

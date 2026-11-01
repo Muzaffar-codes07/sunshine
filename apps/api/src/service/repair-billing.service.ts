@@ -17,7 +17,10 @@ const scaled = (value: string, digits: number) => {
   return BigInt(whole!) * 10n ** BigInt(digits) + BigInt(fraction.padEnd(digits, '0'));
 };
 const money = (cents: bigint) => `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`;
-const lineTotal = (quantity: string, rate: string) => money((scaled(quantity, 3) * scaled(rate, 2) + 500n) / 1000n);
+const lineTotal = (quantity: string, rate: string, rateDigits = 2) => {
+  const divisor = 10n ** BigInt(3 + rateDigits - 2);
+  return money((scaled(quantity, 3) * scaled(rate, rateDigits) + divisor / 2n) / divisor);
+};
 
 @Injectable()
 export class RepairBillingService {
@@ -76,7 +79,7 @@ export class RepairBillingService {
         }
         return { type: source.type, sourceId: item.sourceId, description: source.description, occurredAt: source.occurredAt,
           ...(source.type === 'PART' ? { ticketLineId: source.ticketLineId! } : {}),
-          quantity: source.quantity, unitCost: source.unitCost, totalCost: lineTotal(source.quantity, source.unitCost),
+          quantity: source.quantity, unitCost: source.unitCost, totalCost: lineTotal(source.quantity, source.unitCost, 6),
           unitPrice: assessment.data.isCovered ? '0.00' : source.unitPrice,
           totalPrice: assessment.data.isCovered ? '0.00' : lineTotal(source.quantity, source.unitPrice),
           billableToCustomer: !assessment.data.isCovered };
@@ -99,8 +102,8 @@ export class RepairBillingService {
           if (!posted) throw new ApiError(409, 'REPAIR_PART_COST_REQUIRED', 'Consume and post the actual part before repair billing');
           const allocatedLine = await tx.ticketLine.findUnique({ where: { id: line.ticketLineId! } });
           if (!allocatedLine || allocatedLine.ticketId !== id || allocatedLine.lineType !== 'PART' ||
-              !allocatedLine.quantity.equals(line.quantity) || !allocatedLine.unitCost.equals(line.unitCost) ||
-              !allocatedLine.totalCost.equals(line.totalCost) || allocatedLine.billableToCustomer !== line.billableToCustomer) {
+              !allocatedLine.quantity.equals(line.quantity) || !allocatedLine.unitCost?.equals(line.unitCost) ||
+              !allocatedLine.totalCost?.equals(line.totalCost) || allocatedLine.billableToCustomer !== line.billableToCustomer) {
             throw new ApiError(409, 'REPAIR_LINE_CONFLICT', 'Allocation ticket line differs from its assessed repair source');
           }
         }

@@ -24,11 +24,15 @@ export function installationFixture({app,prisma,staff,main,send,ok,actor,post:di
   const order=(await app.get(OrdersService).confirm({quoteId:quote.id},randomUUID(),actor('SALES'))).data;
   const payment={amountInr:'1000.00',method:'UPI',reference:randomUUID(),receivedAt:new Date().toISOString()};
   await app.get(IdempotencyService).run({actorId:staff.ADMIN.id,key:randomUUID(),action:'PAYMENT_RECEIPT',payload:payment},tx=>app.get(InvoicesService).recordPayment(tx,order.invoice.id,payment,actor('ADMIN')));
+  const freshUnitIds=[];
   for(const line of order.packing){
     const product=await prisma.product.findUniqueOrThrow({where:{id:line.productId}});
-    await post('/stock/receipts',{reference:'LAB-'+randomUUID(),locationId:main.id,receivedAt:new Date().toISOString(),lines:[{productId:line.productId,quantity:line.quantity,unitCost:'10.00',serials:product.trackingMode==='SERIALIZED'?Array.from({length:Number(line.quantity)},()=> 'L-'+randomUUID()):[]}]},201);
+    const receipt=await post('/stock/receipts',{reference:'LAB-'+randomUUID(),locationId:main.id,receivedAt:new Date().toISOString(),lines:[{productId:line.productId,quantity:line.quantity,unitCost:'10.00',serials:product.trackingMode==='SERIALIZED'?Array.from({length:Number(line.quantity)},()=> 'L-'+randomUUID()):[]}]},201);
+    freshUnitIds.push(...receipt.lines.flatMap(row=>row.unitIds));
   }
-  await post(`/orders/${order.id}/allocations`,{expectedVersion:await version(order.jobId)},201);
+  // Other suites deliberately retain corrupted historical spares. Select only this fixture's
+  // genuinely received units through the real allocation API rather than borrowing those rows.
+  await post(`/orders/${order.id}/allocations`,{expectedVersion:await version(order.jobId),unitIds:freshUnitIds},201);
   const draft=await post(`/orders/${order.id}/dispatches`,{expectedVersion:await version(order.jobId)},201);
   for(const row of await prisma.allocation.findMany({where:{jobId:order.jobId,unitId:{not:null}},include:{unit:true}})) await post(`/dispatches/${draft.id}/scans`,{rawValue:row.unit.rawSerial,method:'SCANNER',unitId:row.unitId},201);
   const header=await prisma.dispatch.findUniqueOrThrow({where:{id:draft.id}});

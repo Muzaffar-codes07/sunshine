@@ -115,6 +115,9 @@ Production NestJS ticket commands and reads require active ADMIN/SUPPORT cookie 
 Responses use `{data:ServiceTicket}` with `sourceVerified`, `noWorkReason`, `billingFinalized` alongside the existing identity/version/coverage/resolution/confirmation fields. POST create returns 201, actions 200. Command, ticket and append-only before/after events commit together; exact retries create no extra events. State/source/financial guards are enforced by migration `20261031840000_service_ticket_integrity` as well as services. Old rows retain null creator/source-verification and are never silently adopted; invalid historical links require reconciliation. Actual repair sources and replacement posting remain separate open gates. These commands do not fabricate stock, labour or invoices.
 
 Task 3.2 extends ticket responses with nullable `replacedUnitId` and `newUnitId`.
+
+ADMIN-only `GET/POST /tickets/:id/parts` and `POST /tickets/:id/parts/:lineId/cancel` now persist approved Product/quantity/scope/price requirements and explicit unused cancellation. Strict bodies, actor-scoped replay, current ticket/line versions and SQL immutability apply. Unknown costs stay null until actual issue. Old rows remain LEGACY without guessed Product identity. See the [part-requirement API](../../apps/api/src/service/README.md#persisted-part-requirements). These routes do not enable repair stock consumption. Internal unit-cost rates support six decimals so fractional bulk costs reconcile; customer prices and posted money remain two decimals.
+
 The original `unitId` remains the defective unit; lineage is retained through
 resolution/closure. The internal `ReplacementService.executeReplacement(tx,
 {ticketId, oldUnitId, newUnitId, assessmentDate})` adds no public route. It invokes
