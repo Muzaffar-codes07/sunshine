@@ -20,6 +20,7 @@ export class AuthController {
     const user = await this.auth.checkCredentials(input.email, input.password);
     await new Promise<void>((resolve, reject) => request.session.regenerate((error) => error ? reject(new ApiError(503, 'SERVICE_UNAVAILABLE', 'Unable to create a staff session')) : resolve()));
     request.session.staffUserId = user.id;
+    delete request.session.customerAccountId;
     await new Promise<void>((resolve, reject) => request.session.save((error) => error ? reject(new ApiError(503, 'SERVICE_UNAVAILABLE', 'Unable to save a staff session')) : resolve()));
     return staffSessionResponseSchema.parse({ data: user });
   }

@@ -25,8 +25,9 @@ payment recording define the hackathon baseline.
 
 - **Customer:** submits a public web enquiry, makes payments outside the app,
   signs on the installer's device and confirms repair outcomes. Staff record
-  phone/WhatsApp enquiries, receipts and service requests. A customer login,
-  self-service ticket portal and online payment gateway are deferred.
+  phone/WhatsApp enquiries, receipts and service requests. The later customer
+  extension allows verified-email login, customer-scoped read pages and contact
+  edits. Self-service ticket requests and online payments remain deferred.
 - **Sales representative:** qualifies enquiries, schedules surveys and prepares
   quotations and orders within authorized workflows.
 - **Field technician:** uses a phone/tablet for assigned surveys and jobs, time
