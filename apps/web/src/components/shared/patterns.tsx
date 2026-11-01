@@ -21,8 +21,8 @@ export function FilterChips<T extends string>({ label, options, value, onChange 
 
 const STATUS_TONES: Record<string, string> = {
   COVERED: 'ok', COMPLETED: 'ok', PAID: 'ok', APPROVED: 'ok', DELIVERED: 'ok', INSTALLED: 'ok', ACTIVE: 'ok', RESOLVED: 'ok', CLOSED: 'ok', AVAILABLE: 'ok', QUALIFIED: 'ok',
-  AWAITING_CUSTOMER_CONFIRMATION: 'active', OUT_OF_SCOPE: 'active', NOT_STARTED: 'active', IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
-  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', CANCELLED: 'muted', NO_WARRANTY: 'muted', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
+  ON_SITE: 'active', AWAITING_CUSTOMER_CONFIRMATION: 'active', OUT_OF_SCOPE: 'active', NOT_STARTED: 'active', IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
+  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', CANCELLED: 'muted', FREE: 'muted', NO_WARRANTY: 'muted', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
 };
 /** Status in words, with colour as a second signal only. */
 export function StatusPill({ status }: { status: string }) {
@@ -31,8 +31,8 @@ export function StatusPill({ status }: { status: string }) {
 }
 
 /** Headline amounts with an optional paid-so-far bar. The figures come from the API; the bar is only their ratio. */
-export function MoneyStrip({ items, progress }: { items: { id: string; label: string; value: string; strong?: boolean }[]; progress?: { label: string; percent: number } }) {
-  return <section className="money-strip" aria-label="Amounts">
+export function MoneyStrip({ items, progress, label = 'Amounts' }: { label?: string; items: { id: string; label: string; value: string; strong?: boolean }[]; progress?: { label: string; percent: number } }) {
+  return <section className="money-strip" aria-label={label}>
     <dl>{items.map((item) => <div key={item.id} className={item.strong ? 'is-strong' : undefined}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
     {progress && <div className="money-bar" role="progressbar" aria-label={progress.label} aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${progress.percent}%` }} /></div>}
   </section>;

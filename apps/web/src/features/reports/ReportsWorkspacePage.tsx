@@ -49,7 +49,7 @@ export function ReportsWorkspacePage() {
     else setSelectedJob(parsed.data.jobId);
   }
 
-  const jobs = useDashboardJobs('ADMIN').data?.items ?? [];
+  const jobList = useDashboardJobs('ADMIN').data, jobs = jobList?.items ?? [];
   const jobName = (id: string) => { const job = jobs.find((item) => item.id === id); return job ? `${job.orderDisplayNumber} · ${job.contactName}` : 'Job'; };
 
   const subsidyRows = subsidies.data?.groups.flatMap((group) => group.milestones.map((milestone) => ({
@@ -112,7 +112,7 @@ export function ReportsWorkspacePage() {
       <aside className="detail-side">
         <section className="pattern-card">
           <FormPattern title="Job profitability" submitLabel="Load job" onSubmit={submitJob} error={jobError}>
-            <Field label="Job" error={jobError || undefined}>{(control) => <select {...control} name="jobId" value={jobId} onChange={(event) => setJobId(event.target.value)} required>
+            <Field label="Job" error={jobError || undefined} hint={jobList && jobList.total > jobs.length ? `Showing the newest ${jobs.length} of ${jobList.total} jobs.` : undefined}>{(control) => <select {...control} name="jobId" value={jobId} onChange={(event) => setJobId(event.target.value)} required>
               <option value="">Choose a job</option>
               {jobs.map((job) => <option key={job.id} value={job.id}>{job.orderDisplayNumber} · {job.contactName}</option>)}
             </select>}</Field>

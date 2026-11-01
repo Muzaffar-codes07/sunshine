@@ -90,6 +90,7 @@ export function TeamOperations({ jobs, role, loading, error, onRetry }: { jobs: 
     <div className="team-head">
       <h2 id="team-title">Team</h2>
       <span className="team-count">{total}</span>
+      {(role === 'ADMIN' || role === 'SALES') && <Link className="corner-link" to="/workspace/team" aria-label="Open team"><ArrowUpRight size="1rem" aria-hidden="true" /></Link>}
       <div className="team-stats">
         <Stat icon={<Users size="1rem" />} label="Assigned today" value={facts.assignedToday.length} />
         <Stat icon={<HardHat size="1rem" />} label="On site now" value={facts.onSite.length} />
@@ -134,7 +135,7 @@ export function TeamOperations({ jobs, role, loading, error, onRetry }: { jobs: 
 export function SupportOverview({ tickets, loading, error, onRetry }: { tickets: { id: string; ticketNumber: string; faultDescription: string; status: string }[]; loading: boolean; error: unknown; onRetry: () => void }) {
   const open = tickets.filter((ticket) => !['RESOLVED', 'CLOSED'].includes(ticket.status));
   return <section className="panel" aria-labelledby="support-title">
-    <div className="panel-head"><h2 id="support-title">Service queue</h2></div>
+    <div className="panel-head"><h2 id="support-title">Service queue</h2><Link className="button-link" to="/workspace/service">Look up a warranty</Link></div>
     {loading ? <PanelLoading label="Loading service tickets" /> : error ? <PanelError error={error} onRetry={onRetry} /> : <>
       <p className="metric-label">Open tickets</p><p className="metric-value">{open.length}</p>
       {open.length === 0 ? <p className="panel-empty">No open tickets.</p> : <ul className="doc-list">{open.slice(0, 5).map((ticket) => <li key={ticket.id}><Link className="doc-row" to={`/workspace/service?ticket=${ticket.id}`}><FileText size="1.125rem" aria-hidden="true" /><span className="doc-name">{shortTicketNumber(ticket.ticketNumber)}<small>{ticket.faultDescription}</small></span><span className="doc-status">{humanize(ticket.status)}</span></Link></li>)}</ul>}

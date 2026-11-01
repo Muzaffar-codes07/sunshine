@@ -91,7 +91,7 @@ export function AssignedSurveysPage() {
     <h1>My site surveys</h1>
     {surveys.isPending && <p role="status">Loading your surveys…</p>}
     {surveys.error && <div role="alert"><p>{describeProblem(surveys.error).message}</p><button onClick={() => void surveys.refetch()}>Retry</button></div>}
-    {surveys.isSuccess && !items.length && <p>No surveys are assigned to you.</p>}
+    {surveys.isSuccess && !items.length && <p className="pattern-card">No surveys are assigned to you.</p>}
     {items.map((survey) => <section key={survey.id} className="pattern-card">
       <h2>{survey.site.contactName}, {survey.site.city}</h2>
       <p>{formatWhen(survey.scheduledFor)} · {humanize(survey.status)} · <a href={`tel:${survey.site.phone}`}>{survey.site.phone}</a></p>

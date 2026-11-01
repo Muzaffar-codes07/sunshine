@@ -1,11 +1,11 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Banknote, Boxes, ClipboardList, FolderKanban, HardHat, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Users, Wrench, type LucideIcon } from 'lucide-react';
+import { Banknote, Boxes, ClipboardList, FolderKanban, HardHat, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, SolarPanel, Users, UsersRound, Wrench, type LucideIcon } from 'lucide-react';
 import type { StaffIdentity } from '@sunshine/contracts';
 import { Avatar, BrandMark } from '../components/shared/Brand';
 import { humanize } from '../features/sales/queries';
 import { visibleWorkspaces, workspaceLabel } from './Workspace';
 
-const ICONS: Record<string, LucideIcon> = { sales: Users, orders: FolderKanban, warehouse: Boxes, 'field-service': HardHat, service: Wrench, reports: Banknote };
+const ICONS: Record<string, LucideIcon> = { sales: Users, orders: FolderKanban, warehouse: Boxes, 'field-service': HardHat, service: Wrench, reports: Banknote, equipment: SolarPanel, team: UsersRound };
 
 export function AccountChip({ staff, onSignOut, signingOut, className = '' }: { staff: StaffIdentity; onSignOut: () => void; signingOut: boolean; className?: string }) {
   return <div className={`account ${className}`}>

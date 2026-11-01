@@ -269,6 +269,12 @@ td .nowrap { white-space: nowrap; }
 .ticket-parts > form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .ticket-parts > form > fieldset { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 @media (max-width: 719px) { .ticket-parts > form > fieldset { grid-template-columns: minmax(0, 1fr); } }
+.cell-sub { display: block; color: var(--muted); font-size: .8125rem; font-weight: 400; }
+.person { display: inline-flex; align-items: center; gap: .625rem; font-weight: 500; }
+.person-list { list-style: none; display: grid; gap: .75rem; margin: 0; padding: 0; }
+.person-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.page-head + .money-strip { margin-bottom: 1rem; }
+.equipment-view { width: fit-content; }
 .picked-unit { padding: .625rem 1rem; background: var(--beige-soft); border-radius: var(--r-md); }
 .detail-side--end { order: 2; }
 .ticket-actions > :first-child { margin-top: 0; }
