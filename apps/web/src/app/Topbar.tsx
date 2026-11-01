@@ -56,7 +56,7 @@ function GlobalSearch({ role }: { role: StaffRole }) {
   ].filter((group) => group.items.length > 0);
   return <div className="search" ref={root} role="search">
     <div className="search-box">
-      <span className="pill-icon" aria-hidden="true"><Search size={16} /></span>
+      <span className="pill-icon" aria-hidden="true"><Search size="1rem" /></span>
       <input ref={input} type="search" aria-label="Search projects, customers and serial numbers" placeholder="Search projects, customers, serials…" value={text} onChange={(event) => { setText(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
     </div>
     {open && active && <div className="popover">
@@ -79,7 +79,7 @@ function AttentionMenu({ role }: { role: StaffRole }) {
   ];
   return <div className="menu" ref={root}>
     <button type="button" className="bell" aria-haspopup="true" aria-expanded={open} aria-label={`Needs attention: ${items.length}`} onClick={() => setOpen(!open)}>
-      <Bell size={18} aria-hidden="true" />{items.length > 0 && <span className="bell-count" aria-hidden="true">{items.length > 9 ? '9+' : items.length}</span>}
+      <Bell size="1.125rem" aria-hidden="true" />{items.length > 0 && <span className="bell-count" aria-hidden="true">{items.length > 9 ? '9+' : items.length}</span>}
     </button>
     {open && <div className="popover">
       <p className="popover-title">Needs attention</p>
@@ -93,13 +93,13 @@ export function Topbar({ staff, area, onSignOut, signingOut }: { staff: StaffIde
   const jobs = useDashboardJobs(role);
   const today = (jobs.data?.items ?? []).filter((job) => job.status !== 'COMPLETED' && onDay(job, new Date())).length;
   const entry = workspaces.find(([path]) => path === area);
-  const todayPill = <><span className="pill-icon" aria-hidden="true"><CalendarCheck2 size={16} /></span><span className="pill-count">{today}</span><span className="pill-text">Today's installations</span></>;
+  const todayPill = <><span className="pill-icon" aria-hidden="true"><CalendarCheck2 size="1rem" /></span><span className="pill-count">{today}</span><span className="pill-text">Today's installations</span></>;
   return <header className="topbar">
     {area
       ? <p className="crumb">Solar OS / <strong>{entry ? workspaceLabel(entry[0], entry[1], role) : 'Page'}</strong></p>
       : <h1 className="topbar-title"><span>Solar OS /</span> Overview</h1>}
     <div className="top-actions">
-      {(role === 'ADMIN' || role === 'SALES') && <Link className="pill pill--new" to="/enquire"><span className="pill-icon" aria-hidden="true"><Plus size={18} /></span><span className="pill-text">New project</span></Link>}
+      {(role === 'ADMIN' || role === 'SALES') && <Link className="pill pill--new" to="/enquire"><span className="pill-icon" aria-hidden="true"><Plus size="1.125rem" /></span><span className="pill-text">New project</span></Link>}
       {role !== 'SUPPORT' && (role === 'ADMIN' || role === 'TECHNICIAN'
         ? <Link className="pill pill--today" to="/workspace/field-service">{todayPill}</Link>
         : <span className="pill pill--today">{todayPill}</span>)}

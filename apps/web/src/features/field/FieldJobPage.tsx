@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { completeInstallationRequestSchema, jobResponseSchema, startInstallationRequestSchema, type JobView } from '@sunshine/contracts';
 import { PhotoCapture, SignaturePad } from '../../components/device';
 import { CommandFeedback } from '../../components/shared/CommandFeedback';
-import { DetailPattern, ListPattern } from '../../components/shared/patterns';
+import { DetailPattern, ListPattern, StatusPill } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { checkInput, describeFailure, useRetrySafeCommand } from '../../lib/command';
 import { useStaffSession } from '../auth/session';
@@ -148,7 +148,7 @@ function Job({ id }: { id: string }) {
   return <>
     <h1>{job.orderDisplayNumber}</h1>
     <DetailPattern title="Job" entries={[
-      { id: 'status', label: 'Status', value: humanize(job.status) }, { id: 'customer', label: 'Customer', value: job.contactName },
+      { id: 'status', label: 'Status', value: <StatusPill status={job.status} /> }, { id: 'customer', label: 'Customer', value: job.contactName },
       { id: 'site', label: 'Site', value: job.siteAddress }, { id: 'system', label: 'System', value: `${job.soldCapacityKw} kW ${humanize(job.systemType)}` },
       { id: 'when', label: 'Scheduled', value: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled' },
       { id: 'crew', label: 'Crew', value: job.crew.map((member) => member.displayName).join(', ') || 'None assigned' },

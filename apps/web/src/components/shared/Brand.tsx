@@ -12,13 +12,13 @@ export function BrandMark() {
 export const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('');
 
 export function Avatar({ name, size }: { name: string; size?: number }) {
-  return <span className="avatar" title={name} style={size ? { '--avatar': `${size}px` } as React.CSSProperties : undefined}><span aria-hidden="true">{initials(name)}</span><span className="visually-hidden">{name}</span></span>;
+  return <span className="avatar" title={name} style={size ? { '--avatar': `${size / 16}rem` } as React.CSSProperties : undefined}><span aria-hidden="true">{initials(name)}</span><span className="visually-hidden">{name}</span></span>;
 }
 
 export function AvatarStack({ names, max = 3, size }: { names: string[]; max?: number; size?: number }) {
   const hidden = names.length - max;
   return <span className="avatar-stack">
     {names.slice(0, max).map((name) => <Avatar key={name} name={name} size={size} />)}
-    {hidden > 0 && <span className="avatar avatar-more" style={size ? { '--avatar': `${size}px` } as React.CSSProperties : undefined}>+{hidden}</span>}
+    {hidden > 0 && <span className="avatar avatar-more" style={size ? { '--avatar': `${size / 16}rem` } as React.CSSProperties : undefined}>+{hidden}</span>}
   </span>;
 }

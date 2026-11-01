@@ -27,10 +27,10 @@ export function ScheduleTimeline({ jobs, role, loading, error, onRetry, total }:
     <div className="schedule-head">
       <h2 id="schedule-title">Installation schedule</h2>
       <div className="date-nav">
-        <CalendarDays size={16} aria-hidden="true" />
+        <CalendarDays size="1rem" aria-hidden="true" />
         <span aria-live="polite">{range.title}</span>
-        <button type="button" className="date-step" aria-label={`Previous ${period}`} onClick={() => setAnchor(shiftAnchor(period, anchor, -1))}><ChevronLeft size={16} aria-hidden="true" /></button>
-        <button type="button" className="date-step" aria-label={`Next ${period}`} onClick={() => setAnchor(shiftAnchor(period, anchor, 1))}><ChevronRight size={16} aria-hidden="true" /></button>
+        <button type="button" className="date-step" aria-label={`Previous ${period}`} onClick={() => setAnchor(shiftAnchor(period, anchor, -1))}><ChevronLeft size="1rem" aria-hidden="true" /></button>
+        <button type="button" className="date-step" aria-label={`Next ${period}`} onClick={() => setAnchor(shiftAnchor(period, anchor, 1))}><ChevronRight size="1rem" aria-hidden="true" /></button>
       </div>
       <div className="segmented" role="group" aria-label="Schedule period">
         {PERIODS.map((item) => <button key={item.id} type="button" aria-pressed={period === item.id} onClick={() => setChosen(item.id)}>{item.label}</button>)}
@@ -51,7 +51,7 @@ export function ScheduleTimeline({ jobs, role, loading, error, onRetry, total }:
             <div className="tl-track">
               <Link className={`tl-bar tl-bar--${bar.job.status}${bar.late ? ' is-late' : ''}`} to={projectHref(bar.job, role)} style={{ left: `${bar.left}%`, width: `${bar.width}%` }}
                 title={`${bar.job.orderDisplayNumber}, ${bar.job.contactName}, ${humanize(bar.job.status)}, ${durationLabel(bar.job)}`}>
-                {(bar.late || bar.clash) && <AlertTriangle className="tl-flag" size={14} aria-hidden="true" />}
+                {(bar.late || bar.clash) && <AlertTriangle className="tl-flag" size="0.875rem" aria-hidden="true" />}
                 <span className="tl-text">{bar.job.contactName}{bar.width >= 25 && ` · ${bar.late ? 'late' : bar.clash ? 'crew overlap' : durationLabel(bar.job)}`}</span>
                 <span className="visually-hidden"> {humanize(bar.job.status)}</span>
                 {bar.job.crew.length > 0 && bar.width > 22 && <AvatarStack names={bar.job.crew.map((member) => member.displayName)} size={24} />}

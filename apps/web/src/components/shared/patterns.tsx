@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type FormEventHandler, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 
 type Entry = { id: string; label: string; value: ReactNode };
 
@@ -10,7 +11,23 @@ export function ListPattern({ title, columns, rows, loading = false, error, onRe
   if (loading) return <p role="status">Loading {title.toLowerCase()}…</p>;
   if (error) return <div role="alert"><p>{error}</p>{onRetry && <button onClick={onRetry}>Retry</button>}</div>;
   if (!rows.length) return <p>{empty}</p>;
-  return <div className="table-scroll"><table><caption>{title}</caption><thead><tr>{columns.map((column) => <th key={column.id} scope="col">{column.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.id}>{columns.map((column) => <td key={column.id}>{row.cells[column.id]}</td>)}</tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table role="table"><caption>{title}</caption><thead role="rowgroup"><tr role="row">{columns.map((column) => <th key={column.id} role="columnheader" scope="col">{column.label}</th>)}</tr></thead><tbody role="rowgroup">{rows.map((row) => <tr key={row.id} role="row">{columns.map((column) => <td key={column.id} role="cell" data-label={column.label}>{row.cells[column.id]}</td>)}</tr>)}</tbody></table></div>;
+}
+
+/** One-tap filters, with the count on each so the choice is informed. */
+export function FilterChips<T extends string>({ label, options, value, onChange }: { label: string; options: { id: T; label: string; count?: number }[]; value: T; onChange: (value: T) => void }) {
+  return <div className="chips" role="group" aria-label={label}>{options.map((option) => <button key={option.id} type="button" aria-pressed={value === option.id} onClick={() => onChange(option.id)}>{option.label}{option.count !== undefined && <b>{option.count}</b>}</button>)}</div>;
+}
+
+const STATUS_TONES: Record<string, string> = {
+  COMPLETED: 'ok', PAID: 'ok', APPROVED: 'ok', DELIVERED: 'ok', INSTALLED: 'ok', ACTIVE: 'ok', RESOLVED: 'ok', CLOSED: 'ok', AVAILABLE: 'ok', QUALIFIED: 'ok',
+  IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
+  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
+};
+/** Status in words, with colour as a second signal only. */
+export function StatusPill({ status }: { status: string }) {
+  const tone = STATUS_TONES[status], text = status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ');
+  return <span className={`status-pill${tone ? ` status-pill--${tone}` : ''}`}>{text}</span>;
 }
 
 export function DetailPattern({ title, entries, children }: { title: string; entries: Entry[]; children?: ReactNode }) {
@@ -37,7 +54,10 @@ export function ActionDrawer({ open, title, onClose, children }: { open: boolean
     if (open && !dialog.open) dialog.showModal();
     if (!open && dialog.open) dialog.close();
   }, [open]);
-  return <dialog className="action-drawer" ref={ref} aria-labelledby={id} onCancel={(event) => { event.preventDefault(); onClose(); }}><h2 id={id}>{title}</h2><button type="button" onClick={onClose}>Close</button>{children}</dialog>;
+  return <dialog className="action-drawer" ref={ref} aria-labelledby={id} onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    <div className="drawer-head"><h2 id={id}>{title}</h2><button type="button" className="drawer-close" aria-label="Close" onClick={onClose}><X size="1.125rem" aria-hidden="true" /></button></div>
+    <div className="drawer-body">{children}</div>
+  </dialog>;
 }
 
 export function SummaryPattern({ title, entries, note }: { title: string; entries: Entry[]; note?: ReactNode }) {

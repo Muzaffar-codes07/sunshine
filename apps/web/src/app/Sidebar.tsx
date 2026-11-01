@@ -12,7 +12,7 @@ export function AccountChip({ staff, onSignOut, signingOut, className = '' }: { 
     <Avatar name={staff.displayName} size={44} />
     <span className="account-name">{staff.displayName}</span>
     <span className="account-role">{humanize(staff.role)}</span>
-    <button type="button" className="icon-button" disabled={signingOut} aria-label={signingOut ? 'Signing out' : 'Sign out'} title="Sign out" onClick={onSignOut}><LogOut size={16} aria-hidden="true" /></button>
+    <button type="button" className="icon-button" disabled={signingOut} aria-label={signingOut ? 'Signing out' : 'Sign out'} title="Sign out" onClick={onSignOut}><LogOut size="1rem" aria-hidden="true" /></button>
   </div>;
 }
 
@@ -20,16 +20,16 @@ export function Sidebar({ staff, collapsed, onToggle, onSignOut, signingOut }: {
   return <aside className="sidebar">
     <Link className="side-brand" to="/workspace"><BrandMark /><span className="side-label">Solar OS</span></Link>
     <nav className="side-nav" aria-label="Staff workspaces">
-      <NavLink to="/workspace" end><LayoutDashboard size={19} strokeWidth={1.75} aria-hidden="true" /><span className="side-label">Overview</span></NavLink>
+      <NavLink to="/workspace" end><LayoutDashboard size="1.1875rem" strokeWidth={1.75} aria-hidden="true" /><span className="side-label">Overview</span></NavLink>
       {visibleWorkspaces(staff.role).map(([path, label]) => {
         const name = workspaceLabel(path, label, staff.role), Icon = name === 'Surveys' ? ClipboardList : ICONS[path] ?? LayoutDashboard;
-        return <NavLink key={path} to={`/workspace/${path}`}><Icon size={19} strokeWidth={1.75} aria-hidden="true" /><span className="side-label">{name}</span></NavLink>;
+        return <NavLink key={path} to={`/workspace/${path}`}><Icon size="1.1875rem" strokeWidth={1.75} aria-hidden="true" /><span className="side-label">{name}</span></NavLink>;
       })}
     </nav>
     <div className="side-foot">
       <AccountChip staff={staff} onSignOut={onSignOut} signingOut={signingOut} />
       <button type="button" className="side-collapse" aria-pressed={collapsed} aria-label="Collapse sidebar" title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>
-        {collapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+        {collapsed ? <PanelLeftOpen size="1rem" aria-hidden="true" /> : <PanelLeftClose size="1rem" aria-hidden="true" />}
       </button>
     </div>
   </aside>;

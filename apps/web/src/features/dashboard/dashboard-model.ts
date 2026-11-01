@@ -135,6 +135,14 @@ export function projectHref(job: Pick<JobView, 'id' | 'orderId'>, role: StaffRol
   return `/workspace/orders/${job.orderId}`;
 }
 
+export type JobFilter = 'ALL' | JobView['status'];
+
+/** Filter options with live counts. A status with no jobs drops out, so nobody picks an empty list. */
+export function statusFilters(jobs: JobView[]): { id: JobFilter; label: string; count: number }[] {
+  const rows: { id: JobView['status']; label: string }[] = [{ id: 'SCHEDULED', label: 'Scheduled' }, { id: 'IN_PROGRESS', label: 'In progress' }, { id: 'COMPLETED', label: 'Completed' }];
+  return [{ id: 'ALL', label: 'All', count: jobs.length }, ...rows.map((row) => ({ ...row, count: jobs.filter((job) => job.status === row.id).length })).filter((row) => row.count > 0)];
+}
+
 export type DocumentRow = { id: string; name: string; detail: string; status: string; href: string };
 
 /** Every row opens the real record holding that document. Nothing here is listed without one behind it. */
