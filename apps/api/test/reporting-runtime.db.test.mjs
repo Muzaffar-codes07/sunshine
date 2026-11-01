@@ -88,7 +88,7 @@ test('production reports reconcile persisted invoice, independent receipts and s
     const work = (await operations.json()).data; assert.equal(work.jobs.total, await prisma.job.count({where:{status:{not:'COMPLETED'}}}));
     assert.equal(work.tickets.total,await prisma.serviceTicket.count({where:{status:{not:'CLOSED'}}}));
     assert.equal((await get('/reports/operations?pageSize=10000')).status,400);
-    const pay = await get('/reports/pay-summary'); assert.equal(pay.status,503); assert.equal((await pay.json()).error.code,'REPORTING_TIME_SOURCE_UNAVAILABLE');
+    const pay = await get('/reports/pay-summary'); assert.equal(pay.status,200); assert.equal((await pay.json()).data.scope,'INSTALLATION_ONLY');
     assert.equal((await get('/reports/profitability?jobId='+randomUUID())).status,404);
     await prisma.user.update({where:{id:actors.ADMIN.id},data:{active:false}});
     assert.equal((await get('/reports/overview')).status,401);

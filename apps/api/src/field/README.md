@@ -14,7 +14,7 @@ Add controllers, services, shared contracts and domain tests here. Business rule
 
 Completion needs the sold capacity, every check for the system type (`BATTERY` only off-grid), the job's saved start time, a non-future finish, time records for the crew, images for roof photos, and a separate signature file. Upload files with a `JOB` context, because a file with no context can only be attached by the person who uploaded it. Each file's bytes are verified before the transaction, and a refusal leaves the job as it was. A completed job and its evidence can't change, and the database enforces this.
 
-Time records can't overlap for one technician, even across jobs. Their IDs are the durable source for D4's labour cost (`TIME_RECORD:<id>`), which isn't posted yet.
+Time records can't overlap for one technician, even across jobs. Their IDs are the durable source for approved installation labour cost (`TIME_RECORD:<id>`). The [labour module](../labour/README.md) posts through the single cost writer only when ADMIN approves a saved rate for that interval; recording time alone does not post or imply zero cost.
 
 `job-file-access.ts` holds the job file rules agreed on #39. It stays in its own module so Files can use it without a module cycle. Ticket files stay closed until D4 supplies its own rules.
 

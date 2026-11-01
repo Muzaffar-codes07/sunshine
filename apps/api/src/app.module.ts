@@ -15,6 +15,7 @@ import { FinanceModule } from './finance/finance.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { ServiceModule } from './service/service.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { LabourModule } from './labour/labour.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { InventoryModule } from './inventory/inventory.module';
     CatalogModule,
     WarrantyModule,
     FinanceModule,
+    LabourModule,
     ReportingModule,
     ServiceModule,
     InventoryModule,

@@ -134,10 +134,11 @@ identity/linkage, status/version, fault, nullable assessmentSnapshot,
 resolutionDetails/resolvedAt, nullable `confirmation: CustomerConfirmation`,
 closedAt, createdAt and updatedAt. No raw ORM rows or contact details are exposed.
 
-Production routes return 503 `SERVICE_AUTH_UNAVAILABLE` before reading tickets
-until D2 integrates verified cross-customer staff permission. Unit/Job reads and
-the coordinated D4 migration are also outstanding. Missing ticket tables/columns
-return `SERVICE_SCHEMA_UNAVAILABLE`. Resolution in this task records notes only;
+Saved-ticket GET/list routes verify real ADMIN/SUPPORT sessions. POST commands remain
+behind 503 `SERVICE_AUTH_UNAVAILABLE` until transactional replay, source/state guards,
+billing-before-resolution and real repair adapters are complete under the takeover.
+Unit/Job models and the D4 migration are present. Missing ticket tables/columns
+return `SERVICE_SCHEMA_UNAVAILABLE`. The foundation resolution helper records notes only;
 Task 3.1/3.2 must orchestrate stock/finance with command idempotency and one shared
 transaction. No billing or stock effects are posted by these commands.
 
@@ -154,10 +155,9 @@ stock/source/auth/migration integration before production. See the
 
 ## Task 4.1 director reports
 
-Report routes and calculations are implemented with injectable upstream readers;
-production routes return 503 `REPORTING_AUTH_UNAVAILABLE` until verified ADMIN
-authorization is integrated. Job/Invoice/Payment models are absent and their
-default reader returns `REPORTING_SOURCE_UNAVAILABLE`. Pending migrations return
+Report routes verify actual ADMIN sessions and read persisted Job/Invoice/Payment,
+cost and approved installation-time sources. Service-time pay is excluded explicitly.
+Pending migrations return
 `REPORTING_SCHEMA_UNAVAILABLE`. See the [reporting handoff](../../apps/api/src/reporting/README.md).
 
 - `GET /api/v1/reports/profitability?jobId=<uuid>` returns `JobProfitabilityReport`:
@@ -193,8 +193,9 @@ do not create invoiced revenue.
   and grand `totalHours`/`totalPay`. Hours are exact three-place decimal strings;
   pay is nonnegative two-place decimal strings with aggregate precision. Only
   approved work in the half-open period, occurred and approved by the cutoff,
-  counts. Each entry's hours times frozen rate rounds half-up to cents before
-  summing; current technician rates never reprice prior work. No ledger writes.
+  counts. Each production entry's exact elapsed milliseconds times its frozen hourly
+  rate rounds half-up to cents before summing; display hours are rounded separately
+  to three places. Current technician rates never reprice prior work. Reads post no ledger entries.
 - `GET /api/v1/reports/export.csv?report=overview&period=month` returns a UTF-8
   CSV attachment; `export-csv` is an alias. The strict report selector is required:
   `overview` and `pay` accept only an optional period (default today);
@@ -205,12 +206,8 @@ do not create invoiced revenue.
   contain headers only. Downloads have a fixed filename, no-store and nosniff.
   Failures before streaming retain standard JSON envelopes.
 
-Both routes require the existing verified ADMIN guard. Until upstream TimeEntry
-storage, approval timestamps and frozen rate snapshots exist, the production time
-reader throws `REPORTING_TIME_SOURCE_UNAVAILABLE` (503) after authorization. The
-default authorization still throws `REPORTING_AUTH_UNAVAILABLE`. Injected unit/HTTP
-tests do not prove real PostgreSQL integration. See the reporting handoff above.
+Both routes require the verified ADMIN guard. Installation-time approval and rates now use real persisted sources; pay JSON/CSV identify `INSTALLATION_ONLY` because service time is not yet integrated. Pay uses recorded milliseconds × the frozen rate rounded half-up to cents; rounded display hours are not multiplied to calculate pay. Unsupported or corrupt source facts fail closed rather than becoming a zero rate. See the [labour approval API](../../apps/api/src/labour/README.md).
 
 ### Reporting runtime follow-up
 
-ADMIN-only `GET /reports/operations?jobsPage=1&ticketsPage=1&pageSize=20` returns `{data:{asOf,jobs:{items,total,page,pageSize},tickets:{items,total,page,pageSize}}}`. Lists contain current unfinished jobs/open tickets, with separate page controls (1–10000), page size 1–50 and deterministic ordering. This portfolio queue is independent of financial period filters. Financial overview/profitability/CSV now consume persisted sources; payroll remains unavailable until approved frozen rates are configured. Completed jobs with incomplete labour/service costing remain explicitly provisional.
+ADMIN-only `GET /reports/operations?jobsPage=1&ticketsPage=1&pageSize=20` returns `{data:{asOf,jobs:{items,total,page,pageSize},tickets:{items,total,page,pageSize}}}`. Lists contain current unfinished jobs/open tickets, with separate page controls (1–10000), page size 1–50 and deterministic ordering. This portfolio queue is independent of financial period filters. Financial overview/profitability/CSV consume persisted sources. Installation pay consumes approved frozen rates; service-time pay remains excluded explicitly. Completed jobs with unapproved/reversed labour, missing historical time or unfinished service costing remain provisional.

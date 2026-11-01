@@ -1394,6 +1394,76 @@
       "kind": "trigger",
       "owner": "D2",
       "definition": "CREATE TRIGGER files_no_truncate BEFORE TRUNCATE ON public.files FOR EACH STATEMENT EXECUTE FUNCTION files_preserve_evidence()"
+    },
+    {
+      "name": "technician_rate_revisions_valid",
+      "table": "technician_rate_revisions",
+      "kind": "check",
+      "owner": "D4",
+      "definition": "CHECK (((\"hourlyRate\" >= (0)::numeric) AND (\"hourlyRate\" <> 'NaN'::numeric) AND (length(btrim((reference)::text)) >= 5)))"
+    },
+    {
+      "name": "installation_labour_approvals_valid",
+      "table": "installation_labour_approvals",
+      "kind": "check",
+      "owner": "D4",
+      "definition": "CHECK (((\"elapsedMs\" > 0) AND (hours = round(((\"elapsedMs\")::numeric / (3600000)::numeric), 3)) AND (\"hourlyRate\" >= (0)::numeric) AND (\"hourlyRate\" <> 'NaN'::numeric) AND (amount = round((((\"elapsedMs\")::numeric * \"hourlyRate\") / (3600000)::numeric), 2)) AND (length(btrim((note)::text)) >= 5)))"
+    },
+    {
+      "name": "labour_preserve_evidence",
+      "table": "labour_preserve_evidence",
+      "kind": "function",
+      "owner": "D4",
+      "definition": "CREATE OR REPLACE FUNCTION public.labour_preserve_evidence()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'violates check constraint \"labour_preserve_evidence\": approved rate/time facts cannot change or be removed'\n    USING ERRCODE='23514', CONSTRAINT='labour_preserve_evidence';\nEND;\n$function$\n"
+    },
+    {
+      "name": "labour_check_source",
+      "table": "labour_check_source",
+      "kind": "function",
+      "owner": "D4",
+      "definition": "CREATE OR REPLACE FUNCTION public.labour_check_source()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_TABLE_NAME='technician_rate_revisions' THEN\n    IF NOT EXISTS (SELECT 1 FROM users t, users a WHERE t.id=NEW.\"technicianId\" AND t.role='TECHNICIAN'\n      AND a.id=NEW.\"createdById\" AND a.role='ADMIN' AND a.active AND NEW.\"createdAt\"<=clock_timestamp()) THEN\n      RAISE EXCEPTION 'violates check constraint \"labour_check_source\": rate needs a technician and active administrator'\n        USING ERRCODE='23514', CONSTRAINT='labour_check_source';\n    END IF;\n  ELSE\n    IF NOT EXISTS (\n      SELECT 1 FROM installation_time_records t JOIN jobs j ON j.id=t.\"jobId\"\n      JOIN technician_rate_revisions r ON r.id=NEW.\"rateRevisionId\" AND r.\"technicianId\"=t.\"technicianId\"\n      JOIN cost_entries c ON c.id=NEW.\"costEntryId\" AND c.\"jobId\"=t.\"jobId\"\n      JOIN users a ON a.id=NEW.\"approvedById\" AND a.role='ADMIN' AND a.active\n      WHERE t.id=NEW.\"timeRecordId\" AND j.status='COMPLETED' AND j.\"completedAt\" IS NOT NULL\n        AND t.\"startedAt\">=j.\"startedAt\" AND t.\"finishedAt\"<=j.\"finishedAt\"\n        AND EXISTS (SELECT 1 FROM job_assignments a WHERE a.\"jobId\"=j.id AND a.\"technicianId\"=t.\"technicianId\"\n          AND (a.\"removedAt\" IS NULL OR a.\"removedAt\">=t.\"finishedAt\"))\n        AND NEW.\"elapsedMs\"=(extract(epoch FROM t.\"finishedAt\"-t.\"startedAt\")*1000)::bigint\n        AND NEW.\"hourlyRate\"=r.\"hourlyRate\" AND c.amount=NEW.amount AND c.\"costType\"='INSTALLATION_LABOUR'\n        AND c.\"uniqueSourceId\"='TIME_RECORD:'||t.id::text AND c.\"reversalOfId\" IS NULL AND c.\"occurredAt\"=t.\"finishedAt\"\n        AND NEW.\"approvedAt\">=greatest(t.\"finishedAt\",t.\"createdAt\",j.\"completedAt\",r.\"createdAt\") AND NEW.\"approvedAt\"<=clock_timestamp()\n    ) THEN\n      RAISE EXCEPTION 'violates check constraint \"labour_check_source\": approved time, rate, actor and posted cost must agree'\n        USING ERRCODE='23514', CONSTRAINT='labour_check_source';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "technician_rates_frozen",
+      "table": "technician_rate_revisions",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER technician_rates_frozen BEFORE DELETE OR UPDATE ON public.technician_rate_revisions FOR EACH ROW EXECUTE FUNCTION labour_preserve_evidence()"
+    },
+    {
+      "name": "technician_rates_no_truncate",
+      "table": "technician_rate_revisions",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER technician_rates_no_truncate BEFORE TRUNCATE ON public.technician_rate_revisions FOR EACH STATEMENT EXECUTE FUNCTION labour_preserve_evidence()"
+    },
+    {
+      "name": "labour_approvals_frozen",
+      "table": "installation_labour_approvals",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER labour_approvals_frozen BEFORE DELETE OR UPDATE ON public.installation_labour_approvals FOR EACH ROW EXECUTE FUNCTION labour_preserve_evidence()"
+    },
+    {
+      "name": "labour_approvals_no_truncate",
+      "table": "installation_labour_approvals",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER labour_approvals_no_truncate BEFORE TRUNCATE ON public.installation_labour_approvals FOR EACH STATEMENT EXECUTE FUNCTION labour_preserve_evidence()"
+    },
+    {
+      "name": "technician_rates_source",
+      "table": "technician_rate_revisions",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER technician_rates_source BEFORE INSERT ON public.technician_rate_revisions FOR EACH ROW EXECUTE FUNCTION labour_check_source()"
+    },
+    {
+      "name": "labour_approvals_source",
+      "table": "installation_labour_approvals",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER labour_approvals_source BEFORE INSERT ON public.installation_labour_approvals FOR EACH ROW EXECUTE FUNCTION labour_check_source()"
     }
   ]
 }

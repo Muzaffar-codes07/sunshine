@@ -8,6 +8,7 @@ import { formatMoney, overviewCsvUrl, payCsvUrl, profitabilityCsvUrl, subsidyNex
 import { describeD4Error as errorMessage } from '../service/d4-http';
 import { OperationsReport } from './OperationsReport';
 import { CsvDownload } from './CsvDownload';
+import { InstallationLabourPanel } from './InstallationLabourPanel';
 
 export function ReportsWorkspacePage() {
   const [period, setPeriod] = useState<ReportPeriod>('today');
@@ -59,8 +60,9 @@ export function ReportsWorkspacePage() {
 
   return <section aria-labelledby="reports-workspace-title">
     <h1 id="reports-workspace-title">Reports</h1>
-    <p>Posted invoices, cash and costs. Periods use Asia/Kolkata calendar boundaries. Labour costing and pay remain unavailable until approved rates are configured; job contribution stays provisional when costs are incomplete.</p>
+    <p>Posted invoices, cash and costs. Periods use Asia/Kolkata calendar boundaries. Installation pay uses approved frozen rates; service pay is still pending integration. Job contribution stays provisional when costs are incomplete.</p>
     <OperationsReport />
+    <InstallationLabourPanel />
 
     <Field label="Report period" hint="Today, week and month use IST calendar boundaries.">
       {(control) => <select {...control} value={period} onChange={(event) => {
@@ -107,7 +109,8 @@ export function ReportsWorkspacePage() {
       onRetry={() => void pay.refetch()} empty="No approved technician time in this period."
       columns={[{ id: 'name', label: 'Technician' }, { id: 'hours', label: 'Approved hours' }, { id: 'pay', label: 'Pay' }]}
       rows={(pay.data?.technicians ?? []).map((row) => ({ id: row.technicianId, cells: { name: row.technicianName, hours: row.totalHours, pay: formatMoney(row.totalPay) } }))} />
-    {pay.isSuccess && pay.data && <><p>Total: {pay.data.totalHours} hours · {formatMoney(pay.data.totalPay)}. Recorded as of {pay.data.asOf}.</p>
+    {pay.isSuccess && pay.data && <><p role="status">{pay.data.scope === 'INSTALLATION_ONLY' ? 'Installation pay only — service time and unapproved installation work are excluded.' : 'All approved technician time.'}</p>
+      <p>Total: {pay.data.totalHours} hours · {formatMoney(pay.data.totalPay)}. Recorded as of {pay.data.asOf}.</p>
       <CsvDownload key={period} url={payCsvUrl(period)} label="Download pay CSV" /></>}
 
     <ListPattern title="Subsidy milestones" loading={subsidies.isPending} error={subsidies.isError ? errorMessage(subsidies.error) : undefined}
