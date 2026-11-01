@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { serviceTicketResponseSchema, ticketListResponseSchema, ticketStatusSchema } from '@sunshine/contracts';
-import { ListPattern } from '../../components/shared/patterns';
+import { ListPattern, StatusPill } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { describeD4Error } from './d4-http';
@@ -39,7 +39,7 @@ function SavedTickets() {
       columns={[{ id: 'number', label: 'Ticket' }, { id: 'fault', label: 'Fault' }, { id: 'status', label: 'Status' }, { id: 'coverage', label: 'Saved coverage' }]}
       rows={(data?.items ?? []).map(ticket => ({ id: ticket.id, cells: {
         number: <Link to={`/workspace/service?ticket=${ticket.id}`}>{ticket.ticketNumber}</Link>, fault: ticket.faultDescription,
-        status: ticket.status, coverage: ticket.assessmentSnapshot?.coverageStatus ?? 'Assessment required',
+        status: <StatusPill status={ticket.status} />, coverage: ticket.assessmentSnapshot?.coverageStatus ?? 'Assessment required',
       } }))} />
     {data && data.total > data.pageSize && <nav className="pager" aria-label="Ticket pagination">
       <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {Math.ceil(data.total / data.pageSize)}</span>

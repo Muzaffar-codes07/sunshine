@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { attentionItems, barsFor, documentRows, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
+import { attentionItems, barsFor, documentRows, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
 
 const NOW = new Date(2026, 10, 4, 12, 0);
 const at = (day, hour) => new Date(2026, 10, day, hour).toISOString();
@@ -97,6 +97,12 @@ test('attention lists only what someone can act on', () => {
   assert.deepEqual(attentionItems([bare, nocrew, late, done], 'ADMIN', NOW).map((item) => item.id), ['date-bare', 'crew-nocrew', 'late-late']);
   assert.deepEqual(attentionItems([bare, late], 'WAREHOUSE', NOW).map((item) => item.id), ['late-late']);
   assert.deepEqual(attentionItems([job('today'), late], 'TECHNICIAN', NOW).map((item) => item.id), ['today-today']);
+});
+
+test('status filters show live counts, and hide a status with no jobs', () => {
+  const options = statusFilters([job('a'), job('b'), job('c', { status: 'COMPLETED' })]);
+  assert.deepEqual(options.map((option) => [option.id, option.count]), [['ALL', 3], ['SCHEDULED', 2], ['COMPLETED', 1]]);
+  assert.deepEqual(statusFilters([]).map((option) => option.id), ['ALL']);
 });
 
 test('formatting helpers', () => {

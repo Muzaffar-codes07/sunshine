@@ -20,7 +20,7 @@ export function PerformanceCard({ jobs, role, loading }: { jobs: JobView[]; role
     ? [{ label: 'Invoiced this month', value: formatInr(overview.data.invoicedRevenue) }, { label: 'Cash received', value: formatInr(overview.data.cashReceived) }, { label: 'Actual cost', value: formatInr(overview.data.actualCost) }]
     : [{ label: 'Scheduled', value: String(facts.scheduled) }, { label: 'In progress', value: String(facts.inProgress) }, ...(history ? [{ label: 'Completed', value: String(facts.completed) }] : [])];
   return <section className="panel perf" aria-labelledby="perf-title">
-    <div className="panel-head"><h2 id="perf-title">Project performance</h2>{role === 'ADMIN' && <Link className="corner-link" to="/workspace/reports" aria-label="Open finance reports"><LayoutGrid size={16} aria-hidden="true" /></Link>}</div>
+    <div className="panel-head"><h2 id="perf-title">Project performance</h2>{role === 'ADMIN' && <Link className="corner-link" to="/workspace/reports" aria-label="Open finance reports"><LayoutGrid size="1rem" aria-hidden="true" /></Link>}</div>
     {loading ? <PanelLoading label="Loading project performance" /> : <>
       <p className="metric-label">Active installations</p>
       <p className="metric-value">{facts.active}</p>
@@ -43,7 +43,7 @@ export function SpotlightCard({ jobs, role, loading }: { jobs: JobView[]; role: 
   return <section className="spotlight" aria-labelledby="spotlight-title">
     {photo ? <img className="spotlight-art" src={`/api/v1/files/${photo}/content`} alt={`Roof photo uploaded for ${job!.orderDisplayNumber}`} /> : <SolarArt className="spotlight-art" />}
     <div className="spotlight-body">
-      <h2 id="spotlight-title"><Sun size={16} aria-hidden="true" /> Project spotlight</h2>
+      <h2 id="spotlight-title"><Sun size="1rem" aria-hidden="true" /> Project spotlight</h2>
       <div className="spotlight-foot">
         {loading && <p>Loading…</p>}
         {!loading && !job && <p>No projects yet. New orders appear here.</p>}
@@ -53,7 +53,7 @@ export function SpotlightCard({ jobs, role, loading }: { jobs: JobView[]; role: 
           <p className="spotlight-status">{humanize(job.status)}</p>
           <div className="spotlight-owner">
             {job.crew.length ? <AvatarStack names={job.crew.map((member) => member.displayName)} size={30} /> : <span className="spotlight-nocrew">No crew yet</span>}
-            <Link to={projectHref(job, role)}>View project <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link to={projectHref(job, role)}>View project <ArrowUpRight size="0.875rem" aria-hidden="true" /></Link>
           </div>
         </>}
       </div>
@@ -65,10 +65,10 @@ export function DocumentsCard({ jobs, role, approvals, loading }: { jobs: JobVie
   const rows = documentRows(jobs, role, approvals);
   const viewAll = role === 'WAREHOUSE' ? '/workspace/warehouse' : role === 'TECHNICIAN' ? '/workspace/field-service' : '/workspace/sales';
   return <section className="panel docs" aria-labelledby="docs-title">
-    <div className="panel-head docs-head"><span className="pill-icon" aria-hidden="true"><FolderOpen size={17} /></span><h2 id="docs-title">Documents &amp; approvals</h2></div>
+    <div className="panel-head docs-head"><span className="pill-icon" aria-hidden="true"><FolderOpen size="1.0625rem" /></span><h2 id="docs-title">Documents &amp; approvals</h2></div>
     {loading ? <PanelLoading lines={4} label="Loading documents" /> : rows.length === 0
       ? <p className="panel-empty">Documents appear here as orders progress.</p>
-      : <ul className="doc-list">{rows.map((row) => <li key={row.id}><Link className="doc-row" to={row.href}><FileText size={18} aria-hidden="true" /><span className="doc-name">{row.name}<small>{row.detail}</small></span><span className="doc-status">{row.status}</span></Link></li>)}</ul>}
+      : <ul className="doc-list">{rows.map((row) => <li key={row.id}><Link className="doc-row" to={row.href}><FileText size="1.125rem" aria-hidden="true" /><span className="doc-name">{row.name}<small>{row.detail}</small></span><span className="doc-status">{row.status}</span></Link></li>)}</ul>}
     <Link className="panel-link" to={viewAll}>View all</Link>
   </section>;
 }
@@ -90,9 +90,9 @@ export function TeamOperations({ jobs, role, loading, error, onRetry }: { jobs: 
       <h2 id="team-title">Team</h2>
       <span className="team-count">{total}</span>
       <div className="team-stats">
-        <Stat icon={<Users size={16} />} label="Assigned today" value={facts.assignedToday.length} />
-        <Stat icon={<HardHat size={16} />} label="On site now" value={facts.onSite.length} />
-        <Stat icon={<CalendarClock size={16} />} label="Next 7 days" value={plural(facts.days.reduce((sum, day) => sum + day.count, 0), 'job')} />
+        <Stat icon={<Users size="1rem" />} label="Assigned today" value={facts.assignedToday.length} />
+        <Stat icon={<HardHat size="1rem" />} label="On site now" value={facts.onSite.length} />
+        <Stat icon={<CalendarClock size="1rem" />} label="Next 7 days" value={plural(facts.days.reduce((sum, day) => sum + day.count, 0), 'job')} />
       </div>
     </div>
     {loading ? <PanelLoading lines={4} label="Loading team and operations" /> : error ? <PanelError error={error} onRetry={onRetry} /> : <div className="ops">
@@ -118,8 +118,8 @@ export function TeamOperations({ jobs, role, loading, error, onRetry }: { jobs: 
       <div className="ops-col ops-ready">
         <h3>Operational readiness</h3>
         <ul className="ready-list">
-          <li>{facts.noCrew.length === 0 ? <ShieldCheck size={15} aria-hidden="true" /> : <TriangleAlert size={15} aria-hidden="true" />} {facts.noCrew.length === 0 ? 'Every job has a crew' : `${plural(facts.noCrew.length, 'job')} without a crew`}</li>
-          {stock.data && <li>{stock.data.ok ? <ShieldCheck size={15} aria-hidden="true" /> : <TriangleAlert size={15} aria-hidden="true" />} {stock.data.ok ? 'Stock ledger checks passed' : 'Stock ledger needs review'}</li>}
+          <li>{facts.noCrew.length === 0 ? <ShieldCheck size="0.9375rem" aria-hidden="true" /> : <TriangleAlert size="0.9375rem" aria-hidden="true" />} {facts.noCrew.length === 0 ? 'Every job has a crew' : `${plural(facts.noCrew.length, 'job')} without a crew`}</li>
+          {stock.data && <li>{stock.data.ok ? <ShieldCheck size="0.9375rem" aria-hidden="true" /> : <TriangleAlert size="0.9375rem" aria-hidden="true" />} {stock.data.ok ? 'Stock ledger checks passed' : 'Stock ledger needs review'}</li>}
         </ul>
         <div className="day-bars" role="img" aria-label={`Installations by day: ${facts.days.map((day) => `${day.label} ${day.count}`).join(', ')}`}>
           {facts.days.map((day, index) => <span key={`${day.label}-${index}`} className="day-bar"><i className={index === 0 ? 'is-today' : ''} style={{ height: `${Math.max(day.count / peak * 100, 6)}%` }} /><small>{day.label}</small></span>)}
@@ -136,7 +136,7 @@ export function SupportOverview({ tickets, loading, error, onRetry }: { tickets:
     <div className="panel-head"><h2 id="support-title">Service queue</h2></div>
     {loading ? <PanelLoading label="Loading service tickets" /> : error ? <PanelError error={error} onRetry={onRetry} /> : <>
       <p className="metric-label">Open tickets</p><p className="metric-value">{open.length}</p>
-      {open.length === 0 ? <p className="panel-empty">No open tickets.</p> : <ul className="doc-list">{open.slice(0, 5).map((ticket) => <li key={ticket.id}><Link className="doc-row" to={`/workspace/service?ticket=${ticket.id}`}><FileText size={18} aria-hidden="true" /><span className="doc-name">{ticket.ticketNumber}<small>{ticket.faultDescription}</small></span><span className="doc-status">{humanize(ticket.status)}</span></Link></li>)}</ul>}
+      {open.length === 0 ? <p className="panel-empty">No open tickets.</p> : <ul className="doc-list">{open.slice(0, 5).map((ticket) => <li key={ticket.id}><Link className="doc-row" to={`/workspace/service?ticket=${ticket.id}`}><FileText size="1.125rem" aria-hidden="true" /><span className="doc-name">{ticket.ticketNumber}<small>{ticket.faultDescription}</small></span><span className="doc-status">{humanize(ticket.status)}</span></Link></li>)}</ul>}
     </>}
   </section>;
 }

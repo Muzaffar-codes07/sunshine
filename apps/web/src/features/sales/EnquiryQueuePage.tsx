@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enquiryStatusSchema } from '@sunshine/contracts';
-import { ListPattern } from '../../components/shared/patterns';
+import { ListPattern, StatusPill } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { useStaffSession } from '../auth/session';
 import { AssignedSurveysPage } from './SurveyPanel';
@@ -27,14 +27,15 @@ export function EnquiryQueuePage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return <>
-    <h1>CRM</h1>
-    <p><Link to="/enquire">Open the public enquiry form</Link> to take an enquiry by phone.</p>
-    <Field label="Show enquiries">
-      {(control) => <select {...control} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
-        <option value="">All statuses</option>
-        {enquiryStatusSchema.options.map((value) => <option key={value} value={value}>{humanize(value)}</option>)}
-      </select>}
-    </Field>
+    <div className="page-head">
+      <div><h1>CRM</h1><p className="page-sub"><Link to="/enquire">Open the public enquiry form</Link> to take an enquiry by phone.</p></div>
+      <Field label="Show enquiries">
+        {(control) => <select {...control} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+          <option value="">All statuses</option>
+          {enquiryStatusSchema.options.map((value) => <option key={value} value={value}>{humanize(value)}</option>)}
+        </select>}
+      </Field>
+    </div>
     <ListPattern
       title={data ? `Enquiries (${data.total})` : 'Enquiries'}
       columns={columns}
@@ -45,7 +46,7 @@ export function EnquiryQueuePage() {
       rows={(data?.items ?? []).map((item) => ({ id: item.id, cells: {
         name: <Link to={`/workspace/sales/enquiries/${item.id}`}>{item.contactName}</Link>,
         phone: item.phone, city: item.siteCity, capacity: `${item.requestedCapacityKw} kW`,
-        status: humanize(item.status), followUp: formatWhen(item.nextFollowUpAt), received: formatWhen(item.createdAt),
+        status: <StatusPill status={item.status} />, followUp: formatWhen(item.nextFollowUpAt), received: formatWhen(item.createdAt),
       } }))}
     />
     {data && pages > 1 && <nav className="pager" aria-label="Enquiry pages">

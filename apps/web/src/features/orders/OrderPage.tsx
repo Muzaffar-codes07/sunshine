@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { orderFulfilmentResponseSchema, orderResponseSchema, type Invoice, type Order, type OrderFulfilment, type StaffIdentity } from '@sunshine/contracts';
-import { DetailPattern, ListPattern } from '../../components/shared/patterns';
+import { AvatarStack } from '../../components/shared/Brand';
+import { DetailPattern, FilterChips, ListPattern, StatusPill } from '../../components/shared/patterns';
 import { apiGet } from '../../lib/api';
 import { useStaffSession } from '../auth/session';
 import { useDashboardJobs } from '../dashboard/dashboard-data';
+import { statusFilters, type JobFilter } from '../dashboard/dashboard-model';
 import { CrewSchedule } from '../field/CrewSchedule';
 import { describeProblem, formatWhen, humanize } from '../sales/queries';
 import { PaymentForm } from './PaymentForm';
@@ -25,16 +28,22 @@ export function OrderPage({ orderId }: { orderId?: string }) {
 
 /** Every confirmed order has a job, so the job list is the project list. */
 function ProjectList({ role }: { role: StaffIdentity['role'] }) {
-  const jobs = useDashboardJobs(role), items = jobs.data?.items ?? [];
-  return <><h1>Projects</h1>
-    {!!jobs.data && jobs.data.total > items.length && <p>Showing the newest {items.length} of {jobs.data.total} projects.</p>}
+  const jobs = useDashboardJobs(role), all = jobs.data?.items ?? [];
+  const [filter, setFilter] = useState<JobFilter>('ALL');
+  const shown = filter === 'ALL' ? all : all.filter(job => job.status === filter);
+  return <>
+    <div className="page-head">
+      <div><h1>Projects</h1><p className="page-sub">{!!jobs.data && jobs.data.total > all.length ? `Showing the newest ${all.length} of ${jobs.data.total} projects.` : 'Every confirmed order, from survey to handover.'}</p></div>
+      <FilterChips label="Filter projects by status" options={statusFilters(all)} value={filter} onChange={setFilter} />
+    </div>
     <ListPattern title="All projects" loading={jobs.isPending} error={jobs.error ? describeProblem(jobs.error).message : undefined} onRetry={() => void jobs.refetch()}
-      empty="No projects yet. A project starts when an accepted quote is confirmed as an order."
-      columns={[{ id: 'project', label: 'Project' }, { id: 'customer', label: 'Customer' }, { id: 'system', label: 'System' }, { id: 'status', label: 'Status' }, { id: 'crew', label: 'Crew' }, { id: 'when', label: 'Scheduled' }]}
-      rows={items.map(job => ({ id: job.id, cells: {
+      empty={filter === 'ALL' ? 'No projects yet. A project starts when an accepted quote is confirmed as an order.' : 'No projects with this status.'}
+      columns={[{ id: 'project', label: 'Project' }, { id: 'customer', label: 'Customer' }, { id: 'system', label: 'System' }, { id: 'crew', label: 'Crew' }, { id: 'when', label: 'Scheduled' }, { id: 'status', label: 'Status' }]}
+      rows={shown.map(job => ({ id: job.id, cells: {
         project: <Link to={role === 'WAREHOUSE' ? `/workspace/warehouse/orders/${job.orderId}` : `/workspace/orders/${job.orderId}`}>{job.orderDisplayNumber}</Link>,
-        customer: job.contactName, system: `${job.soldCapacityKw} kW ${job.systemType === 'ON_GRID' ? 'On-Grid' : 'Off-Grid'}`, status: humanize(job.status),
-        crew: job.crew.map(member => member.displayName).join(', ') || 'None assigned', when: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled',
+        customer: <span>{job.contactName}<small>{job.siteAddress}</small></span>, system: `${job.soldCapacityKw} kW ${job.systemType === 'ON_GRID' ? 'On-Grid' : 'Off-Grid'}`,
+        crew: job.crew.length ? <AvatarStack names={job.crew.map(member => member.displayName)} size={28} /> : 'None assigned',
+        when: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled', status: <StatusPill status={job.status} />,
       } }))} />
   </>;
 }
