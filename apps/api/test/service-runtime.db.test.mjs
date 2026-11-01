@@ -139,7 +139,8 @@ test('unbilled work cannot resolve; an explicit no-work resolution closes only a
 
 test('existing work lines prevent scope rewrites and no-work bypass, and service audit remains append-only',async()=>{
   let {ticket}=await newTicket();ticket=await ok(assess(ticket));
-  await prisma.ticketLine.create({data:{ticketId:ticket.id,lineType:'LABOUR',description:'Explicit pending work obligation fixture',quantity:'1.000',unitCost:'1.00',totalCost:'1.00',billableToCustomer:false}});
+  await prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT set_config('sunshine.actor_id',${staff.ADMIN.id},true)`;
+    await tx.ticketLine.create({data:{ticketId:ticket.id,lineType:'LABOUR',description:'Explicit pending work obligation fixture',quantity:'1.000',unitCost:'1.00',totalCost:'1.00',billableToCustomer:false}});});
   await refused(assess(ticket,'Labour'),409,'REASSESSMENT_LOCKED');
   await refused(send(`/tickets/${ticket.id}/resolve`,{version:ticket.version,resolutionDetails:'Must not hide actual work',noWorkReason:'Incorrect no-work attempt'},randomUUID(),'SUPPORT'),409,'REPAIR_BILLING_REQUIRED');
   assert.equal((await ok(get('/tickets/'+ticket.id,'SUPPORT'))).status,'ASSESSED');

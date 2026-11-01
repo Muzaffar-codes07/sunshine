@@ -10,6 +10,7 @@ import { describeD4Error } from './d4-http';
 import { ServiceWorkspacePage } from './ServiceWorkspacePage';
 import { WarrantyPolicies } from './WarrantyPolicies';
 import { TicketHistory } from './TicketHistory';
+import { TicketParts } from './TicketParts';
 
 function SavedTicket({ id }: { id: string }) {
   const ticket = useQuery({ queryKey: ['service', 'ticket', id], retry: false,
@@ -20,6 +21,7 @@ function SavedTicket({ id }: { id: string }) {
     {ticket.isPending && <p role="status">Loading saved ticket…</p>}
     {ticket.error && <div role="alert"><p>{describeD4Error(ticket.error)}</p><button onClick={() => void ticket.refetch()}>Retry ticket</button></div>}
     {ticket.data && <ServiceWorkspacePage ticketCommandsEnabled key={`${id}:${ticket.data.data.version}`} initialTicket={ticket.data.data} />}
+    {ticket.data && <TicketParts ticket={ticket.data.data} />}
     {ticket.data && <TicketHistory id={id} />}
   </>;
 }

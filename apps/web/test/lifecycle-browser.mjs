@@ -234,6 +234,33 @@ try {
       await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Component replacement');
       await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
       await page.getByText('Covered — customer charge ₹0.00', { exact: true }).waitFor();
+      const requiredProduct = await prisma.unit.findUniqueOrThrow({where:{id:ticket.unitId}});
+      const beforeParts={moves:await prisma.stockMovement.count(),costs:await prisma.costEntry.count()};
+      await page.getByRole('combobox',{name:'Required repair product',exact:true}).selectOption(requiredProduct.productId);
+      await page.getByRole('textbox',{name:'Why this part is required',exact:true}).fill('Explicit synthetic assessed component requirement; withdrawn before repair');
+      const partRequests=[];let losePart=true;
+      await page.route(`**/api/v1/tickets/${ticket.id}/parts`,async route=>{
+        if(route.request().method()!=='POST')return route.continue();
+        partRequests.push({key:route.request().headers()['idempotency-key'],body:route.request().postData()});
+        const response=await route.fetch();assert.equal(response.status(),201);
+        if(losePart){losePart=false;return route.abort('failed');}return route.fulfill({response});
+      });
+      await page.getByRole('button',{name:'Save part requirement',exact:true}).click();
+      await page.getByRole('button',{name:'Retry this request',exact:true}).waitFor();
+      assert.equal(await page.getByRole('combobox',{name:'Required repair product',exact:true}).isDisabled(),true);
+      await page.getByRole('button',{name:'Retry this request',exact:true}).click();
+      await page.getByText('Part requirement planned.',{exact:true}).waitFor();
+      assert.equal(partRequests.length,2);assert.deepEqual(partRequests[0],partRequests[1]);
+      await page.unroute(`**/api/v1/tickets/${ticket.id}/parts`);
+      const planned=await prisma.ticketLine.findFirstOrThrow({where:{ticketId:ticket.id}});
+      assert.equal(planned.phase,'PLANNED');assert.equal(planned.unitCost,null);assert.equal(planned.totalCost,null);
+      const requiredPart=page.locator(`[data-part-id="${planned.id}"]`);
+      await requiredPart.getByRole('textbox',{name:'Cancellation reason',exact:true}).fill('Synthetic customer withdrew unused requirement before stock allocation');
+      await requiredPart.getByRole('button',{name:'Cancel part requirement',exact:true}).click();
+      await page.getByText('Part requirement cancelled.',{exact:true}).waitFor();
+      await requiredPart.getByText('CANCELLED',{exact:true}).waitFor();
+      assert.deepEqual({moves:await prisma.stockMovement.count(),costs:await prisma.costEntry.count()},beforeParts);
+      console.log('PASS real Product/quantity/price requirement exact retry and unused cancellation without stock or expense',planned.id);
       await page.getByRole('checkbox', { name: 'No parts, labour, replacement or financial effects occurred', exact: true }).check();
       await page.getByRole('textbox', { name: 'No-work resolution reason', exact: true }).fill('Synthetic customer withdrew complaint before any work');
       await page.getByRole('textbox', { name: 'Resolution details', exact: true }).fill('Complaint withdrawn; equipment was not repaired in this scenario');
@@ -245,9 +272,10 @@ try {
       await page.getByRole('heading', { name: 'Audited service history', exact: true }).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'service fits 360px');
       const historyResponse = await context.request.get(`/api/v1/tickets/${ticket.id}/events`); assert.equal(historyResponse.status(), 200);
-      const history = (await historyResponse.json()).data; assert.equal(history.total, 5);
+      const history = (await historyResponse.json()).data; assert.equal(history.total, 7);
       assert.ok(history.items.some(row => row.previousAssessment?.coverageStatus === 'OUT_OF_SCOPE' && row.assessment?.coverageStatus === 'COVERED'));
-      assert.equal(await prisma.ticketLine.count({ where: { ticketId: ticket.id } }), 0);
+      assert.equal(await prisma.ticketLine.count({ where: { ticketId: ticket.id,phase:'CANCELLED' } }), 1);
+      assert.equal(await prisma.ticketLine.count({ where: { ticketId: ticket.id,phase:{not:'CANCELLED'} } }), 0);
       assert.equal(await prisma.invoice.count({ where: { sourceType: 'TICKET', sourceId: ticket.id } }), 0);
       console.log('PASS real ticket intake exact retry, audited scope correction and explicit no-work confirmed closure', ticket.id);
     }

@@ -14,11 +14,13 @@ import { ServiceReadController } from './service-read.controller';
 import { TicketCommandsService } from './ticket-commands.service';
 import { TicketCommandsController } from './ticket-commands.controller';
 import { TicketHistoryService } from './ticket-history.service';
+import { TicketPartsService } from './ticket-parts.service';
+import { TicketPartsController } from './ticket-parts.controller';
 
 @Module({
   imports: [WarrantyModule, FinanceModule, AuthModule],
-  controllers: [TicketCommandsController, ServiceReadController],
-  providers: [ServiceService, ServiceTicketGuard, TicketCommandsService, TicketHistoryService, RepairBillingService, ReplacementService,
+  controllers: [TicketCommandsController, ServiceReadController, TicketPartsController],
+  providers: [ServiceService, ServiceTicketGuard, TicketCommandsService, TicketHistoryService, TicketPartsService, RepairBillingService, ReplacementService,
     { provide: ReplacementStockWriter, useClass: UnavailableReplacementStockWriter },
     { provide: RepairSourceReader, useClass: UnavailableRepairSourceReader },
     { provide: TicketRepository, useClass: PrismaTicketRepository },

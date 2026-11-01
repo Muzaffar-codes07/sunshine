@@ -91,8 +91,10 @@ function fixture() {
     ticketLine: {
       async findUnique({ where }: { where: { id: string } }) { return lines.find(l => l.id === where.id) ?? null; },
       async createMany({ data }: { data: PrismaTypes.TicketLineCreateManyInput[] }) {
-        for (const line of data) lines.push({ ...line, id: line.id ?? randomUUID(), createdAt: new Date(), billableToCustomer: line.billableToCustomer ?? false,
-          quantity: new Prisma.Decimal(String(line.quantity)), unitCost: new Prisma.Decimal(String(line.unitCost)), totalCost: new Prisma.Decimal(String(line.totalCost)) });
+        for (const line of data) lines.push({ phase:'ISSUED',version:1,productId:null,scope:null,createdById:null,cancelledById:null,cancellationReason:null, ...line, id: line.id ?? randomUUID(), createdAt: new Date(), billableToCustomer: line.billableToCustomer ?? false,
+          unitPrice:line.unitPrice==null?null:new Prisma.Decimal(String(line.unitPrice)),
+          cancelledAt:line.cancelledAt?new Date(line.cancelledAt):null,
+          quantity: new Prisma.Decimal(String(line.quantity)), unitCost:line.unitCost==null?null:new Prisma.Decimal(String(line.unitCost)), totalCost:line.totalCost==null?null:new Prisma.Decimal(String(line.totalCost)) });
       },
     },
     warranty: {
@@ -155,7 +157,7 @@ test('IST expiry boundary drives real assessment -> saved decision -> free/charg
     }
     assert.equal(f.costs.length, 2); assert.ok(f.costs.every(c => c.jobId === f.jobId));
     assert.equal(f.lines.length, 2);
-    assert.equal(f.lines.reduce((sum, l) => sum.plus(l.totalCost), new Prisma.Decimal(0)).toFixed(2), '14600.00');
+    assert.equal(f.lines.reduce((sum, l) => { assert.ok(l.totalCost); return sum.plus(l.totalCost); }, new Prisma.Decimal(0)).toFixed(2), '14600.00');
     assert.deepEqual(f.rows.get(ticket.id)!.assessmentSnapshot, savedDecision);
     assert.deepEqual(await f.billing.executeRepairBilling(f.tx, ticket.id, [...items].reverse()), result);
     assert.equal(f.costs.length, 2); assert.equal(f.lines.length, 2);
