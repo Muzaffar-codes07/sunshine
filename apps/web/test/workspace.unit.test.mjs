@@ -20,7 +20,7 @@ test('workspace navigation restricts each role and direct links cannot mount una
     for (const [role, path, expected] of [
       ['TECHNICIAN', '/workspace/reports', 'Your role cannot open this workspace.'],
       ['SUPPORT', '/workspace/warehouse', 'Your role cannot open this workspace.'],
-      ['SUPPORT', '/workspace/service', 'Ticket actions are unavailable'],
+      ['SUPPORT', '/workspace/service', 'Create service ticket'],
       ['ADMIN', '/workspace/reports', 'Report period'],
       ['TECHNICIAN', '/workspace', 'Assigned jobs, installation photos'],
     ]) {

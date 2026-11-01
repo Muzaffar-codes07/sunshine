@@ -16,6 +16,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://sunshine:ci_only@127.0.0.1:5432/sunshine_test?schema=public
+      TEST_DATABASE_URL: postgresql://sunshine:ci_only@127.0.0.1:5432/sunshine_test?schema=public
       SESSION_SECRET: ci-only-session-secret-never-use-for-real-staff
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +28,9 @@ jobs:
       - run: npm run check
       - run: npm run db:deploy
       - run: npm run db:check
+      - run: npm run test:db -w @sunshine/api
+      - run: npm run test:db -w @sunshine/web
+      - run: npm run test:d4-migration
       - run: npm run test:constraints
         env:
           TEST_DATABASE_URL: ${{ env.DATABASE_URL }}

@@ -19,6 +19,7 @@ export class ServiceService {
 
   async getTicket(id: string): Promise<ServiceTicketResponse> {
     new ZodValidationPipe(z.uuid()).transform(id);
+    id = id.toLowerCase();
     const ticket = await this.tickets.findById(id);
     if (!ticket) throw new ApiError(404, 'TICKET_NOT_FOUND', 'No ticket was found');
     return this.response(ticket);
@@ -116,6 +117,11 @@ export class ServiceService {
   }
 
   private response(ticket: TicketRow): ServiceTicketResponse {
+    return ticketResponse(ticket);
+  }
+}
+
+export function ticketResponse(ticket: TicketRow): ServiceTicketResponse {
     return serviceTicketResponseSchema.parse({ data: {
       id: ticket.id, ticketNumber: ticket.ticketNumber, customerId: ticket.customerId,
       unitId: ticket.unitId, jobId: ticket.jobId, status: ticket.status, version: ticket.version,
@@ -128,6 +134,7 @@ export class ServiceService {
       },
       closedAt: ticket.closedAt?.toISOString() ?? null,
       createdAt: ticket.createdAt.toISOString(), updatedAt: ticket.updatedAt.toISOString(),
+      sourceVerified: Boolean(ticket.sourceVerifiedAt), noWorkReason: ticket.noWorkReason ?? null,
+      billingFinalized: ticket.billingSnapshot != null,
     } });
-  }
 }

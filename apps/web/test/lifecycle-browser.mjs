@@ -199,13 +199,58 @@ try {
     assert.equal(await prisma.stockDocument.count({ where: { reference: `DISPATCH:${(await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } })).id}` } }), 1);
     results.push({ run, seconds: ((Date.now() - begin) / 1000).toFixed(1), jobId: job.id, orderId: order.id, serialUnits: allocated.length, status: saved.status });
     console.log('Completed persisted run', JSON.stringify(results.at(-1)));
-    const ticket = await prisma.serviceTicket.create({ data: { ticketNumber: `B44-${randomUUID().slice(0, 12)}`, unitId: allocated[0].unitId, jobId: job.id, customerId: customer.id, faultDescription: 'Explicit synthetic saved ticket for read/refresh acceptance' } });
-    lastTicket = ticket;
     await page.goto('/workspace/service');
-    await page.getByRole('link', { name: ticket.ticketNumber, exact: true }).click();
+    await page.getByRole('textbox', { name: 'Installed unit ID', exact: true }).fill(allocated[0].unitId);
+    await page.getByRole('textbox', { name: 'Fault description', exact: true }).fill('Explicit synthetic complaint; no repair performed in this browser case');
+    const intakeRequests = []; let loseIntake = run === 1;
+    await page.route('**/api/v1/tickets', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      intakeRequests.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+      const response = await route.fetch(); assert.equal(response.status(), 201);
+      if (loseIntake) { loseIntake = false; return route.abort('failed'); }
+      return route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: 'Create ticket', exact: true }).click();
+    if (run === 1) {
+      await page.getByRole('button', { name: 'Retry this request', exact: true }).waitFor();
+      assert.equal(await page.getByRole('textbox', { name: 'Fault description', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: 'Retry this request', exact: true }).click();
+    }
+    await page.waitForURL(/\/workspace\/service\?ticket=/);
+    const ticket = await prisma.serviceTicket.findUniqueOrThrow({ where: { id: new URL(page.url()).searchParams.get('ticket') } });
+    lastTicket = ticket;
+    assert.equal(ticket.customerId, customer.id); assert.equal(ticket.jobId, job.id); assert.ok(ticket.sourceVerifiedAt);
+    assert.equal(intakeRequests.length, run === 1 ? 2 : 1);
+    if (run === 1) assert.deepEqual(intakeRequests[0], intakeRequests[1]);
+    assert.equal(await prisma.serviceTicketEvent.count({ where: { ticketId: ticket.id } }), 1);
+    await page.unroute('**/api/v1/tickets');
     await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
     await page.reload(); await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), false);
+    if (run === 1) {
+      await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Uncovered cosmetic work');
+      await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
+      await page.getByText('Not covered — charge pending assessment', { exact: true }).waitFor();
+      await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Component replacement');
+      await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
+      await page.getByText('Covered — customer charge ₹0.00', { exact: true }).waitFor();
+      await page.getByRole('checkbox', { name: 'No parts, labour, replacement or financial effects occurred', exact: true }).check();
+      await page.getByRole('textbox', { name: 'No-work resolution reason', exact: true }).fill('Synthetic customer withdrew complaint before any work');
+      await page.getByRole('textbox', { name: 'Resolution details', exact: true }).fill('Complaint withdrawn; equipment was not repaired in this scenario');
+      await page.getByRole('button', { name: 'Await customer confirmation', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Confirmer name', exact: true }).fill(customer.name);
+      await page.getByRole('button', { name: 'Close ticket', exact: true }).click();
+      await page.getByText('Ticket closed with recorded customer confirmation.', { exact: true }).waitFor();
+      await page.reload(); await page.getByText('Ticket closed with recorded customer confirmation.', { exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Audited service history', exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'service fits 360px');
+      const historyResponse = await context.request.get(`/api/v1/tickets/${ticket.id}/events`); assert.equal(historyResponse.status(), 200);
+      const history = (await historyResponse.json()).data; assert.equal(history.total, 5);
+      assert.ok(history.items.some(row => row.previousAssessment?.coverageStatus === 'OUT_OF_SCOPE' && row.assessment?.coverageStatus === 'COVERED'));
+      assert.equal(await prisma.ticketLine.count({ where: { ticketId: ticket.id } }), 0);
+      assert.equal(await prisma.invoice.count({ where: { sourceType: 'TICKET', sourceId: ticket.id } }), 0);
+      console.log('PASS real ticket intake exact retry, audited scope correction and explicit no-work confirmed closure', ticket.id);
+    }
   }
   for (const role of ['SALES', 'WAREHOUSE', 'TECHNICIAN', 'SUPPORT']) {
     const scopedPage = await rolePage(role), scoped = scopedPage.context();
@@ -246,7 +291,7 @@ try {
   await page.getByText('✓ System Invariants Healthy', { exact: true }).waitFor();
   await page.setViewportSize({ width: 1280, height: 800 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'desktop fits');
-  // Finance and warranty use persisted sources. Payroll and ticket writes retain their real remaining gates.
+  // Finance and warranty use persisted sources. Service work posting and payroll remain separate gates.
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/workspace/reports');
   await page.getByRole('heading', { name: /Period summary/ }).waitFor();
@@ -306,7 +351,7 @@ try {
   await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
   console.log('PASS persisted report JSON/CSV/source reconciliation',JSON.stringify(summary));
   await page.goto('/workspace/service');
-  assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), false);
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill('ABSENT-' + randomUUID());
   await page.getByRole('button', { name: 'Look up serial' }).click();
   await page.getByRole('alert').filter({ hasText: /No unit matches/i }).waitFor();
@@ -314,7 +359,7 @@ try {
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial.toLowerCase());
   await page.getByRole('button', { name: 'Look up serial' }).click();
   await page.getByRole('heading', { name: `Warranty — ${warrantyUnit.rawSerial}`, exact: true }).waitFor();
-  await page.getByText('COVERED', { exact: true }).waitFor();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
   await page.reload();
   await page.getByRole('combobox', { name: 'Equipment product', exact: true }).selectOption(warrantyUnit.productId);
   await page.getByRole('button', { name: 'Save future warranty terms', exact: true }).waitFor();
@@ -349,14 +394,14 @@ try {
   await page.waitForFunction(name => document.querySelector('input[name=policyName]')?.value === name, changedPolicyName);
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial);
   await page.getByRole('button', { name: 'Look up serial' }).click();
-  await page.getByText('COVERED', { exact: true }).waitFor();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
   const frozen = await context.request.get('/api/v1/warranties/lookup?' + new URLSearchParams({serial:warrantyUnit.rawSerial}));
   assert.equal((await frozen.json()).data.assessment.policyName, oldPolicyName, 'editing future terms does not change sold coverage');
   const supportPage = await rolePage('SUPPORT');
   await supportPage.goto('/workspace/service');
   await supportPage.getByRole('textbox', {name:'Serial number',exact:true}).fill(warrantyUnit.rawSerial);
   await supportPage.getByRole('button',{name:'Look up serial'}).click();
-  await supportPage.getByText('COVERED',{exact:true}).waitFor();
+  await supportPage.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED',{exact:true}).waitFor();
   assert.equal(await supportPage.getByRole('heading',{name:'Configure future warranty terms',exact:true}).count(),0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true,'warranty and policy fit 360px');
   console.log('PASS persisted warranty lookup, future-policy edit and lost-response exact retry',JSON.stringify({unitId:warrantyUnit.id,jobId:lastTicket.jobId,policyKey:lostPolicyKey}));
@@ -365,7 +410,7 @@ try {
   await page.waitForFunction(() => document.activeElement?.id === 'workspace-content');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; installation pay approval/exact retry and source reconciliation; live financial JSON/CSV, warranty lookup and policy-edit replay. Service-time payroll/ticket-write gates remain. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; ticket intake exact retry, audited scope corrections and legitimate no-work confirmed closure; installation pay approval/exact retry and source reconciliation; live financial JSON/CSV, warranty lookup and policy-edit replay. Actual repair-parts, replacement and service-time payroll gates remain. No physical phone/scanner or complete after-sales repair demo claim.' }, null, 2));
 } catch (error) {
   console.error('FAIL', error);
   if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));

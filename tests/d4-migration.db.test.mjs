@@ -4,7 +4,9 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { randomInt, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import {readFile,mkdir,mkdtemp,rm} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {installationFixture,installationCommands} from '../apps/api/test/helpers/installation-source.mjs';
 const require = createRequire(new URL('../apps/api/package.json', import.meta.url));
 const testUrl = process.env.TEST_DATABASE_URL;
 assert.ok(testUrl, 'Set TEST_DATABASE_URL to an explicitly disposable database');
@@ -25,7 +27,8 @@ const { StockReceiptsService } = require('./dist/inventory/stock-receipts.servic
 const { seedCatalogue } = require('./dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('./dist/catalog/demo-catalogue');
 const { Client } = require('pg');
-let app, prisma, sql, writer, sales, tech, firstOrder, secondOrder, unitId;
+const {TicketCommandsService}=require('./dist/service/ticket-commands.service');
+let app, prisma, sql, writer, sales, tech, firstOrder, secondOrder, unitId,warrantyUnitId,directory;
 const actor = row => ({ id: row.id, email: row.email, displayName: row.displayName, role: row.role });
 const conflict = error => error.code === 'IDEMPOTENCY_CONFLICT' && error.getStatus() === 409;
 const databaseError = sqlstate => error => error.code === sqlstate;
@@ -49,6 +52,7 @@ async function confirmedOrder() {
 }
 
 before(async () => {
+  const parent=resolve(import.meta.dirname,'../var');await mkdir(parent,{recursive:true});directory=await mkdtemp(resolve(parent,'d4-real-source-test-'));process.env.UPLOAD_DIR=directory;
   sql = new Client({ connectionString: testUrl }); await sql.connect();
   assert.match((await sql.query('SHOW server_version')).rows[0].server_version, /^17\.11(?:\s|$)/);
   app = await NestFactory.createApplicationContext(AppModule, { logger: false });
@@ -64,14 +68,18 @@ before(async () => {
     reference: 'D4-' + randomUUID(), locationId: location.id, receivedAt: now,
     lines: [{ productId: product.id, quantity: '1', unitCost: '100.00', serials: ['D4-' + randomUUID()] }],
   })).data;
-  unitId = receipt.lines[0].unitIds[0];
+  warrantyUnitId = receipt.lines[0].unitIds[0];
+  const complete=installationFixture({app,prisma,staff:{ADMIN:sales,SALES:sales,TECHNICIAN:tech},main:location,
+    actor:role=>actor(role==='TECHNICIAN'?tech:sales),post:installationCommands(app,sales.id)});
+  const time=await complete();firstOrder=await prisma.order.findUniqueOrThrow({where:{jobId:time.jobId}});
+  unitId=(await prisma.allocation.findFirstOrThrow({where:{jobId:time.jobId,product:{category:'INVERTER'}}})).unitId;
 });
-after(async () => { await sql?.end(); await app?.close(); });
+after(async () => { await sql?.end(); await app?.close();await rm(directory,{recursive:true,force:true}); });
 const cost = (overrides = {}) => ({ uniqueSourceId: `TIME_RECORD:${randomUUID()}`, jobId: firstOrder.jobId,
   costType: 'SERVICE_LABOUR', amount: '600.20', description: 'Actual draft labour', occurredAt: now, ...overrides });
 const post = command => prisma.$transaction(tx => writer.postCost(tx, command));
-const ticket = (overrides = {}) => prisma.serviceTicket.create({ data: { ticketNumber: 'D4-' + randomUUID(),
-  customerId: firstOrder.customerId, jobId: firstOrder.jobId, unitId, faultDescription: 'Synthetic migration fault', ...overrides } });
+const ticket = async () => (await app.get(TicketCommandsService).create(actor(sales),randomUUID(),{unitId,faultDescription:'Synthetic migration fault'})).data;
+
 
 test('D4 references have actual upstream targets and Restrict delete policies', async () => {
   const { rows } = await sql.query(`SELECT c.conname AS name, c.confdeltype, c.confupdtype, t.relname AS target
@@ -151,7 +159,7 @@ test('late costs remain in their occurrence period and respect the posting cutof
 });
 
 test('warranty uniqueness, replacement lineage pairing and confirmation ordering are SQL backstops', async () => {
-  const warranty = { unitId, startDate: new Date('2024-01-01'), expiryDate: new Date('2026-01-01'),
+  const warranty = { unitId:warrantyUnitId, startDate: new Date('2024-01-01'), expiryDate: new Date('2026-01-01'),
     policyName: 'Component policy', policyRevision: 'v1', scope: 'Component replacement', durationMonths: 24 };
   const created = await Promise.allSettled([prisma.warranty.create({ data: warranty }), prisma.warranty.create({ data: warranty })]);
   assert.equal(created.filter(row => row.status === 'fulfilled').length, 1);
@@ -162,10 +170,10 @@ test('warranty uniqueness, replacement lineage pairing and confirmation ordering
     status: 'CLOSED', assessmentSnapshot: {}, resolutionDetails: 'Resolved', resolvedAt: new Date(now),
     confirmedBy: 'Customer', confirmationChannel: 'PHONE', confirmedAt: new Date('2026-10-30'), closedAt: new Date(now),
   } }));
-  const closed = await prisma.serviceTicket.update({ where: { id: row.id }, data: {
-    status: 'CLOSED', assessmentSnapshot: {}, resolutionDetails: 'Resolved', resolvedAt: new Date(now),
-    confirmedBy: 'Customer', confirmationChannel: 'PHONE', confirmedAt: new Date(now), closedAt: new Date(now),
-  } });
+  const commands=app.get(TicketCommandsService);
+  const assessed=(await commands.assess(actor(sales),randomUUID(),row.id,{version:row.version,asOfDate:row.createdAt,requestedScope:'Component replacement'})).data;
+  const resolved=(await commands.resolve(actor(sales),randomUUID(),row.id,{version:assessed.version,resolutionDetails:'Fixture complaint withdrawn before work',noWorkReason:'No parts or labour performed for this synthetic complaint'})).data;
+  const closed=(await commands.confirm(actor(sales),randomUUID(),row.id,{version:resolved.version,confirmerName:'Fixture Customer',channel:'PHONE',confirmedAt:new Date().toISOString()})).data;
   assert.equal(closed.status, 'CLOSED');
 });
 

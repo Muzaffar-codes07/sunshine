@@ -7,6 +7,7 @@ import { ApiError } from '../platform/api-error';
 import { WarrantyEquipmentReader } from './warranty-readers';
 import { WarrantyReader, type SavedWarranty } from './warranty.repository';
 import { normalizeWarrantyScope } from './warranty-scope';
+import type { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class WarrantyService {
@@ -14,17 +15,17 @@ export class WarrantyService {
 
   /** Without requestedScope this evaluates ONLY the scope named in the saved policy.
    * Repair orchestration must pass the actual scope; component cover does not imply free labour. */
-  async evaluateWarranty(unitId: string, asOfDate: Date, requestedScope?: string): Promise<WarrantyAssessmentResult> {
+  async evaluateWarranty(unitId: string, asOfDate: Date, requestedScope?: string, tx?: Prisma.TransactionClient): Promise<WarrantyAssessmentResult> {
     if (!z.uuid().safeParse(unitId).success) throw new ApiError(400, 'INVALID_INPUT', 'A valid unit ID is required');
     unitId = unitId.toLowerCase();
     if (requestedScope !== undefined && typeof requestedScope !== 'string') {
       throw new ApiError(400, 'INVALID_INPUT', 'A valid requested scope string is required');
     }
     const date = istCalendarDate(asOfDate);
-    const equipment = await this.equipment.findById(unitId);
+    const equipment = await this.equipment.findById(unitId, tx);
     if (!equipment) throw new ApiError(404, 'UNIT_NOT_FOUND', 'No unit was found');
     if (equipment.unit.id !== unitId) throw new ApiError(503, 'INVALID_EQUIPMENT_RECORD', 'Unit lookup needs review');
-    return this.assess(warrantyEquipmentSchema.parse(equipment), date, requestedScope);
+    return this.assess(warrantyEquipmentSchema.parse(equipment), date, requestedScope, tx);
   }
 
   async lookup(query: WarrantyLookupQuery, asOfDate: Date = new Date()): Promise<WarrantyLookupResponse> {
@@ -45,8 +46,8 @@ export class WarrantyService {
     } });
   }
 
-  private async assess(equipment: WarrantyEquipment, date: string, requestedScope?: string): Promise<WarrantyAssessmentResult> {
-    const warranty = await this.warranties.findByUnitId(equipment.unit.id);
+  private async assess(equipment: WarrantyEquipment, date: string, requestedScope?: string, tx?: Prisma.TransactionClient): Promise<WarrantyAssessmentResult> {
+    const warranty = await this.warranties.findByUnitId(equipment.unit.id, tx);
     let coverageStatus: WarrantyAssessmentResult['coverageStatus'];
     let reason: string;
     const startDate = warranty ? savedCalendarDate(warranty.startDate) : null;
