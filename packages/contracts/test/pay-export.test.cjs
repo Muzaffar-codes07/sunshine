@@ -27,6 +27,8 @@ test('pay aggregate contracts retain exact precision beyond a single stored row'
   const report = { period: 'today', timezone: 'Asia/Kolkata', startDate: '2026-10-31', endDate: '2026-11-01',
     startUtc: '2026-10-30T18:30:00.000Z', endUtc: '2026-10-31T18:30:00.000Z', asOf: '2026-10-31T12:00:00.000Z',
     technicians: [], totalHours: '0.000', totalPay: '0.00' };
-  assert.deepEqual(technicianPayReportSchema.parse(report), report);
+  assert.deepEqual(technicianPayReportSchema.parse(report), { ...report, scope: 'ALL_TIME' });
+  assert.equal(technicianPayReportSchema.parse({ ...report, scope: 'INSTALLATION_ONLY' }).scope, 'INSTALLATION_ONLY');
+  assert.equal(technicianPayReportSchema.safeParse({ ...report, scope: 'UNKNOWN' }).success, false);
   assert.equal(technicianPayReportSchema.safeParse({ ...report, totalPay: '-1.00' }).success, false);
 });

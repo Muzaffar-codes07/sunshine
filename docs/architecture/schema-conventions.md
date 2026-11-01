@@ -56,6 +56,7 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Same D4 migration at 260000 with real Unit/Job/File evidence FKs; D3 allocation ticket-line/XOR follows by coordination |
 | 9 | `ProductWarrantyPolicy` | D4 | `20261031310000_warranty_policies`, below D2's reserved `20261031800000` and `20261031810000` |
 | 10 | Warranty calendar/fact guards | Tuhin/Codex takeover | `20261031820000_warranty_facts`, after the merged file/invoice migrations; four canonical rules |
+| 11 | Frozen technician rates / installation labour approvals | Tuhin/Codex takeover | `20261031830000_installation_labour`; append-only revisions, actual time/cost FK and source guards; no historical rate backfill |
 
 **To land a migration:**
 

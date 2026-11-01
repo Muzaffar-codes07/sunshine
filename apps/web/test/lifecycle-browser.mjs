@@ -247,9 +247,43 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'desktop fits');
   // Finance and warranty use persisted sources. Payroll and ticket writes retain their real remaining gates.
+  await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/workspace/reports');
   await page.getByRole('heading', { name: /Period summary/ }).waitFor();
   await page.getByRole('heading', { name: 'Open work across all dates' }).waitFor();
+  const timeRecord = await prisma.installationTimeRecord.findFirstOrThrow({where:{jobId:lastTicket.jobId}});
+  await page.getByRole('button',{name:`Review time ${timeRecord.id}`,exact:true}).click();
+  await page.getByRole('textbox',{name:'Hourly rate (INR)',exact:true}).fill('36000.00');
+  await page.getByRole('textbox',{name:'Rate approval reference',exact:true}).fill('Explicit fictional browser-test rate; no real wage assumption');
+  await page.getByRole('button',{name:'Save approved rate revision',exact:true}).click();
+  const rateRevision = await page.waitForFunction(()=>{
+    const select=document.querySelector('select[name=rateRevisionId]'); return select?.options.length>1 ? select.options[1].value : null;
+  });
+  await page.getByRole('combobox',{name:'Approved rate revision',exact:true}).selectOption(await rateRevision.jsonValue());
+  await page.getByRole('textbox',{name:'Time approval note',exact:true}).fill('Approved recorded browser fixture work');
+  let approvalKey, approvalBody;
+  await page.route(`**/api/v1/time-entries/${timeRecord.id}/approve`,async route=>{
+    const request=route.request();
+    if(!approvalKey){approvalKey=request.headers()['idempotency-key'];approvalBody=request.postData();const committed=await route.fetch();assert.equal(committed.status(),201);return route.abort('failed');}
+    assert.equal(request.headers()['idempotency-key'],approvalKey);assert.equal(request.postData(),approvalBody);return route.continue();
+  });
+  await page.getByRole('button',{name:'Approve time and post cost',exact:true}).click();
+  await page.getByRole('button',{name:'Retry this request',exact:true}).waitFor();
+  assert.equal(await page.getByRole('combobox',{name:'Time approval status',exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'Retry this request',exact:true}).click();
+  await page.getByRole('heading',{name:'Frozen labour cost',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'labour approval fits actual 360px viewport');
+  assert.equal(await prisma.costEntry.count({where:{uniqueSourceId:'TIME_RECORD:'+timeRecord.id,costType:'INSTALLATION_LABOUR'}}),1);
+  await page.reload();
+  await page.getByRole('combobox',{name:'Time approval status',exact:true}).selectOption('APPROVED');
+  await page.getByRole('button',{name:`Review time ${timeRecord.id}`,exact:true}).click();
+  await page.getByRole('heading',{name:'Frozen labour cost',exact:true}).waitFor();
+  await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
+  const payResponse=await context.request.get('/api/v1/reports/pay-summary?period=today');assert.equal(payResponse.status(),200);
+  const pay=(await payResponse.json()).data;assert.equal(pay.scope,'INSTALLATION_ONLY');
+  const storedPay=await prisma.installationLabourApproval.aggregate({where:{timeRecord:{technicianId:timeRecord.technicianId}},_sum:{amount:true}});
+  assert.equal(pay.technicians.find(row=>row.technicianId===timeRecord.technicianId).totalPay,storedPay._sum.amount.toFixed(2));
+  console.log('PASS labour approval exact retry/pay source reconciliation',JSON.stringify({timeRecordId:timeRecord.id,approvalKey,scope:pay.scope}));
   const reportResponse = await context.request.get('/api/v1/reports/overview?period=today'); assert.equal(reportResponse.status(),200);
   const summary = (await reportResponse.json()).data;
   const cutoff = new Date(summary.asOf), start = new Date(summary.startUtc), end = new Date(summary.endUtc);
@@ -269,7 +303,7 @@ try {
   await page.getByRole('textbox',{name:'Job ID',exact:true}).fill(lastTicket.jobId);
   await page.getByRole('button',{name:'Load job',exact:true}).click();
   await page.getByText('Provisional — unfinished',{exact:true}).waitFor();
-  await page.getByRole('alert').filter({hasText:/approved time entries and frozen rates/}).waitFor();
+  await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
   console.log('PASS persisted report JSON/CSV/source reconciliation',JSON.stringify(summary));
   await page.goto('/workspace/service');
   assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), true);
@@ -331,7 +365,7 @@ try {
   await page.waitForFunction(() => document.activeElement?.id === 'workspace-content');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; live financial JSON/CSV, warranty lookup and policy-edit replay; payroll/ticket-write gates remain. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; installation pay approval/exact retry and source reconciliation; live financial JSON/CSV, warranty lookup and policy-edit replay. Service-time payroll/ticket-write gates remain. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
 } catch (error) {
   console.error('FAIL', error);
   if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));

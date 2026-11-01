@@ -281,6 +281,7 @@ test('completed installations without approved labour provenance remain provisio
   const tx = { job: { findFirst: async () => ({ id: jobId, orderId: ownerId, status: 'COMPLETED',
     completedAt: new Date('2026-01-01T00:00:00Z'), finishedAt: new Date('2026-01-01T00:00:00Z') }), findMany: empty },
     order: { findMany: empty }, serviceTicket: { findMany: empty }, invoice: { findMany: empty }, payment: { findMany: empty } };
+  tx.installationTimeRecord = { async findMany() { return []; } };
   const result = await new PersistedReportingSource().readJob(tx, jobId, asOf);
   assert.equal(result.isCompleted, false);
   assert.ok(result.unfinishedSteps.some(step => step.includes('approved frozen rates')));

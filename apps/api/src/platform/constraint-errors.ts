@@ -52,6 +52,10 @@ export const ORDER_ALREADY_CONFIRMED: RefusalReason = {
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
+  ...Object.fromEntries(['technician_rate_revisions_valid', 'installation_labour_approvals_valid', 'labour_check_source', 'labour_preserve_evidence'].map(name => [name, { refusal: {
+    code: 'LABOUR_EVIDENCE_INVALID', reason: 'The saved time, rate or approval evidence is inconsistent or frozen.', source: 'LABOUR',
+    nextAction: 'Review the original time record and approved rate; create a new rate revision for future approvals.',
+  } }])),
   warranties_facts_frozen: { refusal: {
     code: 'WARRANTY_FACTS_LOCKED', reason: 'Saved warranty evidence cannot be changed or removed.', source: 'WARRANTY',
     nextAction: 'Keep the original terms and use a versioned void or the supported replacement workflow.',

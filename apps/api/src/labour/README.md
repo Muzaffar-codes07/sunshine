@@ -1,0 +1,17 @@
+# Installation labour approval
+
+Remaining implementation owner: Tuhin/Codex takeover, for D3 S04 and the installation portion of D4 pay. This module does not implement service-time payroll or cash wage disbursement.
+
+ADMIN creates append-only rate revisions using `POST /api/v1/technician-rates` with `{technicianId,hourlyRate,reference}` and an Idempotency-Key. No rate is seeded or assumed. The reference records the agreed basis, including an explicitly entered zero rate. New revisions do not reprice previously approved time. `GET /technician-rates?technicianId=<UUID>&page=1&pageSize=20` is bounded and newest first.
+
+`GET /time-entries?status=PENDING|APPROVED|ALL&jobId=<optional UUID>&page=1&pageSize=20` and `GET /time-entries/:id` return actual installation time and nullable approval. `POST /time-entries/:id/approve` takes `{rateRevisionId,note}` and an Idempotency-Key. It requires a completed installation and a revision for that exact technician. The transaction locks command → job → time record, then posts once through `CostWriterService.postCost` with `TIME_RECORD:<id>` / `INSTALLATION_LABOUR` before freezing rate, duration, note, approver and cost ID. Changed source/rate requests refuse; identical retries replay. Failures roll back the cost, approval and command together.
+
+Pay is exact recorded milliseconds × frozen hourly rate, rounded half-up once to cents. Hours are displayed rounded half-up to 0.001 hour; multiplying rounded display hours is not authoritative. A 50 ms entry at a synthetic test rate of 36000.00/hour is 0.50 even though display hours round to 0.000. No duration or wage is silently rounded up. Decimal/BigInt arithmetic and an independent PostgreSQL constraint enforce this policy. This is an implementation precision decision, not a legal wage policy.
+
+Migration `20261031830000_installation_labour` adds rate revisions and approval evidence with restrictive FKs, exact interval/amount rules, real technician/ADMIN/source/cost checks and immutable update/delete/truncate guards. Existing installation rows are not assigned guessed rates, retroactive approvals or zero costs. Ten canonical rules bring the manifest to 208.
+
+Production `/reports/pay-summary` and pay CSV now explicitly report `scope: INSTALLATION_ONLY`; service time and unapproved installation work are excluded. Reads respect work occurrence, approval and posting cutoffs in the repository's RepeatableRead transaction. Current rate changes never reprice prior work. Pay is an approved accrual, not evidence of cash paid. Job profit stays provisional until every recorded installation interval is approved with its cost, and stays provisional for legacy completions without time, open/unfinalized service work or a reversed labour cost awaiting correction.
+
+The reports workspace contains the rate/approval workflow, exact-request retry controls, saved approval detail and pending/approved paging. Financial/pay queries refresh after approval. Role/session guards are server-side; non-ADMIN users cannot read wage facts or configure/approve rates.
+
+Focused PostgreSQL tests use actual survey/quote/order/payment/stock/dispatch/delivery/start/files/completion before approval. They exercise role/input refusal, uppercase IDs, exact/concurrent replay, changed-source races, late failure rollback, frozen future rates, historical cutoff, CSV/pay/profit reconciliation, immutable SQL facts and reversed-cost provisionality. Synthetic fixture rates are test-only and are not business defaults.

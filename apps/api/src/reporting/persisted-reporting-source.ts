@@ -20,6 +20,7 @@ const invalid = () => new ApiError(503, 'INVALID_REPORT_SOURCE', 'An invoice sou
 /** Separate source queries within the repository's repeatable-read transaction avoid fan-out. */
 @Injectable()
 export class PersistedReportingSource extends ReportingSourceReader {
+  override readonly payScope = 'INSTALLATION_ONLY' as const;
   async readJob(tx: Prisma.TransactionClient, jobId: string, asOf: Date) {
     jobId = jobId.toLowerCase();
     const job = await tx.job.findFirst({ where: { id: jobId, createdAt: { lte: asOf } },
@@ -36,8 +37,16 @@ export class PersistedReportingSource extends ReportingSourceReader {
     if (job.status !== 'COMPLETED' || !job.completedAt || job.completedAt > asOf || !job.finishedAt || job.finishedAt > asOf) unfinishedSteps.push('Installation acceptance pending at cutoff');
     if (tickets.some(ticket => !ticket.closedAt || ticket.closedAt > asOf)) unfinishedSteps.push('Open service repairs at cutoff');
     if (tickets.length) unfinishedSteps.push('Service billing and cost finalization await production activation');
-    // Time has no persisted approved rate yet. Do not turn an absent labour posting into zero-cost final profit.
-    if (job.status === 'COMPLETED') unfinishedSteps.push('Installation labour costing awaits approved frozen rates');
+    if (job.status === 'COMPLETED') {
+      const time = await tx.installationTimeRecord.findMany({ where: { jobId, createdAt: { lte: asOf } }, include: {
+        labourApproval: { include: { costEntry: { include: { reversal: true } } } },
+      } });
+      if (!time.length || time.some(row => !row.labourApproval || row.labourApproval.approvedAt > asOf ||
+        row.labourApproval.costEntry.postedAt > asOf ||
+        (row.labourApproval.costEntry.reversal && row.labourApproval.costEntry.reversal.postedAt <= asOf))) {
+        unfinishedSteps.push('Installation labour costing awaits approved frozen rates or a reconciled cost correction');
+      }
+    }
     return { jobId, isCompleted: unfinishedSteps.length === 0, unfinishedSteps,
       invoices: invoices.map(row => ({ amount: row.total.toFixed(2) })), payments: payments.map(row => ({ amount: row.amount.toFixed(2) })) };
   }
@@ -50,8 +59,23 @@ export class PersistedReportingSource extends ReportingSourceReader {
     return { invoices: invoices.map(row => ({ amount: row.total.toFixed(2) })), payments: payments.map(row => ({ amount: row.amount.toFixed(2) })) };
   }
 
-  async readTimeEntries(_tx: Prisma.TransactionClient, _window: ReportWindow): Promise<never> {
-    throw new ApiError(503, 'REPORTING_TIME_SOURCE_UNAVAILABLE', 'Pay reports await persisted approved time entries and frozen rates');
+  async readTimeEntries(tx: Prisma.TransactionClient, window: ReportWindow) {
+    const rows = await tx.installationLabourApproval.findMany({ where: { approvedAt: { lte: window.asOf },
+      timeRecord: { finishedAt: { gte: window.start, lt: window.end, lte: window.asOf }, createdAt: { lte: window.asOf } },
+      costEntry: { postedAt: { lte: window.asOf } } },
+      include: { timeRecord: { include: { technician: { select: { displayName: true } } } }, rateRevision: true, costEntry: true } });
+    return rows.map(row => {
+      if (row.rateRevision.technicianId !== row.timeRecord.technicianId || !row.hourlyRate.equals(row.rateRevision.hourlyRate) ||
+        row.costEntry.uniqueSourceId !== `TIME_RECORD:${row.timeRecordId}` || row.costEntry.costType !== 'INSTALLATION_LABOUR' ||
+        row.costEntry.jobId !== row.timeRecord.jobId || !row.costEntry.amount.equals(row.amount) ||
+        row.costEntry.occurredAt.getTime() !== row.timeRecord.finishedAt.getTime() ||
+        row.elapsedMs !== BigInt(row.timeRecord.finishedAt.getTime())-BigInt(row.timeRecord.startedAt.getTime())) {
+        throw new ApiError(503, 'INVALID_REPORT_SOURCE', 'Approved labour source needs review');
+      }
+      return { id: row.timeRecordId, technicianId: row.timeRecord.technicianId, technicianName: row.timeRecord.technician.displayName,
+        status: 'APPROVED' as const, hours: row.hours.toFixed(3), frozenHourlyRate: row.hourlyRate.toFixed(2), elapsedMs: row.elapsedMs.toString(),
+        frozenAmount: row.amount.toFixed(2), occurredAt: row.timeRecord.finishedAt, approvedAt: row.approvedAt };
+    });
   }
 
   private async validate(tx: Prisma.TransactionClient, invoices: { sourceType: string; sourceId: string; kind: string; orderId: string | null; customerId: string }[], jobId?: string) {
