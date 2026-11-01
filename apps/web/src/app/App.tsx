@@ -20,6 +20,7 @@ import { PatternsPage } from './PatternsPage';
 import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
 import { EquipmentPage } from '../features/equipment/EquipmentPage';
 import { TeamPage } from '../features/team/TeamPage';
+import { CustomerLoginPage, CustomerRegisterPage, CustomerVerifyPage, CustomerPortalPage } from '../features/customer/CustomerPortal';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
@@ -29,6 +30,10 @@ export function App() {
       <Route path="/" element={<Home />} />
       <Route path="/enquire" element={<PublicEnquiryPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/customer/login" element={<CustomerLoginPage />} />
+      <Route path="/customer/register" element={<CustomerRegisterPage />} />
+      <Route path="/customer/verify" element={<CustomerVerifyPage />} />
+      <Route path="/customer/portal/:section?" element={<CustomerPortalPage />} />
       <Route path="/workspace" element={<Workspace />}>
         <Route index element={<DashboardPage />} />
         <Route path="sales" element={<SalesWorkspacePage />} />
@@ -68,6 +73,7 @@ function Home() {
         <p className="intro">Connect enquiries, surveys, orders, equipment and installation evidence for SunPower Solutions.</p>
         <p><Link to="/enquire">Make a solar enquiry</Link></p>
         <p><Link to="/login">Staff sign in</Link></p>
+        <p><Link to="/customer/login">Customer sign in</Link></p>
       </section>
       <section className="status-grid" aria-label="Live infrastructure status">
         <Status label="Application API" pending={health.isPending} error={health.error} ready={health.isSuccess} onRetry={() => void health.refetch()} />

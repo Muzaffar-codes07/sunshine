@@ -78,7 +78,10 @@ Coverage needs start/expiry/policy/scope and a saved decision. Supplier claim, i
 
 ## 7. Assumptions, ambiguities and decisions
 
-- One company/warehouse; staff accounts rather than public signup or a customer portal.
+- One company/warehouse. The original hackathon baseline was staff-only; the
+  1 November customer-portal extension adds verified-email customer accounts
+  and customer-scoped read pages, plus authenticated contact edits. Customers
+  still cannot submit service requests or payments in the portal.
 - Calls/WhatsApp are manually recorded sources; payments are recorded, not gateway processed.
 - Follow the PDF's fictional package catalogue, including its on-grid controller listing; do not present it as engineering advice.
 - Panels are also serialized to support their specified warranty; delivery and commissioning are separate dates.

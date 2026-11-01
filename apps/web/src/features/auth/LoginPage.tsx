@@ -61,7 +61,7 @@ export function LoginPage() {
         <Field label="Email" error={errors.email?.[0]}>{(control) => <input {...control} name="email" type="email" autoComplete="username" required />}</Field>
         <Field label="Password" error={errors.password?.[0]}>{(control) => <input {...control} name="password" type="password" autoComplete="current-password" required />}</Field>
     </FormPattern>
-    <p className="login-footnote">Need access? Contact your administrator.</p>
+    <p className="login-footnote">Need staff access? Contact your administrator. <Link to="/customer/login">Customer sign in</Link></p>
     </section>
     </div>
     <div className="login-bottom"><span>From the first enquiry to lasting service</span><Link to="/enquire">Make an enquiry</Link></div>

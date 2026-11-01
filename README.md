@@ -115,6 +115,32 @@ The [role document](docs/team/roles.md) is authoritative for ownership. D2 owns 
 
 The contents of `docs/research/history/` are retained discussion history, including the original Wedding/Solar comparison. They contain superseded stack and role proposals and are **not implementation instructions**.
 
+## Customer portal
+
+Customers whose enquiry includes an email can create an account at
+`/customer/register`. Registration sends a 24-hour verification link to that
+recorded email; only a verified account can sign in at `/customer/login`.
+Configure `CUSTOMER_PORTAL_ORIGIN` and the `CUSTOMER_SMTP_*` values in the
+local environment before enabling registration. SMTP requires TLS. Never put
+real mail credentials in tracked files. An enquiry without an email needs its
+contact email added by staff before self-signup.
+
+The portal at `/customer/portal` shows only records linked to the signed-in
+customer: overview, enquiry/order/installation progress, sent quotes, invoices
+and paid balances, delivered equipment and warranty, service history, and
+installation photos/signatures. Customers can edit their phone and address
+after entering their current password. A new login email takes effect only
+after verification at the new address. The portal does not submit service
+requests or payments; it does not expose staff workspaces or internal cost
+records. Staff sessions and customer sessions are separate identities in the
+same rotating, HTTP-only session cookie.
+
+Apply the `20261101090000_customer_portal` migration with the normal reviewed
+`db:deploy` process before using the portal. Customer registration is not a
+bulk seed of account passwords: each customer chooses a password and verifies
+their email. If SMTP is not configured, registration returns a service-unavailable
+error and the other application workspaces remain available.
+
 ## Staff sessions and local-demo accounts
 
 After copying `.env.example`, generate a fresh session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and place it in `SESSION_SECRET` before starting the API. `AUTH_TRUSTED_ORIGINS` lists exact frontend origins (scheme, host and port); the default example covers the local Vite and release URLs. Login, logout and cookie-authenticated mutations require a matching Origin, or an exact-origin Referer when Origin is absent. A missing/null/foreign origin is rejected. Anonymous public enquiry remains validated and rate-limited.

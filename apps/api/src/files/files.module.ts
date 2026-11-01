@@ -30,5 +30,5 @@ export class FilesController {
     return new StreamableFile(buffer, { type: file.mediaType, length: buffer.length, disposition: 'attachment; filename="' + file.id + '.' + extension + '"' });
   }
 }
-@Module({ imports: [AuthModule, JobFileAccessModule], controllers: [FilesController], providers: [FilesService, PrivateFileStore], exports: [FilesService] })
+@Module({ imports: [AuthModule, JobFileAccessModule], controllers: [FilesController], providers: [FilesService, PrivateFileStore], exports: [FilesService, PrivateFileStore] })
 export class FilesModule {}

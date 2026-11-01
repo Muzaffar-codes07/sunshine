@@ -16,6 +16,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { ServiceModule } from './service/service.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { LabourModule } from './labour/labour.module';
+import { CustomerModule } from './customer/customer.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { LabourModule } from './labour/labour.module';
     WarrantyModule,
     FinanceModule,
     LabourModule,
+    CustomerModule,
     ReportingModule,
     ServiceModule,
     InventoryModule,
