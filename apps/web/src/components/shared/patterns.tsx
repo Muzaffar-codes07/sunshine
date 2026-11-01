@@ -22,7 +22,7 @@ export function FilterChips<T extends string>({ label, options, value, onChange 
 const STATUS_TONES: Record<string, string> = {
   COVERED: 'ok', COMPLETED: 'ok', PAID: 'ok', APPROVED: 'ok', DELIVERED: 'ok', INSTALLED: 'ok', ACTIVE: 'ok', RESOLVED: 'ok', CLOSED: 'ok', AVAILABLE: 'ok', QUALIFIED: 'ok',
   AWAITING_CUSTOMER_CONFIRMATION: 'active', OUT_OF_SCOPE: 'active', NOT_STARTED: 'active', IN_PROGRESS: 'active', CONTACTED: 'active', DISPATCHED: 'active', SUBMITTED: 'active', ASSESSED: 'active', PARTIALLY_PAID: 'active', RESERVED: 'active',
-  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', NO_WARRANTY: 'muted', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
+  REJECTED: 'danger', DISQUALIFIED: 'danger', VOID: 'danger', QUARANTINED: 'danger', EXPIRED: 'danger', CANCELLED: 'muted', NO_WARRANTY: 'muted', ARCHIVED: 'muted', DRAFT: 'muted', RELEASED: 'muted', RETURNED: 'muted',
 };
 /** Status in words, with colour as a second signal only. */
 export function StatusPill({ status }: { status: string }) {

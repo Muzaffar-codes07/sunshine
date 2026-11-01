@@ -52,7 +52,7 @@ export const ORDER_ALREADY_CONFIRMED: RefusalReason = {
  * test checks this); other owners add theirs here in the PR that adds the constraint.
  */
 export const CONSTRAINT_RULES: Record<string, ConstraintRule> = {
-  ...Object.fromEntries(['ticket_guard','ticket_lines_guard','ticket_preserve_events','service_ticket_events_objects'].map(name=>[name,{refusal:{
+  ...Object.fromEntries(['ticket_guard','ticket_lines_guard','ticket_preserve_events','service_ticket_events_objects','ticket_lines_requirement_shape'].map(name=>[name,{refusal:{
     code:'TICKET_EVIDENCE_INVALID',reason:'The ticket source, state or frozen service evidence needs review.',source:'SERVICE',
     nextAction:'Reload the saved ticket. Finalize actual work billing before resolution, or use an explicit no-work resolution only when no work occurred.',
   }}])),

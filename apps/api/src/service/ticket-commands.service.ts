@@ -38,8 +38,8 @@ export class TicketCommandsService {
       if (new Date(input.asOfDate).getTime() !== row.createdAt.getTime()) {
         throw new ApiError(400,'INVALID_INPUT','Coverage is assessed at the recorded complaint intake time.',{asOfDate:['Use the saved ticket createdAt; historical corrections require a separate audited import.']});
       }
-      if (row.billingSnapshot || row.replacementSnapshot || await tx.ticketLine.count({where:{ticketId:id}}) ||
-        await tx.invoice.count({where:{sourceType:'TICKET',sourceId:id}})) throw blocked('REASSESSMENT_LOCKED','Work or financial effects already exist, so this decision cannot be replaced.');
+      if (row.billingSnapshot || row.replacementSnapshot || await tx.ticketLine.count({where:{ticketId:id,phase:{not:'CANCELLED'}}}) ||
+        await tx.invoice.count({where:{sourceType:'TICKET',sourceId:id}})) throw blocked('REASSESSMENT_LOCKED','Part requirements, work or financial effects already exist, so this decision cannot be replaced.');
       const result = await this.warranty.evaluateWarranty(row.unitId, row.createdAt, input.requestedScope, tx);
       const snapshot = ticketAssessmentSnapshotSchema.parse({...result, requestedScope:input.requestedScope,assessedAt:new Date().toISOString()});
       const saved = await tx.serviceTicket.update({where:{id},data:{status:'ASSESSED',assessmentSnapshot:snapshot,version:{increment:1}}});
@@ -56,7 +56,7 @@ export class TicketCommandsService {
         const billing=repairBillingSnapshotSchema.safeParse(row.billingSnapshot);
         if(!billing.success || billing.data.result.ticketId!==id || input.noWorkReason) throw blocked('REPAIR_BILLING_REQUIRED','Finalized work billing does not match this resolution.');
       } else {
-        if(!input.noWorkReason || row.replacementSnapshot || await tx.ticketLine.count({where:{ticketId:id}}) ||
+        if(!input.noWorkReason || row.replacementSnapshot || await tx.ticketLine.count({where:{ticketId:id,phase:{not:'CANCELLED'}}}) ||
           await tx.invoice.count({where:{sourceType:'TICKET',sourceId:id}})) {
           throw blocked('REPAIR_BILLING_REQUIRED','Finalize actual repair billing first, or explicitly record why no work was performed.','A no-work resolution is allowed only when no parts, labour, replacement or invoice effects exist.');
         }

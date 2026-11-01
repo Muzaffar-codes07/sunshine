@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { costOccurrenceSchema, moneySchema, positiveQuantitySchema, ticketLineSchema } from '@sunshine/contracts';
+import { costOccurrenceSchema, moneySchema, unitCostRateSchema, positiveQuantitySchema, ticketLineSchema } from '@sunshine/contracts';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../platform/api-error';
 
@@ -15,7 +15,7 @@ export type RepairItem = z.infer<typeof repairItemSchema>;
 export const repairSourceSchema = repairItemSchema.extend({
   ticketId: z.uuid(), jobId: z.uuid(), customerId: z.uuid(),
   scope: z.string().trim().min(1).max(500), description: z.string().trim().min(1).max(4000),
-  quantity: positiveQuantitySchema, unitCost: moneySchema, unitPrice: moneySchema,
+  quantity: positiveQuantitySchema, unitCost: unitCostRateSchema, unitPrice: moneySchema,
   occurredAt: costOccurrenceSchema,
   // PART allocation already owns this persisted line; never accept it from clients.
   ticketLineId: z.uuid().transform((value) => value.toLowerCase()).optional(),
