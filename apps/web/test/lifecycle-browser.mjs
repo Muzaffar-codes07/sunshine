@@ -258,6 +258,7 @@ try {
       const planned=await prisma.ticketLine.findFirstOrThrow({where:{ticketId:ticket.id}});
       assert.equal(planned.phase,'PLANNED');assert.equal(planned.unitCost,null);assert.equal(planned.totalCost,null);
       const requiredPart=page.locator(`[data-part-id="${planned.id}"]`);
+      await requiredPart.getByText('Cancel this requirement',{exact:true}).click();
       await requiredPart.getByRole('textbox',{name:'Cancellation reason',exact:true}).fill('Synthetic customer withdrew unused requirement before stock allocation');
       await requiredPart.getByRole('button',{name:'Cancel part requirement',exact:true}).click();
       await page.getByText('Part requirement cancelled.',{exact:true}).waitFor();

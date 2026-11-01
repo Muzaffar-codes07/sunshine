@@ -267,6 +267,8 @@ td .nowrap { white-space: nowrap; }
 .ticket-parts article { padding: 1rem 0; border-top: 1px solid var(--line); }
 .ticket-parts article h3 { margin: 0 0 .5rem; font-size: 1rem; }
 .ticket-parts > form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.ticket-parts > form > fieldset { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+@media (max-width: 719px) { .ticket-parts > form > fieldset { grid-template-columns: minmax(0, 1fr); } }
 .picked-unit { padding: .625rem 1rem; background: var(--beige-soft); border-radius: var(--r-md); }
 .detail-side--end { order: 2; }
 .ticket-actions > :first-child { margin-top: 0; }

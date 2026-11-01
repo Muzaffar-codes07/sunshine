@@ -58,10 +58,10 @@ function AdminParts({ticket}:{ticket:ServiceTicket}){
         <p>{part.description}</p>
         {part.phase==='LEGACY'&&<p role="status">This historical row needs source reconciliation. No product or stock movement has been inferred.</p>}
         {part.phase==='CANCELLED'&&<p>Cancelled: {part.cancellationReason}</p>}
-        {editable&&part.phase==='PLANNED'&&<form noValidate onSubmit={event=>cancel(event,part.id,part.version)}>
+        {editable&&part.phase==='PLANNED'&&<details className="fold"><summary>Cancel this requirement</summary><form noValidate onSubmit={event=>cancel(event,part.id,part.version)}>
           <Field label="Cancellation reason" error={lastAction===part.id?command.problem.fields.reason:undefined}>{control=><textarea {...control} name="reason" minLength={5} maxLength={500} required/>}</Field>
           <button type="submit">Cancel part requirement</button>
-        </form>}
+        </form></details>}
       </article>)}
       {data&&data.total>data.pageSize&&<nav aria-label="Part requirement pages"><button disabled={page===1} onClick={()=>setPage(page-1)}>Previous requirements</button><span>Page {page}</span><button disabled={page*data.pageSize>=data.total} onClick={()=>setPage(page+1)}>Next requirements</button></nav>}
     </fieldset>
