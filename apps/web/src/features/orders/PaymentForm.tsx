@@ -3,6 +3,7 @@ import { invoiceResponseSchema, paymentMethodSchema, recordPaymentSchema, type I
 import { Field } from '../../components/ui/Field';
 import { apiPost, ApiRequestError, newIdempotencyKey } from '../../lib/api';
 import { describeProblem, humanize, isoToLocal, localToIso, validate, type Problem } from '../sales/queries';
+import { formatInr } from '../dashboard/dashboard-model';
 
 type Intent = { key: string; body: RecordPayment };
 const cents = (value: string) => {
@@ -65,7 +66,7 @@ export function PaymentForm({ invoice, onRecorded }: { invoice: Invoice; onRecor
   return <section className="pattern-card">
     <h2>Record payment received</h2>
     <p>Record money already received outside Solar OS. This form does not collect or transfer money.</p>
-    <p>Outstanding balance: <strong>₹{invoice.balance}</strong></p>
+    <p>Outstanding balance: <strong>{formatInr(invoice.balance)}</strong></p>
     <form key={sequence} onSubmit={submit} noValidate aria-busy={busy}>
       <fieldset disabled={busy || uncertain}>
         <legend>Receipt details</legend>

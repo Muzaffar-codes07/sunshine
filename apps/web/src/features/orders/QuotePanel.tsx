@@ -7,7 +7,8 @@ import {
   rejectQuoteSchema, reviseQuoteSchema, sendQuoteSchema, surveyListResponseSchema,
   type Order, type Quote, type StaffIdentity,
 } from '@sunshine/contracts';
-import { DetailPattern, ListPattern } from '../../components/shared/patterns';
+import { DetailPattern, ListPattern, MoneyStrip } from '../../components/shared/patterns';
+import { formatInr } from '../dashboard/dashboard-model';
 import { Field } from '../../components/ui/Field';
 import { apiGet, apiPost, ApiRequestError, newIdempotencyKey } from '../../lib/api';
 import { useStaffSession } from '../auth/session';
@@ -62,7 +63,7 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
     {mutable && !approved && <p>Approve the latest site survey before creating new quote terms.</p>}
     {packages.error && <p role="alert">{describeProblem(packages.error).message} <button onClick={() => void packages.refetch()}>Retry packages</button></p>}
     {mutable && approved && !latest && packages.isSuccess && <CommandDrawer
-      label="Create quote" title="Create quote" submitLabel="Save quote" enquiryId={enquiryId}
+      primary label="Create quote" title="Create quote" submitLabel="Save quote" enquiryId={enquiryId}
       path={`/enquiries/${enquiryId}/quotes`} schema={createQuoteSchema} responseSchema={quoteResponseSchema}
       build={form => ({ surveyId: approved.id, packageId: form.get('packageId') })}>
       {fields => <><p>Use approved survey revision {approved.revision}. Prices and components are copied from the selected package.</p>{packagePicker(fields)}</>}
@@ -78,7 +79,7 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
     {latest ? <>
       <QuoteFacts quote={latest} />
       {mutable && latest.status === 'DRAFT' && <CommandDrawer
-        label="Record quote sent" title="Record manual sending" submitLabel="Record sent" enquiryId={enquiryId}
+        primary label="Record quote sent" title="Record manual sending" submitLabel="Record sent" enquiryId={enquiryId}
         path={`/quotes/${latest.id}/send`} schema={sendQuoteSchema} responseSchema={quoteResponseSchema}
         build={form => ({ version: latest.version, channel: form.get('channel') })}>
         {fields => <><p>Send the quote outside Solar OS, then record the channel used. This does not send a message.</p>
@@ -86,7 +87,7 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
         </>}
       </CommandDrawer>}
       {mutable && latest.status === 'SENT' && <div className="action-row">
-        <CommandDrawer label="Record acceptance" title="Customer acceptance" submitLabel="Record acceptance" enquiryId={enquiryId}
+        <CommandDrawer primary label="Record acceptance" title="Customer acceptance" submitLabel="Record acceptance" enquiryId={enquiryId}
           path={`/quotes/${latest.id}/accept`} schema={acceptQuoteSchema} responseSchema={quoteResponseSchema}
           build={form => ({ version: latest.version, acceptedByName: form.get('acceptedByName'), channel: form.get('channel'), reference: form.get('reference') || undefined })}>
           {fields => <><p>Staff records the customer's decision; this does not imply a customer account.</p>
@@ -107,26 +108,34 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
   </section>;
 }
 
+const months = (count: number) => count % 12 === 0 ? `${count / 12} ${count === 12 ? 'year' : 'years'}` : `${count} months`;
+
 function QuoteFacts({ quote }: { quote: Quote }) {
+  const parts = useRef<HTMLDetailsElement>(null);
   const components = quote.lines.filter(line => line.kind === 'COMPONENT');
+  // A quote still being decided shows its parts. Once decided, they stay out of the way until someone asks.
+  const decided = !['DRAFT', 'SENT'].includes(quote.status);
   return <DetailPattern title={`Quote revision ${quote.revision}: ${humanize(quote.status)}`} entries={[
-    { id: 'package', label: 'Frozen package', value: quote.packageSnapshot.name },
-    { id: 'packageRevision', label: 'Package revision', value: quote.packageSnapshot.revision },
-    { id: 'site', label: 'Customer and site', value: `${quote.customerSnapshot.contactName} · ${quote.customerSnapshot.addressLine}, ${quote.customerSnapshot.city} ${quote.customerSnapshot.pincode}` },
-    { id: 'hardware', label: 'Package hardware', value: `₹${quote.hardwarePrice}` },
-    { id: 'installation', label: 'Installation', value: `₹${quote.installationPrice}` },
-    { id: 'total', label: 'Quote total', value: `₹${quote.totalPrice}` },
+    { id: 'package', label: 'Package', value: quote.packageSnapshot.name },
     { id: 'sent', label: 'Sent', value: quote.sentAt ? `${formatWhen(quote.sentAt)} via ${humanize(quote.sentChannel!)}` : 'Not recorded' },
     { id: 'decision', label: 'Decision', value: quote.acceptedByName ? `${quote.acceptedByName} via ${humanize(quote.decisionChannel!)}` : quote.decisionReason ?? 'Not recorded' },
   ]}>
-    <p>Included components below are charged once in the package amount.</p>
-    <ListPattern title="Frozen component requirements" columns={[{ id: 'part', label: 'Component' }, { id: 'qty', label: 'Quantity' }, { id: 'policy', label: 'Saved warranty terms' }]}
-      rows={components.map(line => ({ id: line.id, cells: {
-        part: `${line.description}${line.productSnapshot?.manufacturer ? ' · ' + line.productSnapshot.manufacturer.name : ''}`,
-        qty: line.quantity,
-        policy: line.warrantyPolicySnapshot ? `${line.warrantyPolicySnapshot.policyName}, ${line.warrantyPolicySnapshot.revision}, ${line.warrantyPolicySnapshot.durationMonths} months: ${line.warrantyPolicySnapshot.scope}` : 'Not configured',
-      } }))} />
-    <button type="button" onClick={() => window.print()}>Print quote</button>
+    <MoneyStrip items={[
+      { id: 'hardware', label: 'Package hardware', value: formatInr(quote.hardwarePrice) },
+      { id: 'installation', label: 'Installation', value: formatInr(quote.installationPrice) },
+      { id: 'total', label: 'Quote total', value: formatInr(quote.totalPrice), strong: true },
+    ]} />
+    <details ref={parts} className="fold" open={!decided}>
+      <summary>What's included ({components.length} components)</summary>
+      <p>Frozen for {quote.customerSnapshot.contactName}, {quote.customerSnapshot.addressLine}, {quote.customerSnapshot.city} {quote.customerSnapshot.pincode}. Components are charged once in the package amount.</p>
+      <ListPattern title="Frozen component requirements" columns={[{ id: 'part', label: 'Component' }, { id: 'qty', label: 'Quantity' }, { id: 'policy', label: 'Saved warranty terms' }]}
+        rows={components.map(line => ({ id: line.id, cells: {
+          part: <span>{line.description}{line.productSnapshot?.manufacturer && <small>{line.productSnapshot.manufacturer.name}</small>}</span>,
+          qty: String(Number(line.quantity)),
+          policy: line.warrantyPolicySnapshot ? <span title={`${line.warrantyPolicySnapshot.policyName}, ${line.warrantyPolicySnapshot.revision}`}>{months(line.warrantyPolicySnapshot.durationMonths)}<small>{line.warrantyPolicySnapshot.scope}</small></span> : 'Not configured',
+        } }))} />
+    </details>
+    <button type="button" onClick={() => { if (parts.current) parts.current.open = true; window.print(); }}>Print quote</button>
   </DetailPattern>;
 }
 
@@ -148,7 +157,7 @@ function ConfirmOrder({ quote, actor }: { quote: Quote; actor: StaffIdentity }) 
   return <div>
     <p>Confirming creates the order, its job, packing requirements and invoice from these accepted terms.</p>
     {result ? <p role="status">Confirmed: <Link to={`/workspace/orders/${result.id}`}>{result.displayNumber}</Link></p> :
-      <button disabled={busy} onClick={() => void confirm()}>{busy ? 'Confirming…' : saved.current ? 'Retry confirmation' : 'Confirm order'}</button>}
+      <button className="button-primary" disabled={busy} onClick={() => void confirm()}>{busy ? 'Confirming…' : saved.current ? 'Retry confirmation' : 'Confirm order'}</button>}
     {failure && <p role="alert" className="form-error">{failure} Retry preserves the same confirmation request.</p>}
   </div>;
 }

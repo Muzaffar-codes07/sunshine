@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import {
   archiveEnquirySchema, assignEnquirySchema, enquiryDetailResponseSchema, qualifyEnquirySchema, type EnquiryDetail,
 } from '@sunshine/contracts';
-import { DetailPattern } from '../../components/shared/patterns';
+import { DetailPattern, StatusPill } from '../../components/shared/patterns';
+import { formatInr } from '../dashboard/dashboard-model';
 import { Field } from '../../components/ui/Field';
 import { CommandButton, CommandDrawer } from './CommandDrawer';
 import { SummaryPanel } from './SummaryPanel';
@@ -12,6 +13,9 @@ import { describeProblem, formatWhen, humanize, isoToLocal, localToIso, useEnqui
 
 const OPEN = ['NEW', 'CONTACTED', 'QUALIFIED'];
 const yesNo = (value: boolean | null) => (value === null ? '—' : value ? 'Yes' : 'No');
+
+/** Empty facts stay out of the way; the ones that exist are easier to read without them. */
+const present = <T extends { value: unknown }>(entries: T[]) => entries.filter((entry) => entry.value !== '—');
 
 export function EnquiryDetailPage() {
   const { id = '' } = useParams();
@@ -25,12 +29,11 @@ export function EnquiryDetailPage() {
   const owner = staff.data?.data.items.find((person) => person.id === item.ownerId)?.displayName;
 
   return <>
-    <p><Link to="/workspace/sales">← Enquiry queue</Link></p>
-    <h1>{item.contactName}</h1>
-    <p className="status-line">{humanize(item.status)} · {item.requestedCapacityKw} kW {item.systemType ? humanize(item.systemType) : ''} · received {formatWhen(item.createdAt)}</p>
-    <SummaryPanel enquiryId={item.id} />
-    <div className="action-row" aria-label="Enquiry actions">
-      {item.status === 'NEW' && <CommandButton label="Mark contacted" enquiryId={item.id} path={`/enquiries/${item.id}/contacted`} body={{ version: item.version }} responseSchema={enquiryDetailResponseSchema} />}
+    <p className="back-link"><Link to="/workspace/sales">← Enquiry queue</Link></p>
+    <div className="page-head">
+      <div><h1>{item.contactName}</h1><p className="page-sub status-line"><StatusPill status={item.status} /> {item.requestedCapacityKw} kW {item.systemType ? humanize(item.systemType) : ''} · received {formatWhen(item.createdAt)}</p></div>
+      <div className="action-row" aria-label="Enquiry actions">
+      {item.status === 'NEW' && <CommandButton primary label="Mark contacted" enquiryId={item.id} path={`/enquiries/${item.id}/contacted`} body={{ version: item.version }} responseSchema={enquiryDetailResponseSchema} />}
       {(item.status === 'NEW' || item.status === 'CONTACTED') && <QualifyDrawer enquiry={item} />}
       {OPEN.includes(item.status) && <AssignDrawer enquiry={item} />}
       {item.status !== 'ARCHIVED' && <CommandDrawer label="Archive" title="Archive this enquiry" submitLabel="Archive enquiry" enquiryId={item.id}
@@ -40,30 +43,38 @@ export function EnquiryDetailPage() {
           {(control) => <textarea {...control} name="reason" required maxLength={500} />}
         </Field>}
       </CommandDrawer>}
+      </div>
     </div>
-    <DetailPattern title="Customer and site" entries={[
-      { id: 'phone', label: 'Phone', value: <a href={`tel:${item.phone}`}>{item.phone}</a> },
-      { id: 'email', label: 'Email', value: item.contactEmail ?? '—' },
-      { id: 'address', label: 'Site address', value: `${item.siteAddressLine}, ${item.siteCity} ${item.sitePincode}` },
-      { id: 'source', label: 'Source', value: humanize(item.source) },
-      { id: 'subsidy', label: 'Subsidy interest', value: yesNo(item.subsidyInterest) },
-      { id: 'owner', label: 'Owner', value: item.ownerId ? owner ?? 'Assigned' : 'Unassigned' },
-      { id: 'followUp', label: 'Next follow-up', value: formatWhen(item.nextFollowUpAt) },
-      { id: 'message', label: 'Message', value: item.message ?? '—' },
-    ]} />
-    <DetailPattern title="Qualification" entries={[
-      { id: 'roof', label: 'Shadow-free roof area', value: item.shadowFreeRoofAreaSqm ? `${item.shadowFreeRoofAreaSqm} m²` : '—' },
-      { id: 'bill', label: 'Monthly bill', value: item.monthlyBillInr ? `₹${item.monthlyBillInr}` : '—' },
-      { id: 'grid', label: 'Grid connection suitable', value: yesNo(item.gridConnectionSuitable) },
-      { id: 'closed', label: 'Closed reason', value: item.closedReason ?? '—' },
-    ]} />
-    <SurveyPanel enquiry={item} />
-    <QuotePanel enquiryId={item.id} />
+    <SummaryPanel enquiryId={item.id} />
+    <div className="detail-layout">
+      <div className="detail-main">
+        <SurveyPanel enquiry={item} />
+        <QuotePanel enquiryId={item.id} />
+      </div>
+      <aside className="detail-side">
+        <DetailPattern title="Customer and site" entries={present([
+          { id: 'phone', label: 'Phone', value: <a href={`tel:${item.phone}`}>{item.phone}</a> },
+          { id: 'email', label: 'Email', value: item.contactEmail ?? '—' },
+          { id: 'address', label: 'Site address', value: `${item.siteAddressLine}, ${item.siteCity} ${item.sitePincode}` },
+          { id: 'source', label: 'Source', value: humanize(item.source) },
+          { id: 'subsidy', label: 'Subsidy interest', value: yesNo(item.subsidyInterest) },
+          { id: 'owner', label: 'Owner', value: item.ownerId ? owner ?? 'Assigned' : 'Unassigned' },
+          { id: 'followUp', label: 'Next follow-up', value: item.nextFollowUpAt ? formatWhen(item.nextFollowUpAt) : '—' },
+          { id: 'message', label: 'Message', value: item.message ?? '—' },
+        ])} />
+        <DetailPattern title="Qualification" entries={present([
+          { id: 'roof', label: 'Shadow-free roof area', value: item.shadowFreeRoofAreaSqm ? `${item.shadowFreeRoofAreaSqm} m²` : '—' },
+          { id: 'bill', label: 'Monthly bill', value: item.monthlyBillInr ? formatInr(item.monthlyBillInr) : '—' },
+          { id: 'grid', label: 'Grid connection suitable', value: yesNo(item.gridConnectionSuitable) },
+          { id: 'closed', label: 'Closed reason', value: item.closedReason ?? '—' },
+        ])}>{item.shadowFreeRoofAreaSqm || item.monthlyBillInr || item.gridConnectionSuitable !== null || item.closedReason ? null : <p className="panel-note">No qualification call recorded yet.</p>}</DetailPattern>
+      </aside>
+    </div>
   </>;
 }
 
 function QualifyDrawer({ enquiry }: { enquiry: EnquiryDetail }) {
-  return <CommandDrawer label="Qualify" title="Qualification call" submitLabel="Save outcome" enquiryId={enquiry.id}
+  return <CommandDrawer primary label="Qualify" title="Qualification call" submitLabel="Save outcome" enquiryId={enquiry.id}
     path={`/enquiries/${enquiry.id}/qualify`} schema={qualifyEnquirySchema} responseSchema={enquiryDetailResponseSchema}
     build={(form) => ({
       version: enquiry.version, shadowFreeRoofAreaSqm: form.get('shadowFreeRoofAreaSqm'), monthlyBillInr: form.get('monthlyBillInr'),
