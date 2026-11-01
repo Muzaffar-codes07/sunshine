@@ -286,7 +286,7 @@ test('HTTP routes validate all commands and reject closure without confirmation 
   } finally { await app.close(); }
 });
 
-test('production AppModule registers every ticket route behind unavailable verified access', async () => {
+test('production ticket commands reject anonymous and forged-role requests before payload or source reads', async () => {
   process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
   process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core');
@@ -306,7 +306,7 @@ test('production AppModule registers every ticket route behind unavailable verif
         },
         body: '{}',
       });
-      assert.equal(response.status, 503); assert.equal((await response.json()).error.code, 'SERVICE_AUTH_UNAVAILABLE');
+      assert.equal(response.status, 401); assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
     }
   } finally { await app.close(); }
 });

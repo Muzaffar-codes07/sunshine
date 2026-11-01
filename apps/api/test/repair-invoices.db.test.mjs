@@ -3,6 +3,9 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { randomInt, randomUUID } from 'node:crypto';
+import {mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {installationFixture,installationCommands} from './helpers/installation-source.mjs';
 const require = createRequire(import.meta.url);
 const url = process.env.TEST_DATABASE_URL;
 if (!url || !/test/i.test(new URL(url).pathname)) throw Error('Disposable TEST_DATABASE_URL required');
@@ -22,13 +25,16 @@ const { OrdersService } = require('../dist/orders/orders.service');
 const { StockReceiptsService } = require('../dist/inventory/stock-receipts.service');
 const { seedCatalogue } = require('../dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('../dist/catalog/demo-catalogue');
+const {seedWarrantyPolicies}=require('../dist/warranty/seed-warranty-policies');
+const {TicketCommandsService}=require('../dist/service/ticket-commands.service');
 const actor = row => ({ id: row.id, email: row.email, displayName: row.displayName, role: row.role });
-let app, prisma, invoices, writer, order, unitId, admin, tech;
+let app, prisma, invoices, writer, order, unitId, admin, tech,directory;
 const when = '2026-10-31T12:00:00.000Z';
 const refuses = (promise, status, code) => assert.rejects(promise, error => {
   assert.equal(error.getStatus?.(), status, error.message); assert.equal(error.code, code); return true;
 });
 before(async () => {
+  const parent=resolve(import.meta.dirname,'../../../var');await mkdir(parent,{recursive:true});directory=await mkdtemp(resolve(parent,'repair-source-test-'));process.env.UPLOAD_DIR=directory;
   app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   prisma = app.get(PrismaService); invoices = app.get(InvoicesService); writer = app.get(ServiceInvoiceWriter);
   assert.strictEqual(writer, invoices, 'D4 port resolves to the official D2 writer');
@@ -36,42 +42,24 @@ before(async () => {
   [admin, tech] = await Promise.all(['ADMIN', 'TECHNICIAN'].map(role => prisma.user.create({ data: {
     email: randomUUID() + '@repair.test', displayName: role + ' repair tester', role, passwordHash: 'not-a-login-hash',
   } })));
-  const customer = await prisma.customer.create({ data: {
-    name: 'Repair customer', phone: '7' + String(randomInt(1e9)).padStart(9, '0'),
-    addressLine: '1 Repair Road', city: 'Nagpur', pincode: '440001',
-  } });
-  const enquiry = await prisma.enquiry.create({ data: {
-    customerId: customer.id, source: 'PHONE', status: 'QUALIFIED', requestedCapacityKw: 1,
-    contactName: customer.name, siteAddressLine: customer.addressLine, siteCity: customer.city, sitePincode: customer.pincode,
-  } });
-  const surveys = app.get(SurveysService), quotes = app.get(QuotesService);
-  const survey = (await surveys.schedule(enquiry.id, { technicianId: tech.id, scheduledFor: when })).data;
-  await surveys.submit(survey.id, { version: 1, roofDirection: 'S', roofTiltDeg: '18.5', cableDistanceM: '22', usableRoofAreaSqm: '30' }, actor(tech));
-  await surveys.approve(survey.id, { version: 2 }, actor(admin));
-  const quote = (await quotes.create(enquiry.id, { surveyId: survey.id, packageId: id(1001) }, actor(admin))).data;
-  await quotes.send(quote.id, { version: 1, channel: 'PRINT' }, actor(admin));
-  await quotes.accept(quote.id, { version: 2, acceptedByName: customer.name, channel: 'IN_PERSON' }, actor(admin));
-  order = (await app.get(OrdersService).confirm({ quoteId: quote.id }, randomUUID(), actor(admin))).data;
-  const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
-  const product = await prisma.product.findFirstOrThrow({ where: { trackingMode: 'SERIALIZED', active: true } });
-  const receipt = (await app.get(StockReceiptsService).receive(admin.id, randomUUID(), {
-    reference: 'REPAIR-' + randomUUID(), locationId: location.id, receivedAt: when,
-    lines: [{ productId: product.id, quantity: '1', unitCost: '20.00', serials: ['REPAIR-' + randomUUID()] }],
-  })).data;
-  unitId = receipt.lines[0].unitIds[0];
+  await seedWarrantyPolicies(prisma);
+  const main=await prisma.stockLocation.findUniqueOrThrow({where:{code:'MAIN'}});
+  const complete=installationFixture({app,prisma,staff:{ADMIN:admin,SALES:admin,TECHNICIAN:tech},main,
+    actor:role=>actor(role==='TECHNICIAN'?tech:admin),post:installationCommands(app,admin.id)});
+  const time=await complete();order=await prisma.order.findUniqueOrThrow({where:{jobId:time.jobId}});
+  unitId=(await prisma.allocation.findFirstOrThrow({where:{jobId:time.jobId,product:{category:'INVERTER'}}})).unitId;
 });
-after(async () => { await app?.close(); });
-const assessment = covered => ({
-  unitId, serial: 'REPAIR-TEST', asOfDate: '2026-10-31',
-  policyName: 'Component cover', policyRevision: 'v1', scope: 'Component repair',
-  startDate: '2024-01-01', expiryDate: covered ? '2027-01-01' : '2026-01-01', coverageStatus: covered ? 'COVERED' : 'EXPIRED',
-  isCovered: covered, reason: 'Synthetic saved decision', customerCharge: covered ? '0.00' : null,
-  chargeStatus: covered ? 'FREE' : 'PENDING_ASSESSMENT', requestedScope: 'Component repair', assessedAt: when,
+after(async () => { await app?.close();await rm(directory,{recursive:true,force:true}); });
+const ticket = async (covered = false, assessed = true) => {
+  const commands=app.get(TicketCommandsService);
+  let result=(await commands.create(actor(admin),randomUUID(),{unitId,faultDescription:'Synthetic fault'})).data;
+  if(assessed) result=(await commands.assess(actor(admin),randomUUID(),result.id,{version:result.version,asOfDate:result.createdAt,
+    requestedScope:covered?'Component replacement':'Component repair'})).data;
+  return prisma.serviceTicket.findUniqueOrThrow({where:{id:result.id}});
+};
+const actorTx=work=>prisma.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT set_config('sunshine.actor_id',${admin.id},true)`;return work(tx);
 });
-const ticket = (covered = false) => prisma.serviceTicket.create({ data: {
-  ticketNumber: 'REPAIR-' + randomUUID(), customerId: order.customerId, jobId: order.jobId, unitId,
-  status: 'ASSESSED', faultDescription: 'Synthetic fault', assessmentSnapshot: assessment(covered),
-} });
 const input = row => ({
   uniqueSourceId: 'TICKET:' + row.id + ':REPAIR', ticketId: row.id, jobId: row.jobId, customerId: row.customerId,
   subtotal: '100.00', lines: [{ sourceId: randomUUID(), type: 'LABOUR', description: 'Approved service labour',
@@ -142,8 +130,8 @@ test('invalid sources, duplicate references, wrong totals, missing tickets and c
   const missing = { ...command, ticketId: randomUUID() }; missing.uniqueSourceId = 'TICKET:' + missing.ticketId + ':REPAIR';
   await refuses(post(missing), 404, 'TICKET_NOT_FOUND');
   await refuses(post(input(await ticket(true))), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
-  await prisma.serviceTicket.update({ where: { id: row.id }, data: { status: 'OPEN', assessmentSnapshot: Prisma.DbNull } });
-  await refuses(post(command), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
+  const unassessed=await ticket(false,false);
+  await refuses(post(input(unassessed)), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
   assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), 0);
 });
 
@@ -163,17 +151,17 @@ test('zero charge has a settled invoice without inventing a payment, and receipt
 test('invoice, ticket and preceding caller writes roll back together, including a changed-source refusal', async () => {
   const row = await ticket(), command = input(row);
   await assert.rejects(prisma.$transaction(async tx => {
-    await tx.serviceTicket.update({ where: { id: row.id }, data: { faultDescription: 'Rolled-back edit' } });
+    await tx.customer.update({where:{id:row.customerId},data:{name:'Rolled-back edit'}});
     await writer.ensureServiceInvoice(tx, command); throw Error('late caller failure');
   }), /late caller failure/);
   assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), 0);
-  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).faultDescription, 'Synthetic fault');
+  assert.equal((await prisma.customer.findUniqueOrThrow({where:{id:row.customerId}})).name,'Labour Source Customer');
   await post(command);
   await refuses(prisma.$transaction(async tx => {
-    await tx.serviceTicket.update({ where: { id: row.id }, data: { faultDescription: 'Must roll back on conflict' } });
+    await tx.customer.update({where:{id:row.customerId},data:{name:'Must roll back on conflict'}});
     await writer.ensureServiceInvoice(tx, { ...command, lines: [{ ...command.lines[0], sourceId: randomUUID() }] });
   }), 409, 'REPAIR_INVOICE_CONFLICT');
-  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).faultDescription, 'Synthetic fault');
+  assert.equal((await prisma.customer.findUniqueOrThrow({where:{id:row.customerId}})).name,'Labour Source Customer');
 });
 
 test('real D4 billing composes costs, invoice and ticket snapshot atomically; covered work posts cost only', async () => {
@@ -181,17 +169,23 @@ test('real D4 billing composes costs, invoice and ticket snapshot atomically; co
     const row = await ticket(covered), sourceId = randomUUID();
     const reader = { read: async () => [{
       sourceId, type: 'LABOUR', ticketId: row.id, jobId: row.jobId, customerId: row.customerId,
-      scope: 'Component repair', description: 'Approved persisted-source test labour',
+      scope: covered?'Component replacement':'Component repair', description: 'Approved persisted-source test labour',
       quantity: '1.000', unitCost: '60.00', unitPrice: '100.00', occurredAt: when,
     }] };
     const billing = new RepairBillingService(app.get(CostWriterService), reader, writer);
-    const run = () => prisma.$transaction(tx => billing.executeRepairBilling(tx, row.id, [{ sourceId, type: 'LABOUR' }]));
+    const run = () => actorTx(tx => billing.executeRepairBilling(tx, row.id, [{ sourceId, type: 'LABOUR' }]));
     const first = await run(); assert.deepEqual(await run(), first);
     assert.equal(first.internalCost, '60.00'); assert.equal(first.customerCharge, covered ? '0.00' : '100.00');
     assert.equal(await prisma.costEntry.count({ where: { uniqueSourceId: 'TIME_ENTRY:' + sourceId } }), 1);
     assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), covered ? 0 : 1);
     assert.equal(await prisma.ticketLine.count({ where: { ticketId: row.id } }), 1);
     assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).billingSnapshot.result.invoiceId, first.invoiceId);
+    const commands=app.get(TicketCommandsService),current=await prisma.serviceTicket.findUniqueOrThrow({where:{id:row.id}});
+    const resolved=(await commands.resolve(actor(admin),randomUUID(),row.id,{version:current.version,resolutionDetails:'Synthetic approved-source billing boundary completed'})).data;
+    assert.equal(resolved.billingFinalized,true);assert.equal(resolved.noWorkReason,null);
+    const closed=(await commands.confirm(actor(admin),randomUUID(),row.id,{version:resolved.version,confirmerName:'Fixture Customer',channel:'PHONE',confirmedAt:new Date().toISOString()})).data;
+    assert.equal(closed.status,'CLOSED');
+    assert.equal(await prisma.costEntry.count({where:{uniqueSourceId:'TIME_ENTRY:'+sourceId}}),1);
   }
 });
 
@@ -211,12 +205,12 @@ test('late D4 caller failure removes real costs, invoice, lines and billing snap
     scope: 'Component repair', description: 'Atomic repair labour', quantity: '1', unitCost: '60', unitPrice: '100', occurredAt: when,
   }] };
   const billing = new RepairBillingService(app.get(CostWriterService), sources, writer);
-  await assert.rejects(prisma.$transaction(async tx => {
+  await assert.rejects(actorTx(async tx => {
     await billing.executeRepairBilling(tx, row.id, [{ sourceId, type: 'LABOUR' }]); throw Error('late D4 caller failure');
   }), /late D4 caller failure/);
   assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), 0);
   assert.equal(await prisma.costEntry.count({ where: { uniqueSourceId: 'TIME_ENTRY:' + sourceId } }), 0);
   assert.equal(await prisma.ticketLine.count({ where: { ticketId: row.id } }), 0);
   const restored = await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } });
-  assert.equal(restored.status, 'ASSESSED'); assert.equal(restored.version, 1); assert.equal(restored.billingSnapshot, null);
+  assert.equal(restored.status, 'ASSESSED'); assert.equal(restored.version, row.version); assert.equal(restored.billingSnapshot, null);
 });

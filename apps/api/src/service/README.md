@@ -1,59 +1,36 @@
 # Service module
 
-Owner: **D4**. Status: **Tasks 2.2 lifecycle, 3.1 billing and 3.2 replacement helpers implemented; production integration gated**.
+Owner: **Tuhin/Codex under the D1/D4 takeover**. Production intake, assessment, source verification, resolution/confirmation and audited history use NestJS commands with actual staff sessions and PostgreSQL transactions. Real repair-part, replacement and approved service-time adapters remain separate incomplete work; internal helpers alone do not count as those workflows.
 
-Saved coverage decisions, resolution notes and staff-recorded customer confirmation.
-Replacement orchestration preserves equipment lineage and the original warranty interval.
+## Production ticket commands and reads
 
-## Commands
+All routes require active ADMIN/SUPPORT cookie sessions, reject role headers, and set `Cache-Control: no-store`. Every POST requires an actor-scoped `Idempotency-Key`. Strict shared Zod contracts reject unknown fields. UUIDs are canonicalized. Same key/action/body replays the committed result even after the ticket advances; changed intent returns 409 `IDEMPOTENCY_CONFLICT`.
 
-## Saved ticket reads
+| Route | Request | Persisted behavior |
+|---|---|---|
+| `POST /api/v1/tickets` | `{unitId, faultDescription}` | 201 OPEN/v1. Derives customer/job from the real delivered allocation, order, accepted quote and dispatch; an uninstalled unit returns 409. Separate faults may have separate tickets; one retried intake creates one ticket/event |
+| `POST /api/v1/tickets/:id/assess` | `{version, asOfDate, requestedScope}` | 200 ASSESSED. `asOfDate` must equal immutable saved `createdAt`, not a caller-selected historical date. Uses that complaint occurrence in IST and frozen delivery policy. OPEN/ASSESSED may correct scope only before work, invoice, billing or replacement effects; old decisions remain audited |
+| `POST /api/v1/tickets/:id/resolve` | `{version, resolutionDetails, noWorkReason?}` | 200 AWAITING_CUSTOMER_CONFIRMATION. Requires verified source and assessment plus matching finalized billing. With no work/financial effects, explicit `noWorkReason` (5–4000 characters) permits a withdrawal or other legitimate no-work resolution. Notes alone cannot pretend a repair was performed |
+| `POST /api/v1/tickets/:id/confirm` | `{version, confirmerName, channel, confirmedAt, notes?}` | 200 CLOSED. Channel PHONE/WHATSAPP/IN_PERSON; actual confirmation at/after resolution and not future. This is staff-recorded confirmation, not a customer portal event |
+| `GET /api/v1/tickets/:id` | UUID | Saved `{data:ServiceTicket}`; never silently reassesses |
+| `GET /api/v1/tickets` | `page=1&pageSize=20`, optional `unitId`, `status` | `{data:{items,total,page,pageSize}}`; page 1–10000, size 1–50; newest intake then UUID |
+| `GET /api/v1/tickets/:id/events` | `page=1&pageSize=20` | Bounded audited history with real actor, occurrence, prior/current status and coverage decision. Private raw billing snapshots/internal costs are not exposed |
 
-`GET /api/v1/tickets/:id` and `GET /api/v1/tickets` use the existing staff
-session guard and allow ADMIN/SUPPORT only. They return saved ticket facts,
-including version, assessment snapshot, replacement links and confirmation;
-neither route re-evaluates coverage. Detail returns the existing
-`{ data: ServiceTicket }` contract and 404 `TICKET_NOT_FOUND` for an unknown ID.
+Every action claims the current integer version; stale requests return 409 `STALE_VERSION`, invalid states `INVALID_TICKET_TRANSITION`, missing IDs 404. Command, ticket and before/after audit commit or roll back together. Lock order is Command → Job → Ticket → Unit (intake has no existing Ticket). Equipment and warranty readers use the same caller transaction. No upload/network work runs under these locks.
 
-The list returns `{ data: { items, page, pageSize, total } }`. It accepts
-`page` (1–10000, default 1), `pageSize` (1–50, default 20), optional `unitId`
-and optional `status`. Results order by newest `createdAt`, then UUID ascending.
-Both reads set `Cache-Control: no-store`; a missing D4 migration returns 503.
-This read surface does not enable the POST commands below. Their existing
-fail-closed `ServiceTicketAccess` remains until server-side actor-scoped replay
-and production installation/authorization integration are complete.
+`TicketCommandsController` is the production controller. Historical `ServiceController` / `ServiceTicketAccess` doubles remain isolated foundation tests and are not registered as production routes. The real session actor is passed by the controller, not accepted from a body/header. SQL checks verify that actor is still active and ADMIN/SUPPORT.
 
-All routes return `{ data: ServiceTicket }`. Create returns 201; actions return 200.
-All bodies are strict shared contracts; unknown fields are rejected with 400.
+Migration `20261031840000_service_ticket_integrity` adds nullable source-verification/creator fields and append-only `ServiceTicketEvent`. Existing rows receive no invented creator or validation. Verified facts cannot be rewritten, CLOSED is terminal, version claims/state transitions are guarded, and audit update/delete/truncate refuse. Existing eligible OPEN/ASSESSED rows can be verified by actual reassessment; inconsistent/closed historical rows require separate reconciliation rather than fabricated adoption. The response adds `sourceVerified`, `noWorkReason`, and `billingFinalized`.
 
-- `POST /api/v1/tickets`: `{ unitId, faultDescription }`. Derives customer/job
-  from D3's real installation projection; an unassociated unit fails with 409.
-  Creates an OPEN ticket and server-generated unique ticket number.
-- `POST /api/v1/tickets/:id/assess`: `{ version, asOfDate, requestedScope }`.
-  `asOfDate` is a timezone-qualified occurrence timestamp, at or before now.
-  OPEN only. Evaluates the named work scope and atomically saves ASSESSED plus
-  the full warranty decision, requested scope and server `assessedAt`. The
-  decision's `asOfDate` remains the engine's IST calendar date. Historical
-  assessments are staff recorded; coverage is not inferred from status alone.
-- `POST /api/v1/tickets/:id/resolve`: `{ version, resolutionDetails }`.
-  ASSESSED or IN_PROGRESS only; requires a saved assessment. Records notes and
-  server `resolvedAt`, then moves to AWAITING_CUSTOMER_CONFIRMATION. No customer
-  confirmation or closure is implied. IN_PROGRESS is reserved for future repair
-  orchestration; this task permits direct ASSESSED to resolution as the plan asks.
-- `POST /api/v1/tickets/:id/confirm`: `{ version, confirmerName, channel,
-  confirmedAt, notes? }`. Awaiting confirmation only. Nonblank name, PHONE /
-  WHATSAPP / IN_PERSON channel and timezone-qualified timestamp are mandatory.
-  Confirmation must occur at or after resolution and at or before server time.
-  All confirmation facts, server `closedAt` and CLOSED commit atomically.
+SQL billing checks require actual per-source costs, reconciled ticket totals and matching customer invoices for chargeable work. Covered work retains costs and has no customer invoice. Any missing, reversed or conflicting financial evidence blocks resolution. The no-work path refuses existing work lines, replacement effects or invoices. It is not an alternative to implementing repair workflows.
 
-Every action requires the current integer version; stale writes return 409
-`STALE_VERSION`. Prisma uses status/version compare-and-set and increments the
-version in the same transaction as the facts. Illegal transitions return 409
-`INVALID_TICKET_TRANSITION`; unknown tickets return 404. Repeated actions cannot
-overwrite snapshots or confirmation; after success, reload to obtain a new
-version. They do not implement financial-command replay. This task posts no
-stock, invoices, costs or warranty changes. Future repair orchestration must
-add actor-scoped idempotency and use one transaction for its financial effects.
+`/workspace/service` supports saved links, paged filtering/history, intake and these lifecycle commands. Its shared retry hook freezes the exact body/key and disables edits after an uncertain outcome. Reload reads persisted state. The scope occurrence is shown as saved intake time; closure explicitly asks for no-work evidence when repair billing is absent.
+
+## Verification
+
+Run the root `npm run check`, then on an explicitly disposable PostgreSQL 17.11 database bind **both** `DATABASE_URL` and `TEST_DATABASE_URL` before `npm run db:deploy`, API/web `test:db`, `npm run test:d4-migration`, `npm run db:check`, migration diff and `npm run test:constraints`. Do not allow a normal local `.env` to choose the migration target.
+
+`apps/api/test/service-runtime.db.test.mjs` exercises actual session HTTP and complete survey→quote→payment→stock→delivery→installation sources, concurrent intake/reassessment, canonical IDs, audit history, source/role/input refusals, no-work boundaries, confirmation and late caller rollback. The repair-invoice/migration fixtures also create real delivered installations through domain writers; synthetic source-reader doubles remain explicitly limited billing-boundary tests. The production browser driver `apps/web/test/lifecycle-browser.mjs --migrate` validates its `_test` URL before migrations and covers actual UI intake, exact retry, scope corrections/history and no-work closure.
 
 ## Task 3.1 repair billing
 
@@ -121,14 +98,9 @@ warranty evaluation, without treating different scopes as equivalent.
 Changed references conflict; adjustments need explicit reversal/new work, never
 editing posted history. Concurrent writes lose CAS and require an outer retry.
 Billing moves the ticket to IN_PROGRESS and increments its version; resolution
-and customer confirmation remain distinct actions. The earlier notes-only
-`resolve` endpoint does not invoke billing or assert that repair work occurred.
+and customer confirmation remain distinct actions. The production resolve command requires finalized billing or the explicitly constrained no-work path above.
 
-Default source/invoice adapters fail with 503 `REPAIR_SOURCES_UNAVAILABLE` /
-`SERVICE_INVOICE_UNAVAILABLE`: upstream stock, approved service time and D2's
-invoice implementation are absent. There is no fabricated production adapter.
-The queued D4 migration also needs `ServiceTicket.billingSnapshot` JSONB, as
-described in the schema handoff. Auth/migration gates below still apply.
+The production source reader still fails with 503 `REPAIR_SOURCES_UNAVAILABLE` until actual consumed parts and approved service time exist. The official D2 invoice writer is wired (merged #70); isolated real-PostgreSQL billing tests verify that boundary. The D4 schema, real ticket authorization, source verification and command replay are implemented. No fabricated repair-source adapter is wired.
 
 `apps/api/test/repair-billing.test.cjs` covers covered/chargeable billing with the
 real cost writer and report engine, exact rounding/limits, canonical source
@@ -180,7 +152,7 @@ expiryDate, policyName, policyRevision, scope, durationMonths and active**.
 An 18-month swap in a 24-month policy therefore retains six months, and expired
 or void coverage stays expired or void. Date-only values must be UTC-midnight
 Prisma DATE encodings and are never recalculated from the replacement instant.
-The original warranty remains as history; only its concurrency version changes.
+The historical helper's version-only warranty update is incompatible with the newer immutable warranty guards and must be revised before wiring actual replacement. The production replacement adapter remains disabled; do not claim warranty continuation from these helper tests.
 No original warranty fails with `ORIGINAL_WARRANTY_REQUIRED`: a separate explicit
 policy decision is needed. Existing coverage on the new unit fails with
 `WARRANTY_CONFLICT`, never an upsert that overwrites unrelated history.
@@ -202,9 +174,7 @@ unit claims, policy edits and warranty uniqueness require outer bounded retries
 plus D3's allocation constraints. The default stock adapter returns 503
 `REPLACEMENT_STOCK_UNAVAILABLE`; no production inventory writes are simulated.
 The real Unit/Job/File models and coordinated D4 migration are now present,
-including ticket lineage FKs/checks. Domain authorization, actual repair source/
-invoice adapters, D3 allocation ticket-line support and the unit predecessor/
-replacement stock writer remain unavailable. No production stock writes are enabled.
+including ticket lineage FKs/checks. Actual repair sources, allocation ticket-line support and the replacement stock writer remain unavailable. Unit predecessor history and the official invoice writer are implemented, but do not enable replacement consumption. No production replacement stock writes are enabled.
 
 `apps/api/test/replacement.test.cjs` composes the real billing/cost helpers with
 transaction doubles: six-month continuity, expired/void/leap policies, exact
@@ -213,24 +183,6 @@ IST dates, CAS losses, source scope, storage errors and late-failure propagation
 These are not real PostgreSQL isolation, rollback or D3 integration evidence.
 See the [Task 3.2 review prompt](../../../../docs/reviews/d4-task-3.2-review-prompt.md).
 
-## Integration gate and tests
+## Remaining integration gates
 
-`ServiceModule` is registered in AppModule. Its default `ServiceTicketAccess`
-returns 503 `SERVICE_AUTH_UNAVAILABLE` before any record read or mutation.
-D2 must supply verified permission to manage tickets across customers. Never
-trust role headers or unverified `request.user`. Assigned technicians require
-record scoping before permitting this broad API.
-
-The module reuses `WarrantyEquipmentReader` exported by WarrantyModule. D3 must
-replace its unavailable implementation with actual Unit/customer/Job joins;
-creation and assessment currently fail without it. The real Prisma repository
-needs the coordinated D4 migration, including new resolution fields, Unit/Job
-Restrict relations and integrity checks. Missing storage returns 503
-`SERVICE_SCHEMA_UNAVAILABLE`. See the [schema handoff](../../../../docs/architecture/d4-schema-handoff.md).
-
-Run `npm run test` and `npm run check`. `apps/api/test/service.test.cjs` tests the
-real warranty engine with injected storage, concurrent CAS semantics, Prisma
-query shape, Nest HTTP closure rejection and production authorization gating.
-These doubles do not prove migrated PostgreSQL isolation or upstream joins.
-No fixtures are wired into production. See [roles](../../../../docs/team/roles.md)
-and [API contracts](../../../../docs/architecture/api-contracts.md).
+The internal billing/replacement unit suites use transaction doubles and are not proof of physical replacement, approved service time, PostgreSQL stock races or coverage continuation. Actual part reservation/issue/return and replacement must use the single stock ledger and cost writer, distinct physical units and real movement sources. Service time needs separately approved internal pay and customer selling terms. These gates remain open; no parent checklist requiring them is complete.

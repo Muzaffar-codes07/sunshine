@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { ApiError } from '../platform/api-error';
+import type { Prisma } from '../generated/prisma/client';
 
 export interface SavedWarranty {
   unitId: string;
@@ -13,7 +14,7 @@ export interface SavedWarranty {
 }
 
 export abstract class WarrantyReader {
-  abstract findByUnitId(unitId: string): Promise<SavedWarranty | null>;
+  abstract findByUnitId(unitId: string, tx?: Prisma.TransactionClient): Promise<SavedWarranty | null>;
 }
 
 @Injectable()

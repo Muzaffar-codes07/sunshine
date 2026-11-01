@@ -73,7 +73,8 @@ function equipmentProjection(unit: { id: string; rawSerial: string; manufacturer
 @Injectable()
 export class PersistedWarrantyEquipmentReader extends WarrantyEquipmentReader {
   constructor(private readonly prisma: PrismaService) { super(); }
-  async findById(unitId: string): Promise<WarrantyEquipment | null> {
+  async findById(unitId: string, tx?: Prisma.TransactionClient): Promise<WarrantyEquipment | null> {
+    if (tx) return (await installation(tx, unitId))?.equipment ?? null;
     return this.prisma.$transaction(async tx => (await installation(tx, unitId))?.equipment ?? null,
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
@@ -96,8 +97,8 @@ export class PersistedWarrantyEquipmentReader extends WarrantyEquipmentReader {
 @Injectable()
 export class ValidatedWarrantyReader extends WarrantyReader {
   constructor(private readonly prisma: PrismaService) { super(); }
-  async findByUnitId(unitId: string): Promise<SavedWarranty | null> {
-    return this.prisma.$transaction(async tx => {
+  async findByUnitId(unitId: string, callerTx?: Prisma.TransactionClient): Promise<SavedWarranty | null> {
+    const read = async (tx: Prisma.TransactionClient) => {
       const source = await installation(tx, unitId);
       if (!source) return null;
       // A lineage field alone does not prove the replacement was consumed, costed and delivered.
@@ -117,6 +118,7 @@ export class ValidatedWarrantyReader extends WarrantyReader {
       }
       // Even a partially migrated replacement must never leave the defective serial eligible for another free repair.
       return { ...warranty, active: warranty.active && source.chain[0]!.replacementUnits.length === 0 };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    };
+    return callerTx ? read(callerTx) : this.prisma.$transaction(read, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 }

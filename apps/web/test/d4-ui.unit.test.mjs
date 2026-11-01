@@ -50,7 +50,7 @@ function errorBody(code, reasons) {
 }
 
 test('ticket mutations are disabled by default while warranty lookup remains usable', () => {
-  const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage));
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(service.ServiceWorkspacePage)));
   assert.match(markup, /Ticket actions are unavailable/);
   assert.match(markup, /<fieldset disabled=""/);
   assert.match(markup, /Look up serial/);
@@ -58,9 +58,9 @@ test('ticket mutations are disabled by default while warranty lookup remains usa
 });
 
 test('ticket view shows saved coverage, lineage and only the current lifecycle action', () => {
-  const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage, {
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(service.ServiceWorkspacePage, {
     initialTicket: { ...ticket, status: 'ASSESSED', assessmentSnapshot: assessment, replacedUnitId: unitId, newUnitId: jobId },
-  }));
+  })));
   assert.match(markup, /Covered — customer charge ₹0.00/);
   assert.match(markup, /Inside saved policy dates/);
   assert.match(markup, /Replaced unit/);

@@ -57,6 +57,7 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 9 | `ProductWarrantyPolicy` | D4 | `20261031310000_warranty_policies`, below D2's reserved `20261031800000` and `20261031810000` |
 | 10 | Warranty calendar/fact guards | Tuhin/Codex takeover | `20261031820000_warranty_facts`, after the merged file/invoice migrations; four canonical rules |
 | 11 | Frozen technician rates / installation labour approvals | Tuhin/Codex takeover | `20261031830000_installation_labour`; append-only revisions, actual time/cost FK and source guards; no historical rate backfill |
+| 12 | Verified service commands and immutable audit | Tuhin/Codex takeover | `20261031840000_service_ticket_integrity`; real delivered source, actor/state/version/assessment/billing guards; old rows keep null verification/creator; twelve canonical rules |
 
 **To land a migration:**
 

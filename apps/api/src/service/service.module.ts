@@ -7,15 +7,18 @@ import { ReplacementService } from './replacement.service';
 import { ReplacementStockWriter, UnavailableReplacementStockWriter } from './replacement.types';
 import { RepairSourceReader, UnavailableRepairSourceReader } from './repair-billing.types';
 import { ServiceTicketAccess, UnavailableServiceTicketAccess } from './service-access';
-import { ServiceController, ServiceTicketGuard } from './service.controller';
+import { ServiceTicketGuard } from './service.controller';
 import { PrismaTicketRepository, TicketRepository } from './service.repository';
 import { ServiceService } from './service.service';
 import { ServiceReadController } from './service-read.controller';
+import { TicketCommandsService } from './ticket-commands.service';
+import { TicketCommandsController } from './ticket-commands.controller';
+import { TicketHistoryService } from './ticket-history.service';
 
 @Module({
   imports: [WarrantyModule, FinanceModule, AuthModule],
-  controllers: [ServiceController, ServiceReadController],
-  providers: [ServiceService, ServiceTicketGuard, RepairBillingService, ReplacementService,
+  controllers: [TicketCommandsController, ServiceReadController],
+  providers: [ServiceService, ServiceTicketGuard, TicketCommandsService, TicketHistoryService, RepairBillingService, ReplacementService,
     { provide: ReplacementStockWriter, useClass: UnavailableReplacementStockWriter },
     { provide: RepairSourceReader, useClass: UnavailableRepairSourceReader },
     { provide: TicketRepository, useClass: PrismaTicketRepository },

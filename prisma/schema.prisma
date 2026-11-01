@@ -57,6 +57,8 @@ model User {
   technicianRates TechnicianRateRevision[] @relation("RateTechnician")
   technicianRatesCreated TechnicianRateRevision[] @relation("RateCreator")
   labourApproved InstallationLabourApproval[] @relation("LabourApprover")
+  ticketsCreated ServiceTicket[] @relation("TicketCreator")
+  ticketEvents ServiceTicketEvent[]
 
   @@map("users")
 }
@@ -430,6 +432,9 @@ model ServiceTicket {
   version             Int                  @default(1)
   createdAt           DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
+  sourceVerifiedAt    DateTime?            @db.Timestamptz(3)
+  createdById         String?              @db.Uuid
+  noWorkReason        String?              @db.VarChar(4000)
 
   customer Customer     @relation("CustomerServiceTickets", fields: [customerId], references: [id], onDelete: Restrict)
   lines    TicketLine[] @relation("ServiceTicketLines")
@@ -437,6 +442,8 @@ model ServiceTicket {
   job Job @relation("JobServiceTickets", fields: [jobId], references: [id], onDelete: Restrict)
   replacedUnit Unit? @relation("ReplacedUnitTickets", fields: [replacedUnitId], references: [id], onDelete: Restrict)
   newUnit Unit? @relation("NewUnitTickets", fields: [newUnitId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  events ServiceTicketEvent[]
 
   @@index([customerId])
   @@index([unitId, status])
@@ -444,7 +451,22 @@ model ServiceTicket {
   @@index([replacedUnitId])
   @@index([newUnitId])
   @@index([status, createdAt])
+  @@index([createdById])
   @@map("service_tickets")
+}
+
+model ServiceTicketEvent {
+  id String @id @default(uuid()) @db.Uuid
+  ticketId String @db.Uuid
+  actorId String @db.Uuid
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
+  beforeSnapshot Json?
+  afterSnapshot Json
+  ticket ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([ticketId, occurredAt])
+  @@index([actorId])
+  @@map("service_ticket_events")
 }
 
 model TicketLine {
