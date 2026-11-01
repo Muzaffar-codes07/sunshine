@@ -28,6 +28,8 @@ The React/Vite service workspace now enables these NestJS commands, stable saved
 | Preserved historical behavior | Actual legacy tickets remain readable with `sourceVerified:false`. Unverified resolution and inconsistent intake reassessment refuse without changes, command records or audit events |
 | Final production browser | Three persisted installation runs, actual UI intake and lost committed response/exact retry, wrong-scope correction/history, explicit no-work confirmed closure/reload at 360 px, existing labour/pay/financial JSON/CSV reconciliation and warranty-policy replay; zero uncaught errors, exit 0 |
 
+The final test-only follow-up also verifies exact/changed-payload resolution replay and competing scope correction versus real transactional billing: only one can commit, with no losing costs, invoice or lines. All seven focused cases pass again. That race uses an explicitly synthetic approved-source projection and real ticket/cost/invoice writers; it is not physical repair evidence. Application, schema and SQL are unchanged from the broad 297-case run.
+
 CI now runs the actual API/web/D4 database suites on isolated PostgreSQL 17.11 after migrations, in addition to the existing root checks, rule checker and smoke tests. CI completion is recorded on the PR's exact head; a local build alone is not labelled a green remote run.
 
 The first browser pass reached actual intake/closure successfully but its subsequent warranty assertion matched both the lookup and a newly covered ticket-list row. The assertion is now scoped to the warranty panel; the final fresh browser run passes. The first upgrade probe assumed every table had an `id` primary key; it failed before migrating. Snapshot ordering now uses complete row JSON, and the final preservation run succeeds. Neither failed probe is counted as acceptance.
@@ -49,7 +51,7 @@ Synthetic period revenue/cash `540000.00` and costs `16512.76` reconcile indepen
 
 Reproduction commands and exact route/request/state/lock contracts are in the [service module](../../apps/api/src/service/README.md). Bind both `DATABASE_URL` and `TEST_DATABASE_URL` to an explicitly disposable `_test` database for migration/test commands. The browser's guarded `--migrate` mode validates that target before setup; the wrapper deliberately gives the ordinary database URL an unusable port. No normal local application database is migrated by this slice.
 
-Local logs: `/tmp/sunshine-service-check.log`, `/tmp/sunshine-service-final-db.log`, `/tmp/sunshine-service-browser.log`, `/tmp/sunshine-service-upgrade.log`, `/tmp/sunshine-service-legacy.log`. Successful final processes exit 0. The source fixture and browser driver are committed; logs do not replace executable checks.
+Local logs: `/tmp/sunshine-service-check.log`, `/tmp/sunshine-service-final-db.log`, `/tmp/sunshine-service-focused-final.log`, `/tmp/sunshine-service-browser.log`, `/tmp/sunshine-service-upgrade.log`, `/tmp/sunshine-service-legacy.log`. Successful final processes exit 0. The source fixture and browser driver are committed; logs do not replace executable checks.
 
 ## Remaining original scope
 

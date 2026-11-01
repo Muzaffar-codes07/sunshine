@@ -22,6 +22,7 @@ const {ReportingService}=require('../dist/reporting/reporting.service'),{hashPas
 const {Client}=require('pg');
 const {seedWarrantyPolicies}=require('../dist/warranty/seed-warranty-policies');
 const {TicketCommandsService}=require('../dist/service/ticket-commands.service');
+const {RepairBillingService}=require('../dist/service/repair-billing.service');
 let app,base,prisma,sql,directory,main,completeRealInstallation;
 const staff={},cookies={},origin='http://127.0.0.1:3001',password='ticket-test-only-password';
 const actor=role=>({id:staff[role].id,email:staff[role].email,displayName:staff[role].displayName,role});
@@ -118,8 +119,11 @@ test('unbilled work cannot resolve; an explicit no-work resolution closes only a
   let {ticket}=await newTicket();ticket=await ok(assess(ticket));
   const costs=await prisma.costEntry.count({where:{jobId:ticket.jobId}});
   await refused(send(`/tickets/${ticket.id}/resolve`,{version:ticket.version,resolutionDetails:'Work not yet finalized'},randomUUID(),'SUPPORT'),409,'REPAIR_BILLING_REQUIRED');
-  ticket=await ok(send(`/tickets/${ticket.id}/resolve`,{version:ticket.version,resolutionDetails:'Synthetic customer withdrew duplicate complaint before work.',
-    noWorkReason:'Complaint withdrawn before any labour, parts or replacement.'},randomUUID(),'SUPPORT'));
+  const resolveKey=randomUUID(),resolution={version:ticket.version,resolutionDetails:'Synthetic customer withdrew duplicate complaint before work.',
+    noWorkReason:'Complaint withdrawn before any labour, parts or replacement.'};
+  ticket=await ok(send(`/tickets/${ticket.id}/resolve`,resolution,resolveKey,'SUPPORT'));
+  assert.deepEqual(await ok(send(`/tickets/${ticket.id}/resolve`,resolution,resolveKey,'SUPPORT')),ticket);
+  await refused(send(`/tickets/${ticket.id}/resolve`,{...resolution,resolutionDetails:'Changed resolution intent'},resolveKey,'SUPPORT'),409,'IDEMPOTENCY_CONFLICT');
   assert.equal(ticket.status,'AWAITING_CUSTOMER_CONFIRMATION');assert.equal(ticket.billingFinalized,false);assert.ok(ticket.noWorkReason);
   await refused(send(`/tickets/${ticket.id}/confirm`,{version:ticket.version,confirmerName:'Fixture Customer',channel:'PHONE',confirmedAt:new Date(Date.parse(ticket.resolvedAt)-1).toISOString()},randomUUID(),'SUPPORT'),400,'INVALID_INPUT');
   const key=randomUUID(),input={version:ticket.version,confirmerName:'Fixture Customer',channel:'PHONE',confirmedAt:new Date().toISOString(),notes:'Explicit synthetic confirmation, no message sent'};
@@ -141,6 +145,25 @@ test('existing work lines prevent scope rewrites and no-work bypass, and service
   assert.equal((await ok(get('/tickets/'+ticket.id,'SUPPORT'))).status,'ASSESSED');
   await assert.rejects(sql.query('UPDATE service_ticket_events SET "afterSnapshot"=$1 WHERE "ticketId"=$2',['{}',ticket.id]),error=>error.code==='23514');
   await assert.rejects(sql.query('TRUNCATE service_ticket_events'),error=>error.code==='23514');
+  // Only this approved-source projection is synthetic; assessment, ticket locks, costs,
+  // lines, billing snapshots and both competing PostgreSQL transactions are real.
+  const {ticket:intake}=await newTicket(),current=await ok(assess(intake)),sourceId=randomUUID();
+  const billing=new RepairBillingService(app.get(CostWriterService),{read:async()=>[{
+    sourceId,type:'LABOUR',ticketId:current.id,jobId:current.jobId,customerId:current.customerId,
+    scope:'Component replacement',description:'Synthetic approved-source scope-race boundary',quantity:'1.000',unitCost:'1.00',unitPrice:'2.00',occurredAt:new Date().toISOString(),
+  }]},app.get(InvoicesService));
+  const results=await Promise.allSettled([
+    app.get(TicketCommandsService).assess(actor('SUPPORT'),randomUUID(),current.id,{version:current.version,asOfDate:current.createdAt,requestedScope:'Labour'}),
+    prisma.$transaction(async tx=>{await tx.$queryRaw`SELECT set_config('sunshine.actor_id',${staff.ADMIN.id},true)`;
+      return billing.executeRepairBilling(tx,current.id,[{type:'LABOUR',sourceId}]);}),
+  ]);
+  assert.equal(results.filter(row=>row.status==='fulfilled').length,1,'scope rewrite and billing in the old scope cannot both commit');
+  const saved=await prisma.serviceTicket.findUniqueOrThrow({where:{id:current.id}}),billed=results[1].status==='fulfilled';
+  assert.equal(saved.status,billed?'IN_PROGRESS':'ASSESSED');
+  assert.equal(await prisma.ticketLine.count({where:{ticketId:current.id}}),billed?1:0);
+  assert.equal(await prisma.costEntry.count({where:{uniqueSourceId:'TIME_ENTRY:'+sourceId}}),billed?1:0);
+  assert.equal(await prisma.invoice.count({where:{sourceType:'TICKET',sourceId:current.id}}),0);
+  if(!billed) assert.equal(saved.assessmentSnapshot.coverageStatus,'OUT_OF_SCOPE');
 });
 
 test('a caller failure after ticket/event insertion rolls back both effects and its command, allowing the same key retry',async()=>{
