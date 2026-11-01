@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { attentionItems, barsFor, documentRows, formatDay, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
+import { attentionItems, barsFor, crewRows, documentRows, formatDay, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
 
 const NOW = new Date(2026, 10, 4, 12, 0);
 const at = (day, hour) => new Date(2026, 10, day, hour).toISOString();
@@ -109,4 +109,23 @@ test('formatting helpers', () => {
   assert.equal(formatDay('2046-11-01'), '1 Nov 2046');
   assert.equal(formatInr('55000.00'), '₹55,000'); assert.equal(formatInr('1234.50'), '₹1,234.50');
   assert.equal(linePath([1], 10, 10), ''); assert.match(linePath([0, 2, 1], 100, 20), /^M0\.0 16\.0 C/);
+});
+
+test('each technician is on site, booked or free according to their own open jobs', () => {
+  const crew = (id) => ({ crew: [{ id, displayName: id }], technicianIds: [id] });
+  const people = [{ id: 'free', displayName: 'Zed' }, { id: 'booked', displayName: 'Bea' }, { id: 'site', displayName: 'Cal' }, { id: 'later', displayName: 'Ana' }];
+  const rows = crewRows(people, [
+    job('a', { ...crew('site'), status: 'IN_PROGRESS', scheduledStart: at(3, 9), scheduledEnd: at(3, 15) }),
+    job('b', { ...crew('booked'), scheduledStart: at(4, 14), scheduledEnd: at(4, 16) }),
+    job('c', { ...crew('booked'), scheduledStart: at(6, 9), scheduledEnd: at(6, 12) }),
+    job('d', { ...crew('booked'), scheduledStart: at(5, 9), scheduledEnd: at(5, 12) }),
+    job('e', { ...crew('later'), scheduledStart: at(7, 9), scheduledEnd: at(7, 12) }),
+    job('f', { ...crew('free'), status: 'COMPLETED', scheduledStart: at(4, 9), scheduledEnd: at(4, 11) }),
+  ], NOW);
+  assert.deepEqual(rows.map((row) => [row.member.displayName, row.state, row.current?.id, row.next?.id, row.open]), [
+    ['Cal', 'ON_SITE', 'a', undefined, 1],
+    ['Bea', 'ASSIGNED', 'b', 'd', 3],
+    ['Ana', 'FREE', undefined, 'e', 1],
+    ['Zed', 'FREE', undefined, undefined, 0],
+  ]);
 });

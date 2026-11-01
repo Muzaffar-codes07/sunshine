@@ -18,6 +18,8 @@ import { ServiceWorkspaceRoute } from '../features/service/ServiceWorkspaceRoute
 import { ReportsWorkspacePage } from '../features/reports';
 import { PatternsPage } from './PatternsPage';
 import { CapabilitySpikePage } from '../features/field/CapabilitySpikePage';
+import { EquipmentPage } from '../features/equipment/EquipmentPage';
+import { TeamPage } from '../features/team/TeamPage';
 
 const areas = ['Sales', 'Orders', 'Warehouse', 'Field & Service', 'Reports'];
 
@@ -39,6 +41,8 @@ export function App() {
         <Route path="warehouse/orders/:id" element={<OrderFulfilmentPage />} />
         <Route path="service" element={<ServiceWorkspaceRoute />} />
         <Route path="reports" element={<ReportsWorkspacePage />} />
+        <Route path="equipment" element={<EquipmentPage />} />
+        <Route path="team" element={<TeamPage />} />
         <Route path="*" element={<><h1>Page not found</h1><Link to="/workspace">Back to overview</Link></>} />
       </Route>
       {import.meta.env.DEV && <Route path="/patterns" element={<PatternsPage />} />}

@@ -10,14 +10,15 @@ import { Topbar } from './Topbar';
 import './shell.css';
 
 export const workspaces = [
-  ['sales', 'CRM'], ['orders', 'Projects'], ['warehouse', 'Inventory'],
-  ['field-service', 'Installations'], ['service', 'Service'], ['reports', 'Finance'],
+  ['sales', 'CRM'], ['orders', 'Projects'], ['warehouse', 'Inventory'], ['equipment', 'Equipment'],
+  ['field-service', 'Installations'], ['team', 'Team'], ['service', 'Service'], ['reports', 'Finance'],
 ] as const;
 
 export const workspaceRoles: Record<string, readonly StaffRole[]> = {
   sales: ['ADMIN', 'SALES', 'TECHNICIAN'], orders: ['ADMIN', 'SALES', 'WAREHOUSE'],
   warehouse: ['ADMIN', 'WAREHOUSE'], 'field-service': ['ADMIN', 'TECHNICIAN'],
   service: ['ADMIN', 'SUPPORT'], reports: ['ADMIN'],
+  equipment: ['ADMIN', 'SALES', 'WAREHOUSE'], team: ['ADMIN', 'SALES'],
 };
 export function visibleWorkspaces(role: StaffRole) {
   return workspaces.filter(([path]) => (workspaceRoles[path]?.includes(role) ?? false));

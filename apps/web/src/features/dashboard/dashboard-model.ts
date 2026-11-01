@@ -129,6 +129,23 @@ export function teamFacts(jobs: JobView[], nowAt: Date) {
   };
 }
 
+export type CrewState = 'ON_SITE' | 'ASSIGNED' | 'FREE';
+const CREW_ORDER: Record<CrewState, number> = { ON_SITE: 0, ASSIGNED: 1, FREE: 2 };
+
+/** Each technician's day, from the open jobs they're crewed on. Busiest first, then by name. */
+export function crewRows<T extends { id: string; displayName: string }>(technicians: T[], jobs: JobView[], nowAt: Date) {
+  const open = jobs.filter((job) => job.status !== 'COMPLETED');
+  return technicians.map((member) => {
+    const mine = open.filter((job) => job.technicianIds.includes(member.id));
+    const onSite = mine.find((job) => job.status === 'IN_PROGRESS');
+    const current = onSite ?? mine.find((job) => onDay(job, nowAt));
+    const next = mine.filter((job) => job !== current && job.scheduledStart && new Date(job.scheduledStart) > nowAt)
+      .sort((a, b) => new Date(a.scheduledStart!).getTime() - new Date(b.scheduledStart!).getTime())[0];
+    const state: CrewState = onSite ? 'ON_SITE' : current ? 'ASSIGNED' : 'FREE';
+    return { member, state, current, next, open: mine.length };
+  }).sort((a, b) => CREW_ORDER[a.state] - CREW_ORDER[b.state] || a.member.displayName.localeCompare(b.member.displayName));
+}
+
 export function projectHref(job: Pick<JobView, 'id' | 'orderId'>, role: StaffRole) {
   if (role === 'ADMIN' || role === 'TECHNICIAN') return `/workspace/field-service/jobs/${job.id}`;
   if (role === 'WAREHOUSE') return `/workspace/warehouse/orders/${job.orderId}`;
