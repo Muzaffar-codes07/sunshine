@@ -83,6 +83,15 @@ test('complete lifecycle persists explained assessment, resolution and customer 
   assert.equal(serviceTicketResponseSchema.safeParse(closed).success, true);
 });
 
+test('ticket creation and actions canonicalize uppercase UUIDs before equipment and row lookup', async () => {
+  const f = setup();
+  const created = (await f.service.createTicket({ unitId: unitId.toUpperCase(), faultDescription: 'fault' })).data;
+  assert.equal(created.unitId, unitId);
+  const assessed = (await f.service.assessTicket(created.id.toUpperCase(), assess)).data;
+  assert.equal(assessed.id, created.id);
+  assert.deepEqual(await f.service.getTicket(created.id.toUpperCase()), await f.service.getTicket(created.id));
+});
+
 test('expired and out-of-scope decisions stay charge-pending in the snapshot', async () => {
   for (const input of [{ ...assess, asOfDate: '2026-01-01T00:00:00+05:30' }, { ...assess, requestedScope: 'Labour' }]) {
     const f = setup(), ticket = await opened(f);

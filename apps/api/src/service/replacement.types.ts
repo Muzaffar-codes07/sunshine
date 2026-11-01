@@ -16,7 +16,7 @@ export type ReplacementInput = z.input<typeof replacementInputSchema>;
 const unit = z.object({ id: uuid, serial: z.string().trim().min(1).max(128), jobId: uuid, customerId: uuid });
 export const replacementStockResultSchema = z.object({
   oldUnit: unit.extend({ status: z.literal('QUARANTINED') }),
-  newUnit: unit.extend({ status: z.literal('RESERVED'), replacesUnitId: uuid }),
+  newUnit: unit.extend({ status: z.literal('DISPATCHED'), replacesUnitId: uuid }),
   repairItems: repairItemsSchema,
 }).refine((value) => value.repairItems.some((item) => item.type === 'PART'), {
   path: ['repairItems'], message: 'Replacement must include its actual consumed stock source',
@@ -34,7 +34,7 @@ export const continuedWarrantySchema = z.object({
 export const replacementResultSchema = z.object({
   ticketId: uuid, jobId: uuid, customerId: uuid, assessmentDate: z.iso.datetime(),
   oldUnit: unit.extend({ status: z.literal('QUARANTINED') }),
-  newUnit: unit.extend({ status: z.literal('RESERVED'), replacesUnitId: uuid }),
+  newUnit: unit.extend({ status: z.literal('DISPATCHED'), replacesUnitId: uuid }),
   warranty: continuedWarrantySchema, billing: repairBillingResultSchema,
 });
 export type ReplacementResult = z.infer<typeof replacementResultSchema>;
@@ -45,8 +45,8 @@ export const replacementSnapshotSchema = z.object({
 export abstract class ReplacementStockWriter {
   /** D3-owned atomic stock primitive. Use ONLY tx; lock old/new units in stable
    * order, validate old installation and new availability/product compatibility,
-   * release old active allocation into quarantine, allocate new to this ticket's
-   * part line, preserve unit-level replacesUnitId and immutable RETURN/ISSUE
+   * return/quarantine the old unit, issue the new unit into DISPATCHED against
+   * this ticket's PART line, preserve unit-level replacesUnitId and immutable RETURN/ISSUE
    * movements. Post actual consumed cost under STOCK_MOVEMENT:id/REPAIR_PARTS.
    * Return all actual work references/scope via the persisted RepairSourceReader;
    * each PART source must carry its existing allocation ticketLineId and frozen

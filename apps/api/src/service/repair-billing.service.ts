@@ -98,7 +98,9 @@ export class RepairBillingService {
           const posted = await tx.costEntry.findUnique({ where: { uniqueSourceId_costType: { uniqueSourceId, costType } } });
           if (!posted) throw new ApiError(409, 'REPAIR_PART_COST_REQUIRED', 'Consume and post the actual part before repair billing');
           const allocatedLine = await tx.ticketLine.findUnique({ where: { id: line.ticketLineId! } });
-          if (!allocatedLine || allocatedLine.ticketId !== id || allocatedLine.lineType !== 'PART' ||
+          const source = records.data.find((row) => row.type === 'PART' && row.sourceId.toLowerCase() === line.sourceId);
+          if (!allocatedLine || !source || allocatedLine.ticketId !== id || allocatedLine.lineType !== 'PART' ||
+              allocatedLine.productId !== source.productId ||
               !allocatedLine.quantity.equals(line.quantity) || !allocatedLine.unitCost.equals(line.unitCost) ||
               !allocatedLine.totalCost.equals(line.totalCost) || allocatedLine.billableToCustomer !== line.billableToCustomer) {
             throw new ApiError(409, 'REPAIR_LINE_CONFLICT', 'Allocation ticket line differs from its assessed repair source');

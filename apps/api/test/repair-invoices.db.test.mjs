@@ -10,7 +10,6 @@ process.env.DATABASE_URL = url;
 process.env.SESSION_SECRET = 'repair-invoice-tests-only-session-secret-2026';
 const { NestFactory } = require('@nestjs/core');
 const { AppModule } = require('../dist/app.module');
-const { Prisma } = require('../dist/generated/prisma/client');
 const { PrismaService } = require('../dist/platform/prisma.service');
 const { InvoicesService } = require('../dist/finance/invoices.service');
 const { ServiceInvoiceWriter } = require('../dist/finance/service-invoice-writer');
@@ -68,10 +67,16 @@ const assessment = covered => ({
   isCovered: covered, reason: 'Synthetic saved decision', customerCharge: covered ? '0.00' : null,
   chargeStatus: covered ? 'FREE' : 'PENDING_ASSESSMENT', requestedScope: 'Component repair', assessedAt: when,
 });
-const ticket = (covered = false) => prisma.serviceTicket.create({ data: {
+const openTicket = () => prisma.serviceTicket.create({ data: {
   ticketNumber: 'REPAIR-' + randomUUID(), customerId: order.customerId, jobId: order.jobId, unitId,
-  status: 'ASSESSED', faultDescription: 'Synthetic fault', assessmentSnapshot: assessment(covered),
+  faultDescription: 'Synthetic fault',
 } });
+const ticket = async (covered = false) => {
+  const opened = await openTicket();
+  return prisma.serviceTicket.update({ where: { id: opened.id }, data: {
+    status: 'ASSESSED', version: { increment: 1 }, assessmentSnapshot: assessment(covered),
+  } });
+};
 const input = row => ({
   uniqueSourceId: 'TICKET:' + row.id + ':REPAIR', ticketId: row.id, jobId: row.jobId, customerId: row.customerId,
   subtotal: '100.00', lines: [{ sourceId: randomUUID(), type: 'LABOUR', description: 'Approved service labour',
@@ -142,8 +147,8 @@ test('invalid sources, duplicate references, wrong totals, missing tickets and c
   const missing = { ...command, ticketId: randomUUID() }; missing.uniqueSourceId = 'TICKET:' + missing.ticketId + ':REPAIR';
   await refuses(post(missing), 404, 'TICKET_NOT_FOUND');
   await refuses(post(input(await ticket(true))), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
-  await prisma.serviceTicket.update({ where: { id: row.id }, data: { status: 'OPEN', assessmentSnapshot: Prisma.DbNull } });
-  await refuses(post(command), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
+  const unassessed = await openTicket();
+  await refuses(post(input(unassessed)), 409, 'REPAIR_INVOICE_NOT_CHARGEABLE');
   assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), 0);
 });
 
@@ -163,17 +168,17 @@ test('zero charge has a settled invoice without inventing a payment, and receipt
 test('invoice, ticket and preceding caller writes roll back together, including a changed-source refusal', async () => {
   const row = await ticket(), command = input(row);
   await assert.rejects(prisma.$transaction(async tx => {
-    await tx.serviceTicket.update({ where: { id: row.id }, data: { faultDescription: 'Rolled-back edit' } });
+    await tx.serviceTicket.update({ where: { id: row.id }, data: { status: 'IN_PROGRESS', version: { increment: 1 } } });
     await writer.ensureServiceInvoice(tx, command); throw Error('late caller failure');
   }), /late caller failure/);
   assert.equal(await prisma.invoice.count({ where: invoiceWhere(row.id) }), 0);
-  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).faultDescription, 'Synthetic fault');
+  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).status, 'ASSESSED');
   await post(command);
   await refuses(prisma.$transaction(async tx => {
-    await tx.serviceTicket.update({ where: { id: row.id }, data: { faultDescription: 'Must roll back on conflict' } });
+    await tx.serviceTicket.update({ where: { id: row.id }, data: { status: 'IN_PROGRESS', version: { increment: 1 } } });
     await writer.ensureServiceInvoice(tx, { ...command, lines: [{ ...command.lines[0], sourceId: randomUUID() }] });
   }), 409, 'REPAIR_INVOICE_CONFLICT');
-  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).faultDescription, 'Synthetic fault');
+  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } })).status, 'ASSESSED');
 });
 
 test('real D4 billing composes costs, invoice and ticket snapshot atomically; covered work posts cost only', async () => {
@@ -218,5 +223,5 @@ test('late D4 caller failure removes real costs, invoice, lines and billing snap
   assert.equal(await prisma.costEntry.count({ where: { uniqueSourceId: 'TIME_ENTRY:' + sourceId } }), 0);
   assert.equal(await prisma.ticketLine.count({ where: { ticketId: row.id } }), 0);
   const restored = await prisma.serviceTicket.findUniqueOrThrow({ where: { id: row.id } });
-  assert.equal(restored.status, 'ASSESSED'); assert.equal(restored.version, 1); assert.equal(restored.billingSnapshot, null);
+  assert.equal(restored.status, 'ASSESSED'); assert.equal(restored.version, 2); assert.equal(restored.billingSnapshot, null);
 });

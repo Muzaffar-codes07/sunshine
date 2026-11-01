@@ -1464,6 +1464,34 @@
       "kind": "trigger",
       "owner": "D4",
       "definition": "CREATE TRIGGER labour_approvals_source BEFORE INSERT ON public.installation_labour_approvals FOR EACH ROW EXECUTE FUNCTION labour_check_source()"
+    },
+    {
+      "name": "ticket_lines_product_identity",
+      "table": "ticket_lines",
+      "kind": "check",
+      "definition": "CHECK ((((\"lineType\" = 'PART'::\"TicketLineType\") AND (\"productId\" IS NOT NULL)) OR ((\"lineType\" = 'LABOUR'::\"TicketLineType\") AND (\"productId\" IS NULL))))",
+      "owner": "D4"
+    },
+    {
+      "name": "service_tickets_preserve_history",
+      "table": "service_tickets_preserve_history",
+      "kind": "function",
+      "owner": "D4",
+      "definition": "CREATE OR REPLACE FUNCTION public.service_tickets_preserve_history()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP IN ('DELETE', 'TRUNCATE') THEN\n    RAISE EXCEPTION 'ticket evidence cannot be removed'\n      USING ERRCODE = '23514', CONSTRAINT = 'service_tickets_history_frozen';\n  END IF;\n  IF TG_OP = 'INSERT' THEN\n    IF NEW.status <> 'OPEN' OR NEW.version <> 1 OR\n       NEW.\"assessmentSnapshot\" IS NOT NULL OR NEW.\"billingSnapshot\" IS NOT NULL OR\n       NEW.\"replacementSnapshot\" IS NOT NULL OR NEW.\"replacedUnitId\" IS NOT NULL OR\n       NEW.\"newUnitId\" IS NOT NULL OR NEW.\"resolutionDetails\" IS NOT NULL OR\n       NEW.\"resolvedAt\" IS NOT NULL OR NEW.\"confirmedBy\" IS NOT NULL OR\n       NEW.\"confirmationChannel\" IS NOT NULL OR NEW.\"confirmedAt\" IS NOT NULL OR\n       NEW.\"closedAt\" IS NOT NULL THEN\n      RAISE EXCEPTION 'a new ticket must begin open without saved effects'\n        USING ERRCODE = '23514', CONSTRAINT = 'service_tickets_history_frozen';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF to_jsonb(NEW) IS NOT DISTINCT FROM to_jsonb(OLD) THEN RETURN NEW; END IF;\n\n  IF OLD.status = 'CLOSED' OR\n     (NEW.id, NEW.\"ticketNumber\", NEW.\"customerId\", NEW.\"unitId\", NEW.\"jobId\", NEW.\"faultDescription\", NEW.\"createdAt\")\n       IS DISTINCT FROM\n     (OLD.id, OLD.\"ticketNumber\", OLD.\"customerId\", OLD.\"unitId\", OLD.\"jobId\", OLD.\"faultDescription\", OLD.\"createdAt\") OR\n     (OLD.\"assessmentSnapshot\" IS NOT NULL AND NEW.\"assessmentSnapshot\" IS DISTINCT FROM OLD.\"assessmentSnapshot\") OR\n     (OLD.\"billingSnapshot\" IS NOT NULL AND NEW.\"billingSnapshot\" IS DISTINCT FROM OLD.\"billingSnapshot\") OR\n     (OLD.\"replacementSnapshot\" IS NOT NULL AND NEW.\"replacementSnapshot\" IS DISTINCT FROM OLD.\"replacementSnapshot\") OR\n     (OLD.\"replacedUnitId\" IS NOT NULL AND NEW.\"replacedUnitId\" IS DISTINCT FROM OLD.\"replacedUnitId\") OR\n     (OLD.\"newUnitId\" IS NOT NULL AND NEW.\"newUnitId\" IS DISTINCT FROM OLD.\"newUnitId\") OR\n     (OLD.\"resolutionDetails\" IS NOT NULL AND NEW.\"resolutionDetails\" IS DISTINCT FROM OLD.\"resolutionDetails\") OR\n     (OLD.\"resolvedAt\" IS NOT NULL AND NEW.\"resolvedAt\" IS DISTINCT FROM OLD.\"resolvedAt\") OR\n     (OLD.\"confirmedBy\" IS NOT NULL AND NEW.\"confirmedBy\" IS DISTINCT FROM OLD.\"confirmedBy\") OR\n     (OLD.\"confirmationChannel\" IS NOT NULL AND NEW.\"confirmationChannel\" IS DISTINCT FROM OLD.\"confirmationChannel\") OR\n     (OLD.\"confirmedAt\" IS NOT NULL AND NEW.\"confirmedAt\" IS DISTINCT FROM OLD.\"confirmedAt\") OR\n     (OLD.\"closedAt\" IS NOT NULL AND NEW.\"closedAt\" IS DISTINCT FROM OLD.\"closedAt\") OR\n     NEW.version < OLD.version OR NEW.version > OLD.version + 1 OR\n     NEW.\"updatedAt\" < OLD.\"updatedAt\" OR\n     (NEW.version = OLD.version AND (\n       NEW.status <> 'IN_PROGRESS' OR\n       (to_jsonb(NEW) - 'billingSnapshot' - 'replacementSnapshot' - 'replacedUnitId' - 'newUnitId' - 'updatedAt')\n         IS DISTINCT FROM\n       (to_jsonb(OLD) - 'billingSnapshot' - 'replacementSnapshot' - 'replacedUnitId' - 'newUnitId' - 'updatedAt')\n     )) OR\n     (NEW.status IS DISTINCT FROM OLD.status AND\n       (NEW.version <> OLD.version + 1 OR NOT (\n         (OLD.status = 'OPEN' AND NEW.status = 'ASSESSED') OR\n         (OLD.status = 'ASSESSED' AND NEW.status IN ('IN_PROGRESS', 'AWAITING_CUSTOMER_CONFIRMATION')) OR\n         (OLD.status = 'IN_PROGRESS' AND NEW.status = 'AWAITING_CUSTOMER_CONFIRMATION') OR\n         (OLD.status = 'AWAITING_CUSTOMER_CONFIRMATION' AND NEW.status = 'CLOSED')\n       ))) THEN\n    RAISE EXCEPTION 'ticket identity, lifecycle or saved history cannot be rewritten'\n      USING ERRCODE = '23514', CONSTRAINT = 'service_tickets_history_frozen';\n  END IF;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "name": "service_tickets_history_frozen",
+      "table": "service_tickets",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER service_tickets_history_frozen BEFORE INSERT OR DELETE OR UPDATE ON public.service_tickets FOR EACH ROW EXECUTE FUNCTION service_tickets_preserve_history()"
+    },
+    {
+      "name": "service_tickets_no_truncate",
+      "table": "service_tickets",
+      "kind": "trigger",
+      "owner": "D4",
+      "definition": "CREATE TRIGGER service_tickets_no_truncate BEFORE TRUNCATE ON public.service_tickets FOR EACH STATEMENT EXECUTE FUNCTION service_tickets_preserve_history()"
     }
   ]
 }

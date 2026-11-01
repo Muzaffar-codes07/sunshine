@@ -10,7 +10,7 @@ const { ReportingService } = require('../dist/reporting/reporting.service');
 const { Prisma } = require('../dist/generated/prisma/client');
 const { ApiError } = require('../dist/platform/api-error');
 const ticketId = randomUUID(), jobId = randomUUID(), customerId = randomUUID(), unitId = randomUUID();
-const partId = randomUUID(), labourId = randomUUID();
+const partId = randomUUID(), labourId = randomUUID(), productId = randomUUID();
 const refs = [{ type: 'PART', sourceId: partId }, { type: 'LABOUR', sourceId: labourId }];
 const code = (status, name) => (error) => error instanceof ApiError && error.getStatus() === status && error.code === name;
 
@@ -53,7 +53,7 @@ function setup(covered = true) {
     occurredAt: '2025-07-01T11:00:00Z',
     description: ref.type === 'PART' ? 'Frozen inverter part' : 'Approved service labour',
     quantity: '1.000', unitCost: ref.type === 'PART' ? '14000.00' : '600.00', unitPrice: ref.type === 'PART' ? '16000.00' : '800.00',
-    ...(ref.type === 'PART' ? { ticketLineId: randomUUID() } : {}) }));
+    ...(ref.type === 'PART' ? { ticketLineId: randomUUID(), productId } : {}) }));
   const writer = new CostWriterService();
   const sources = { async read(received, id, items) {
     assert.strictEqual(received, tx); assert.equal(id, ticketId); calls.push(['sources']);
@@ -61,7 +61,7 @@ function setup(covered = true) {
     for (const fact of facts.filter((row) => row.type === 'PART' && items.some((item) => item.sourceId === row.sourceId))) {
       const total = new Prisma.Decimal(fact.quantity).mul(fact.unitCost).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2);
       if (!state.lines.some((line) => line.id === fact.ticketLineId)) state.lines.push({ id: fact.ticketLineId,
-        ticketId: fact.ticketId, lineType: 'PART', description: fact.description, quantity: fact.quantity,
+        ticketId: fact.ticketId, productId: fact.productId, lineType: 'PART', description: fact.description, quantity: fact.quantity,
         unitCost: fact.unitCost, totalCost: total, billableToCustomer: !covered });
       await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${fact.sourceId}`, costType: 'REPAIR_PARTS', jobId: fact.jobId, amount: total, description: fact.description, occurredAt: fact.occurredAt });
     }
@@ -231,7 +231,7 @@ test('CAS protects concurrent billing and lifecycle transitions; database confli
 });
 
 test('allocation PART line is required, validated and reused; missing or inconsistent linkage aborts', async () => {
-  for (const patch of [null, { ticketId: randomUUID() }, { lineType: 'LABOUR' }, { quantity: '2.000' },
+  for (const patch of [null, { ticketId: randomUUID() }, { productId: randomUUID() }, { lineType: 'LABOUR' }, { quantity: '2.000' },
     { unitCost: '1.00' }, { totalCost: '1.00' }, { billableToCustomer: true }]) {
     const f = setup(), read = f.sources.read, before = structuredClone(f.state);
     f.sources.read = async (...args) => {
@@ -242,7 +242,9 @@ test('allocation PART line is required, validated and reused; missing or inconsi
     await assert.rejects(f.run(), code(409, 'REPAIR_LINE_CONFLICT')); assert.deepEqual(f.state, before);
   }
   for (const change of [(facts) => { delete facts[0].ticketLineId; },
-    (facts) => { facts[1].ticketLineId = randomUUID(); }]) {
+    (facts) => { delete facts[0].productId; },
+    (facts) => { facts[1].ticketLineId = randomUUID(); },
+    (facts) => { facts[1].productId = randomUUID(); }]) {
     const f = setup(), before = structuredClone(f.state); change(f.facts);
     await assert.rejects(f.run(), code(503, 'INVALID_REPAIR_SOURCE')); assert.deepEqual(f.state, before);
   }

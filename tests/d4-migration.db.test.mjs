@@ -25,7 +25,7 @@ const { StockReceiptsService } = require('./dist/inventory/stock-receipts.servic
 const { seedCatalogue } = require('./dist/catalog/seed-catalogue');
 const { catalogueDemoId: id } = require('./dist/catalog/demo-catalogue');
 const { Client } = require('pg');
-let app, prisma, sql, writer, sales, tech, firstOrder, secondOrder, unitId;
+let app, prisma, sql, writer, sales, tech, firstOrder, secondOrder, unitId, productId;
 const actor = row => ({ id: row.id, email: row.email, displayName: row.displayName, role: row.role });
 const conflict = error => error.code === 'IDEMPOTENCY_CONFLICT' && error.getStatus() === 409;
 const databaseError = sqlstate => error => error.code === sqlstate;
@@ -60,6 +60,7 @@ before(async () => {
   firstOrder = await confirmedOrder(); secondOrder = await confirmedOrder();
   const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
   const product = await prisma.product.findFirstOrThrow({ where: { trackingMode: 'SERIALIZED', active: true } });
+  productId = product.id;
   const receipt = (await app.get(StockReceiptsService).receive(sales.id, randomUUID(), {
     reference: 'D4-' + randomUUID(), locationId: location.id, receivedAt: now,
     lines: [{ productId: product.id, quantity: '1', unitCost: '100.00', serials: ['D4-' + randomUUID()] }],
@@ -72,6 +73,22 @@ const cost = (overrides = {}) => ({ uniqueSourceId: `TIME_RECORD:${randomUUID()}
 const post = command => prisma.$transaction(tx => writer.postCost(tx, command));
 const ticket = (overrides = {}) => prisma.serviceTicket.create({ data: { ticketNumber: 'D4-' + randomUUID(),
   customerId: firstOrder.customerId, jobId: firstOrder.jobId, unitId, faultDescription: 'Synthetic migration fault', ...overrides } });
+
+test('PART lines require a real Product and LABOUR lines cannot claim one', async () => {
+  const saved = await ticket();
+  const line = { ticketId: saved.id, description: 'Actual synthetic part', quantity: '1.000',
+    unitCost: '12.00', totalCost: '12.00', billableToCustomer: true };
+  const part = await prisma.ticketLine.create({ data: { ...line, lineType: 'PART', productId } });
+  const labour = await prisma.ticketLine.create({ data: { ...line, lineType: 'LABOUR' } });
+  assert.equal(part.productId, productId);
+  assert.equal(labour.productId, null);
+  const insert = `INSERT INTO ticket_lines (id,"ticketId","lineType",description,quantity,"unitCost","totalCost","billableToCustomer","productId")
+    VALUES ($1,$2,$3,'Invalid identity',1,12,12,true,$4)`;
+  await assert.rejects(sql.query(insert, [randomUUID(), saved.id, 'PART', null]), databaseError('23514'));
+  await assert.rejects(sql.query(insert, [randomUUID(), saved.id, 'LABOUR', productId]), databaseError('23514'));
+  await assert.rejects(sql.query(insert, [randomUUID(), saved.id, 'PART', randomUUID()]), databaseError('23503'));
+  assert.equal(await prisma.ticketLine.count({ where: { ticketId: saved.id } }), 2);
+});
 
 test('D4 references have actual upstream targets and Restrict delete policies', async () => {
   const { rows } = await sql.query(`SELECT c.conname AS name, c.confdeltype, c.confupdtype, t.relname AS target
@@ -162,11 +179,67 @@ test('warranty uniqueness, replacement lineage pairing and confirmation ordering
     status: 'CLOSED', assessmentSnapshot: {}, resolutionDetails: 'Resolved', resolvedAt: new Date(now),
     confirmedBy: 'Customer', confirmationChannel: 'PHONE', confirmedAt: new Date('2026-10-30'), closedAt: new Date(now),
   } }));
+  await prisma.serviceTicket.update({ where: { id: row.id }, data: {
+    status: 'ASSESSED', version: { increment: 1 }, assessmentSnapshot: {},
+  } });
+  await prisma.serviceTicket.update({ where: { id: row.id }, data: {
+    status: 'AWAITING_CUSTOMER_CONFIRMATION', version: { increment: 1 }, resolutionDetails: 'Resolved', resolvedAt: new Date(now),
+  } });
   const closed = await prisma.serviceTicket.update({ where: { id: row.id }, data: {
-    status: 'CLOSED', assessmentSnapshot: {}, resolutionDetails: 'Resolved', resolvedAt: new Date(now),
-    confirmedBy: 'Customer', confirmationChannel: 'PHONE', confirmedAt: new Date(now), closedAt: new Date(now),
+    status: 'CLOSED', version: { increment: 1 }, confirmedBy: 'Customer',
+    confirmationChannel: 'PHONE', confirmedAt: new Date(now), closedAt: new Date(now),
   } });
   assert.equal(closed.status, 'CLOSED');
+});
+
+test('direct SQL cannot skip states, rewrite frozen ticket facts or remove evidence', async () => {
+  const saved = await ticket();
+  await assert.rejects(sql.query(`INSERT INTO service_tickets
+    (id,"ticketNumber","customerId","unitId","jobId",status,"faultDescription","assessmentSnapshot")
+    VALUES ($1,$2,$3,$4,$5,'ASSESSED','Invalid initial state','{}'::jsonb)`,
+    [randomUUID(), 'D4-' + randomUUID(), saved.customerId, saved.unitId, saved.jobId]), databaseError('23514'));
+  const update = (set) => sql.query(`UPDATE service_tickets SET ${set} WHERE id=$1`, [saved.id]);
+  for (const set of [
+    `status='CLOSED', version=2, "assessmentSnapshot"='{}'::jsonb,
+      "resolutionDetails"='done', "resolvedAt"=now(), "confirmedBy"='Customer',
+      "confirmationChannel"='PHONE', "confirmedAt"=now(), "closedAt"=now()`,
+    `"faultDescription"='rewritten'`, `"customerId"='${secondOrder.customerId}'`,
+    `version=3`,
+  ]) await assert.rejects(update(set), databaseError('23514'));
+
+  await update(`status='ASSESSED', version=2, "assessmentSnapshot"='{"decision":"saved"}'::jsonb`);
+  await assert.rejects(update(`"assessmentSnapshot"='{"decision":"changed"}'::jsonb`), databaseError('23514'));
+  await update(`status='IN_PROGRESS', version=3, "billingSnapshot"='{"batch":"posted"}'::jsonb`);
+  await assert.rejects(update(`"billingSnapshot"='{"batch":"changed"}'::jsonb`), databaseError('23514'));
+  await update(`status='AWAITING_CUSTOMER_CONFIRMATION', version=4, "resolutionDetails"='Resolved', "resolvedAt"=now()`);
+  await assert.rejects(update(`"resolutionDetails"='rewritten'`), databaseError('23514'));
+  await assert.rejects(sql.query('DELETE FROM service_tickets WHERE id=$1', [saved.id]), databaseError('23514'));
+  await assert.rejects(sql.query('TRUNCATE service_tickets CASCADE'), databaseError('23514'));
+  assert.equal((await prisma.serviceTicket.findUniqueOrThrow({ where: { id: saved.id } })).status, 'AWAITING_CUSTOMER_CONFIRMATION');
+});
+
+test('physical replacement policy can void the old serial and copy its frozen interval atomically', async () => {
+  const location = await prisma.stockLocation.findUniqueOrThrow({ where: { code: 'MAIN' } });
+  const received = (await app.get(StockReceiptsService).receive(sales.id, randomUUID(), {
+    reference: 'D4-CONTINUITY-' + randomUUID(), locationId: location.id, receivedAt: now,
+    lines: [{ productId, quantity: '2', unitCost: '100.00', serials: ['D4-OLD-' + randomUUID(), 'D4-NEW-' + randomUUID()] }],
+  })).data;
+  const [oldId, newId] = received.lines[0].unitIds;
+  const facts = { startDate: new Date('2024-01-01'), expiryDate: new Date('2026-01-01'),
+    policyName: 'Synthetic cover', policyRevision: 'v1', scope: 'Component replacement', durationMonths: 24 };
+  await prisma.warranty.create({ data: { unitId: oldId, ...facts, active: true } });
+  await prisma.$transaction(async tx => {
+    const voided = await tx.warranty.updateMany({ where: { unitId: oldId, version: 1, active: true },
+      data: { active: false, version: { increment: 1 } } });
+    assert.equal(voided.count, 1);
+    await tx.warranty.create({ data: { unitId: newId, ...facts, active: true } });
+  });
+  const [old, successor] = await Promise.all([oldId, newId].map(id => prisma.warranty.findUniqueOrThrow({ where: { unitId: id } })));
+  assert.equal(old.active, false); assert.equal(old.version, 2); assert.equal(successor.active, true);
+  for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths']) {
+    assert.deepEqual(successor[key], old[key]);
+  }
+  await assert.rejects(prisma.warranty.update({ where: { unitId: oldId }, data: { active: true, version: { increment: 1 } } }));
 });
 
 test('a missing File prerequisite rolls back the entire migration, including its new types', async () => {

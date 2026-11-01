@@ -41,7 +41,9 @@ test('saved detail and list return the same version, lineage and confirmation; u
     async list(query) { calls.push(['list', query]); return { rows: [saved], total: 1 }; },
   }, {}, {});
   const detail = await service.getTicket(saved.id);
+  assert.deepEqual(await service.getTicket(saved.id.toUpperCase()), detail);
   const listed = await service.listTickets({ page: 1, pageSize: 20, unitId });
+  await service.listTickets({ page: 1, pageSize: 20, unitId: unitId.toUpperCase() });
   assert.equal(serviceTicketResponseSchema.safeParse(detail).success, true);
   assert.equal(ticketListResponseSchema.safeParse(listed).success, true);
   assert.deepEqual(listed.data.items[0], detail.data);
@@ -52,7 +54,8 @@ test('saved detail and list return the same version, lineage and confirmation; u
   assert.equal(detail.data.closedAt, '2026-10-31T11:01:00.000Z');
   await assert.rejects(service.getTicket(randomUUID()), (error) => error instanceof ApiError && error.getStatus() === 404 && error.code === 'TICKET_NOT_FOUND');
   await assert.rejects(service.getTicket('bad'), (error) => error instanceof ApiError && error.getStatus() === 400);
-  assert.equal(calls.filter(([name]) => name === 'list').length, 1);
+  assert.equal(calls.filter(([name]) => name === 'list').length, 2);
+  assert.equal(calls.find(([name, query]) => name === 'list' && query.unitId === unitId)?.[1].unitId, unitId);
 });
 
 test('repository applies deterministic bounded paging and maps missing migration to 503', async () => {

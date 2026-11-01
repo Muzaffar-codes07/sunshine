@@ -9,7 +9,7 @@ const { CostWriterService } = require('../dist/finance/cost-writer.service');
 const { Prisma } = require('../dist/generated/prisma/client');
 const { ApiError } = require('../dist/platform/api-error');
 const ticketId = randomUUID(), jobId = randomUUID(), customerId = randomUUID();
-const oldUnitId = randomUUID(), newUnitId = randomUUID(), partId = randomUUID(), labourId = randomUUID();
+const oldUnitId = randomUUID(), newUnitId = randomUUID(), partId = randomUUID(), labourId = randomUUID(), productId = randomUUID();
 const input = { ticketId, oldUnitId, newUnitId, assessmentDate: '2025-07-01T12:00:00Z' };
 const code = (status, name) => (error) => error instanceof ApiError && error.getStatus() === status && error.code === name;
 
@@ -27,7 +27,7 @@ function setup(covered = true) {
       { id: newUnitId, serial: 'INV-NEW', jobId: null, customerId: null, status: 'AVAILABLE' }],
     movements: [], allocations: [], costs: [], invoices: [], lines: [] };
   const calls = [], writer = new CostWriterService();
-  const facts = [{ type: 'PART', sourceId: partId, ticketLineId: randomUUID(), quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00' },
+  const facts = [{ type: 'PART', sourceId: partId, ticketLineId: randomUUID(), productId, quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00' },
     { type: 'LABOUR', sourceId: labourId, quantity: '1.000', unitCost: '600.00', unitPrice: '800.00' }]
     .map((ref) => ({ ...ref, ticketId, jobId, customerId, scope: 'Component replacement', description: 'Actual replacement work', occurredAt: '2025-07-01T12:00:00Z' }));
   const tx = { serviceTicket: {
@@ -41,8 +41,8 @@ function setup(covered = true) {
   }, warranty: {
     async findUnique({ where }) { calls.push('warranty'); return structuredClone(state.warranties.find((row) => row.unitId === where.unitId) ?? null); },
     async updateMany({ where, data }) {
-      calls.push('policy-lock'); const row = state.warranties.find((item) => item.unitId === where.unitId && item.version === where.version);
-      if (!row) return { count: 0 }; row.version += data.version.increment; return { count: 1 };
+      calls.push('policy-lock'); const row = state.warranties.find((item) => item.unitId === where.unitId && item.version === where.version && item.active === where.active);
+      if (!row) return { count: 0 }; row.version += data.version.increment; row.active = data.active; return { count: 1 };
     },
     async create({ data }) {
       calls.push('warranty-create');
@@ -75,9 +75,9 @@ function setup(covered = true) {
     const old = state.units[0], next = state.units[1];
     if (old.status !== 'INSTALLED' || next.status !== 'AVAILABLE') throw new ApiError(409, 'STOCK_CONFLICT', 'Unit already claimed');
     Object.assign(old, { status: 'QUARANTINED' });
-    Object.assign(next, { status: 'RESERVED', jobId, customerId, replacesUnitId: oldUnitId });
+    Object.assign(next, { status: 'DISPATCHED', jobId, customerId, replacesUnitId: oldUnitId });
     const part = facts[0];
-    await tx.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, lineType: 'PART', description: part.description,
+    await tx.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, productId: part.productId, lineType: 'PART', description: part.description,
       quantity: part.quantity, unitCost: part.unitCost, totalCost: '14000.00', billableToCustomer: !covered }] });
     state.allocations.push({ unitId: newUnitId, ticketLineId: part.ticketLineId });
     state.movements.push({ type: 'RETURN', unitId: oldUnitId }, { id: partId, type: 'ISSUE', unitId: newUnitId });
@@ -103,11 +103,12 @@ function setup(covered = true) {
 test('18-month replacement keeps exactly the original 24-month warranty interval and serial lineage', async () => {
   const f = setup(), result = await f.run();
   assert.equal(result.oldUnit.id, oldUnitId); assert.equal(result.oldUnit.serial, 'INV-OLD'); assert.equal(result.oldUnit.status, 'QUARANTINED');
-  assert.equal(result.newUnit.id, newUnitId); assert.equal(result.newUnit.serial, 'INV-NEW'); assert.equal(result.newUnit.status, 'RESERVED');
+  assert.equal(result.newUnit.id, newUnitId); assert.equal(result.newUnit.serial, 'INV-NEW'); assert.equal(result.newUnit.status, 'DISPATCHED');
   assert.equal(result.newUnit.replacesUnitId, oldUnitId);
   assert.equal(f.state.ticket.unitId, oldUnitId); assert.equal(f.state.ticket.replacedUnitId, oldUnitId); assert.equal(f.state.ticket.newUnitId, newUnitId);
   const [old, next] = f.state.warranties;
-  for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths', 'active']) assert.deepEqual(next[key], old[key]);
+  for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths']) assert.deepEqual(next[key], old[key]);
+  assert.equal(old.active, false); assert.equal(next.active, true);
   assert.equal(next.expiryDate.toISOString(), '2026-01-01T00:00:00.000Z');
   const remainingMonths = (next.expiryDate.getUTCFullYear() - 2025) * 12 + next.expiryDate.getUTCMonth() - 6;
   assert.equal(remainingMonths, 6); assert.equal(next.startDate.toISOString(), '2024-01-01T00:00:00.000Z');

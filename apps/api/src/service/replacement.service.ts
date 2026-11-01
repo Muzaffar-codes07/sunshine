@@ -67,10 +67,14 @@ export class ReplacementService {
       if (!warranty.success || original.unitId !== data.oldUnitId || original.version >= 2147483647) {
         throw new ApiError(503, 'INVALID_WARRANTY_RECORD', 'Original warranty needs review');
       }
-      // Lock policy/version against edits before copying; coverage facts stay unchanged.
-      const policyLock = await tx.warranty.updateMany({ where: { unitId: original.unitId, version: original.version },
-        data: { version: { increment: 1 } } });
-      if (policyLock.count !== 1) throw new ApiError(409, 'WARRANTY_CONFLICT', 'Original warranty changed; retry the transaction');
+      // A physical swap supersedes the defective serial. The merged warranty
+      // guard permits only a versioned true -> false void; an already-void
+      // policy is immutable and needs no synthetic version bump.
+      if (original.active) {
+        const policyLock = await tx.warranty.updateMany({ where: { unitId: original.unitId, version: original.version, active: true },
+          data: { active: false, version: { increment: 1 } } });
+        if (policyLock.count !== 1) throw new ApiError(409, 'WARRANTY_CONFLICT', 'Original warranty changed; retry the transaction');
+      }
       if (await tx.warranty.findUnique({ where: { unitId: data.newUnitId } })) {
         throw new ApiError(409, 'WARRANTY_CONFLICT', 'Replacement unit already has warranty history');
       }

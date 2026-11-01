@@ -18,14 +18,15 @@ export class ServiceService {
     private readonly equipment: WarrantyEquipmentReader) {}
 
   async getTicket(id: string): Promise<ServiceTicketResponse> {
-    new ZodValidationPipe(z.uuid()).transform(id);
-    const ticket = await this.tickets.findById(id);
+    const ticketId = new ZodValidationPipe(z.uuid()).transform(id).toLowerCase();
+    const ticket = await this.tickets.findById(ticketId);
     if (!ticket) throw new ApiError(404, 'TICKET_NOT_FOUND', 'No ticket was found');
     return this.response(ticket);
   }
 
   async listTickets(query: TicketListQuery): Promise<TicketListResponse> {
     const input = new ZodValidationPipe(ticketListQuerySchema).transform(query);
+    if (input.unitId) input.unitId = input.unitId.toLowerCase();
     const { rows, total } = await this.tickets.list(input);
     return ticketListResponseSchema.parse({ data: {
       items: rows.map((row) => this.response(row).data),
@@ -35,6 +36,7 @@ export class ServiceService {
 
   async createTicket(input: CreateTicketInput): Promise<ServiceTicketResponse> {
     const data = new ZodValidationPipe(createTicketInputSchema).transform(input);
+    data.unitId = data.unitId.toLowerCase();
     const installation = await this.installation(data.unitId);
     return this.response(await this.tickets.create({
       ticketNumber: `SVC-${randomUUID()}`, unitId: data.unitId,
@@ -98,8 +100,8 @@ export class ServiceService {
   }
 
   private async current(id: string, version: number, allowed: TicketRow['status'][]): Promise<TicketRow> {
-    new ZodValidationPipe(z.uuid()).transform(id);
-    const ticket = await this.tickets.findById(id);
+    const ticketId = new ZodValidationPipe(z.uuid()).transform(id).toLowerCase();
+    const ticket = await this.tickets.findById(ticketId);
     if (!ticket) throw new ApiError(404, 'TICKET_NOT_FOUND', 'No ticket was found');
     if (ticket.version !== version) throw new ApiError(409, 'STALE_VERSION', 'Ticket changed; reload before retrying');
     if (!allowed.includes(ticket.status)) throw new ApiError(409, 'INVALID_TICKET_TRANSITION', `Cannot perform this action from ${ticket.status}`);
@@ -107,7 +109,7 @@ export class ServiceService {
   }
 
   private async installation(unitId: string) {
-    const record = await this.equipment.findById(unitId);
+    const record = await this.equipment.findById(unitId.toLowerCase());
     if (!record) throw new ApiError(404, 'UNIT_NOT_FOUND', 'No unit was found');
     const parsed = warrantyEquipmentSchema.safeParse(record);
     if (!parsed.success || parsed.data.unit.id !== unitId) throw new ApiError(503, 'INVALID_EQUIPMENT_RECORD', 'Unit installation needs review');

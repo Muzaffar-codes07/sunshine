@@ -90,15 +90,16 @@ function fixture() {
     ticketLine: {
       async findUnique({ where }: { where: { id: string } }) { return lines.find(l => l.id === where.id) ?? null; },
       async createMany({ data }: { data: PrismaTypes.TicketLineCreateManyInput[] }) {
-        for (const line of data) lines.push({ ...line, id: line.id ?? randomUUID(), createdAt: new Date(), billableToCustomer: line.billableToCustomer ?? false,
+        for (const line of data) lines.push({ ...line, id: line.id ?? randomUUID(), productId: line.productId ?? null,
+          createdAt: new Date(), billableToCustomer: line.billableToCustomer ?? false,
           quantity: new Prisma.Decimal(String(line.quantity)), unitCost: new Prisma.Decimal(String(line.unitCost)), totalCost: new Prisma.Decimal(String(line.totalCost)) });
       },
     },
     warranty: {
       async findUnique({ where }: { where: { unitId: string } }) { return structuredClone(warranties.find(w => w.unitId === where.unitId) ?? null); },
-      async updateMany({ where, data }: { where: { unitId: string; version: number }; data: { version: { increment: number } } }) {
-        const row = warranties.find(w => w.unitId === where.unitId && w.version === where.version);
-        if (!row) return { count: 0 }; row.version += data.version.increment; return { count: 1 };
+      async updateMany({ where, data }: { where: { unitId: string; version: number; active: boolean }; data: { active: boolean; version: { increment: number } } }) {
+        const row = warranties.find(w => w.unitId === where.unitId && w.version === where.version && w.active === where.active);
+        if (!row) return { count: 0 }; row.version += data.version.increment; row.active = data.active; return { count: 1 };
       },
       async create({ data }: { data: Omit<(typeof warranties)[number], 'version'> }) {
         assert.ok(!warranties.some(w => w.unitId === data.unitId)); warranties.push({ ...data, version: 1 });
@@ -122,12 +123,12 @@ function fixture() {
   }
   async function consume(ticketId: string) {
     const covered = (await repository.findById(ticketId))!.assessmentSnapshot as { isCovered: boolean };
-    const part: RepairSource = { type: 'PART', sourceId: randomUUID(), ticketLineId: randomUUID(), ticketId, jobId, customerId,
+    const part: RepairSource = { type: 'PART', sourceId: randomUUID(), ticketLineId: randomUUID(), productId: randomUUID(), ticketId, jobId, customerId,
       scope, description: 'Consumed replacement inverter', quantity: '1.000', unitCost: '14000.00', unitPrice: '16000.00', occurredAt: coveredInstant };
-    const labour: RepairSource = { ...part, type: 'LABOUR', sourceId: randomUUID(), ticketLineId: undefined,
+    const labour: RepairSource = { ...part, type: 'LABOUR', sourceId: randomUUID(), ticketLineId: undefined, productId: undefined,
       description: 'Approved service time', quantity: '2.000', unitCost: '300.00', unitPrice: '400.00' };
     facts.push(part, labour);
-    await delegates.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, lineType: 'PART', description: part.description,
+    await delegates.ticketLine.createMany({ data: [{ id: part.ticketLineId, ticketId, productId: part.productId, lineType: 'PART', description: part.description,
       quantity: part.quantity, unitCost: part.unitCost, totalCost: '14000.00', billableToCustomer: !covered.isCovered }] });
     await writer.postCost(tx, { uniqueSourceId: `STOCK_MOVEMENT:${part.sourceId}`, jobId, costType: 'REPAIR_PARTS', amount: '14000.00', description: part.description, occurredAt: part.occurredAt });
     return [part, labour].map(({ type, sourceId }) => ({ type, sourceId }));
@@ -189,22 +190,23 @@ test('replacement after 18 months preserves original expiry, physical lineage an
     assert.strictEqual(received, f.tx); stockCalls++;
     assert.equal(command.oldUnitId, f.oldUnitId); assert.equal(command.newUnitId, f.newUnitId);
     assert.equal(command.jobId, f.jobId); assert.equal(command.customerId, f.customerId);
-    stockState.oldStatus = 'QUARANTINED'; stockState.newStatus = 'RESERVED'; stockState.predecessor = f.oldUnitId;
+    stockState.oldStatus = 'QUARANTINED'; stockState.newStatus = 'DISPATCHED'; stockState.predecessor = f.oldUnitId;
     return { oldUnit: { id: f.oldUnitId, serial: 'INV-INVARIANT-OLD', status: 'QUARANTINED', jobId: f.jobId, customerId: f.customerId },
-      newUnit: { id: f.newUnitId, serial: 'INV-INVARIANT-NEW', status: 'RESERVED', replacesUnitId: f.oldUnitId, jobId: f.jobId, customerId: f.customerId },
+      newUnit: { id: f.newUnitId, serial: 'INV-INVARIANT-NEW', status: 'DISPATCHED', replacesUnitId: f.oldUnitId, jobId: f.jobId, customerId: f.customerId },
       repairItems: await f.consume(ticket.id) };
   } };
   const replacement = new ReplacementService(stock, f.billing);
   const command = { ticketId: ticket.id, oldUnitId: f.oldUnitId, newUnitId: f.newUnitId, assessmentDate };
   const result = await replacement.executeReplacement(f.tx, command);
-  assert.equal(stockState.oldStatus, 'QUARANTINED'); assert.equal(stockState.newStatus, 'RESERVED');
+  assert.equal(stockState.oldStatus, 'QUARANTINED'); assert.equal(stockState.newStatus, 'DISPATCHED');
   assert.equal(stockState.predecessor, f.oldUnitId);
-  assert.equal(result.oldUnit.status, 'QUARANTINED'); assert.equal(result.newUnit.status, 'RESERVED');
+  assert.equal(result.oldUnit.status, 'QUARANTINED'); assert.equal(result.newUnit.status, 'DISPATCHED');
   assert.equal(result.warranty.startDate, '2024-01-01'); assert.equal(result.warranty.expiryDate, '2026-01-01');
   const continued = f.warranties.find(w => w.unitId === f.newUnitId)!;
-  for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths', 'active'] as const) {
+  for (const key of ['startDate', 'expiryDate', 'policyName', 'policyRevision', 'scope', 'durationMonths'] as const) {
     assert.deepEqual(continued[key], original[key]);
   }
+  assert.equal(f.warranties[0]!.active, false); assert.equal(continued.active, true);
   const row = f.rows.get(ticket.id)!;
   assert.equal(row.unitId, f.oldUnitId); assert.equal(row.replacedUnitId, f.oldUnitId); assert.equal(row.newUnitId, f.newUnitId);
   assert.equal(result.billing.internalCost, '14600.00'); assert.equal(result.billing.customerCharge, '0.00');

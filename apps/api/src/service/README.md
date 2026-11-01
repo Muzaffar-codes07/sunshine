@@ -77,11 +77,11 @@ scope and one final billing batch per ticket. It does not infer that component
 coverage also includes unrelated labour. Source data and rates are trusted only
 from that persisted adapter, never directly from the request body.
 
-Every PART source must supply its existing allocation `ticketLineId` from the
-persisted movement/allocation join; LABOUR sources must omit it. The reader must
+Every PART source must supply its persisted `productId` and existing allocation
+`ticketLineId` from the movement/allocation join; LABOUR sources must omit both. The reader must
 lock/recheck this relationship in the same transaction. One PART source maps to
 one distinct ticket line. Billing verifies the line belongs to this ticket, is
-PART, and matches frozen quantity/unit cost/total cost and assessed billability.
+PART, has the same Product, and matches frozen quantity/unit cost/total cost and assessed billability.
 Missing or conflicting rows fail with 409 `REPAIR_LINE_CONFLICT`; missing source
 IDs fail with 503 `INVALID_REPAIR_SOURCE`. Billing reuses these PART rows and
 inserts only LABOUR rows, preserving allocation references and reconciled ticket
@@ -167,20 +167,20 @@ the source reader returns that same `ticketLineId` for billing reuse. A replacem
 with 14000.00 parts and 600.00 labour retains exactly two ticket lines totaling
 14600.00, and replay preserves both the line IDs and allocation references.
 
-The primary Task 3.2 guide specifies RESERVED; its sample prompt says deployed.
-This helper uses RESERVED to represent replacement assignment. It does not
-claim delivery occurred. D3's physical workflow must reconcile issue/consumption
-with this assignment and must not expense reservation alone. If consumption is
-deferred, invoke this orchestration at actual issue, not preliminary reservation.
-Later delivery must preserve continued coverage, never call standard new-sale
-activation and restart the clock.
+The replacement writer runs at physical swap. It records RETURN and ISSUE in one
+transaction, leaves the old unit QUARANTINED and the issued new unit DISPATCHED.
+It posts the actual PART cost with the ISSUE movement; reservation alone never
+posts a cost. Later delivery must preserve continued coverage and never restart
+the original warranty interval.
 
 The original warranty is version-locked and copied exactly: **startDate,
 expiryDate, policyName, policyRevision, scope, durationMonths and active**.
 An 18-month swap in a 24-month policy therefore retains six months, and expired
 or void coverage stays expired or void. Date-only values must be UTC-midnight
 Prisma DATE encodings and are never recalculated from the replacement instant.
-The original warranty remains as history; only its concurrency version changes.
+The original warranty remains as history and is voided with a version increment
+when it was active. An already-void original remains untouched. The successor
+copies the original pre-swap active state and interval.
 No original warranty fails with `ORIGINAL_WARRANTY_REQUIRED`: a separate explicit
 policy decision is needed. Existing coverage on the new unit fails with
 `WARRANTY_CONFLICT`, never an upsert that overwrites unrelated history.
@@ -205,6 +205,22 @@ The real Unit/Job/File models and coordinated D4 migration are now present,
 including ticket lineage FKs/checks. Domain authorization, actual repair source/
 invoice adapters, D3 allocation ticket-line support and the unit predecessor/
 replacement stock writer remain unavailable. No production stock writes are enabled.
+
+Migration `20261031840000_ticket_part_identity` requires a real Product FK on
+every new PART line and null Product on LABOUR. It stops if historical PART rows
+lack proven identity; deployment then requires a manual source-backed backfill,
+never a guess from description text. The future D4 stock orchestrator must
+create each PART line before D3 allocation. The contract uses one consumption source per line and one serial
+unit per line; split consumption is outside this contract. D3 follows with a
+separate allocation ticket-line FK/XOR/source migration.
+
+Migration `20261031850000_ticket_history_guard` rejects skipped/reversed ticket
+states, changed identity or already-saved assessment/billing/replacement and
+resolution/confirmation facts, and ticket deletion/truncation. It permits the
+current internal billing/replacement helpers to first lock with a version
+change and then save their result in that same transaction. The explicit
+no-work resolution policy, reassessment audit, occurrence evidence and real
+service adapters remain required before staff ticket commands can be enabled.
 
 `apps/api/test/replacement.test.cjs` composes the real billing/cost helpers with
 transaction doubles: six-month continuity, expired/void/leap policies, exact

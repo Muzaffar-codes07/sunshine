@@ -14,13 +14,16 @@ export type RepairItem = z.infer<typeof repairItemSchema>;
 // Trusted persisted facts, never values accepted from an HTTP request.
 export const repairSourceSchema = repairItemSchema.extend({
   ticketId: z.uuid(), jobId: z.uuid(), customerId: z.uuid(),
+  // D3 derives this from the posted movement/allocation, never the request.
+  productId: z.uuid().transform((value) => value.toLowerCase()).optional(),
   scope: z.string().trim().min(1).max(500), description: z.string().trim().min(1).max(4000),
   quantity: positiveQuantitySchema, unitCost: moneySchema, unitPrice: moneySchema,
   occurredAt: costOccurrenceSchema,
   // PART allocation already owns this persisted line; never accept it from clients.
   ticketLineId: z.uuid().transform((value) => value.toLowerCase()).optional(),
-}).refine((value) => value.type === 'PART' ? value.ticketLineId !== undefined : value.ticketLineId === undefined, {
-  path: ['ticketLineId'], message: 'Only PART sources must name their existing allocation ticket line',
+}).refine((value) => value.type === 'PART' ? value.ticketLineId !== undefined && value.productId !== undefined
+  : value.ticketLineId === undefined && value.productId === undefined, {
+  path: ['ticketLineId'], message: 'PART sources require a product and allocation line; LABOUR has neither',
 });
 export type RepairSource = z.infer<typeof repairSourceSchema>;
 
@@ -45,7 +48,8 @@ export abstract class RepairSourceReader {
    * occurrence time (not approval, assessment or billing time); frozen acquisition/pay and selling
    * rates. Lock/recheck eligibility and prevent reuse by another ticket. No network IO.
    * D3 posts PART costs using STOCK_MOVEMENT:<id> before returning the source.
-   * PART ticketLineId must be the actual allocation-source line, one per consumed
+   * PART productId and ticketLineId must be the actual movement product and
+   * allocation-source line, one per consumed
    * source, with matching frozen quantities/costs and assessed billability.
    * Lock/recheck that line and its movement/allocation linkage in this tx.
    */
