@@ -50,7 +50,7 @@ function PolicySelection() {
   const saved = useQuery({ queryKey: ['warranty-policy', productId], enabled: !!productId, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
     queryFn: ({ signal }) => apiGet(`/warranty-policies/${productId}`, productWarrantyPolicyResponseSchema, signal) });
   const data = products.data?.data;
-  return <section aria-labelledby="warranty-policy-title"><h2 id="warranty-policy-title">Configure future warranty terms</h2>
+  return <section className="pattern-card" aria-labelledby="warranty-policy-title"><h2 id="warranty-policy-title">Configure future warranty terms</h2>
     {products.isPending && <p role="status">Loading equipment products…</p>}
     {products.error && <div role="alert"><p>{describeD4Error(products.error)}</p><button onClick={() => void products.refetch()}>Retry products</button></div>}
     {data && <>

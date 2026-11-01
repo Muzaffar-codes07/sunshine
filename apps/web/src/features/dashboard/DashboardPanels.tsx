@@ -4,6 +4,7 @@ import type { JobView, StaffRole } from '@sunshine/contracts';
 import { AvatarStack } from '../../components/shared/Brand';
 import { SolarArt, WaveArt } from '../../components/shared/SolarArt';
 import { humanize } from '../sales/queries';
+import { shortTicketNumber } from '../service/service-model';
 import { useMonthOverview, useStockCheck, useTechnicianCount } from './dashboard-data';
 import { documentRows, formatInr, linePath, performance, pickSpotlight, projectHref, teamFacts, type DocumentRow } from './dashboard-model';
 import { PanelError, PanelLoading } from './DashboardStates';
@@ -136,7 +137,7 @@ export function SupportOverview({ tickets, loading, error, onRetry }: { tickets:
     <div className="panel-head"><h2 id="support-title">Service queue</h2></div>
     {loading ? <PanelLoading label="Loading service tickets" /> : error ? <PanelError error={error} onRetry={onRetry} /> : <>
       <p className="metric-label">Open tickets</p><p className="metric-value">{open.length}</p>
-      {open.length === 0 ? <p className="panel-empty">No open tickets.</p> : <ul className="doc-list">{open.slice(0, 5).map((ticket) => <li key={ticket.id}><Link className="doc-row" to={`/workspace/service?ticket=${ticket.id}`}><FileText size="1.125rem" aria-hidden="true" /><span className="doc-name">{ticket.ticketNumber}<small>{ticket.faultDescription}</small></span><span className="doc-status">{humanize(ticket.status)}</span></Link></li>)}</ul>}
+      {open.length === 0 ? <p className="panel-empty">No open tickets.</p> : <ul className="doc-list">{open.slice(0, 5).map((ticket) => <li key={ticket.id}><Link className="doc-row" to={`/workspace/service?ticket=${ticket.id}`}><FileText size="1.125rem" aria-hidden="true" /><span className="doc-name">{shortTicketNumber(ticket.ticketNumber)}<small>{ticket.faultDescription}</small></span><span className="doc-status">{humanize(ticket.status)}</span></Link></li>)}</ul>}
     </>}
   </section>;
 }

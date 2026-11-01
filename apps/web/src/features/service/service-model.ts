@@ -14,7 +14,13 @@ export function coverageLabel(assessment: TicketAssessmentSnapshot | null): stri
   return assessment.isCovered ? 'Covered — customer charge ₹0.00' : 'Not covered — charge pending assessment';
 }
 
-export function warrantyPeriod(assessment: Pick<TicketAssessmentSnapshot, 'startDate' | 'expiryDate'> | null): string {
+export function warrantyPeriod(assessment: Pick<TicketAssessmentSnapshot, 'startDate' | 'expiryDate'> | null, formatDate = (day: string) => day): string {
   if (!assessment?.startDate || !assessment.expiryDate) return 'No saved warranty period';
-  return `${assessment.startDate} to ${assessment.expiryDate} (expiry excluded)`;
+  return `${formatDate(assessment.startDate)} to ${formatDate(assessment.expiryDate)} (expiry excluded)`;
+}
+
+/** Saved numbers end in a full UUID; its first block is enough to tell tickets apart on screen. */
+export function shortTicketNumber(ticketNumber: string): string {
+  const block = /^SVC-([0-9a-f]{8})-[0-9a-f-]+$/i.exec(ticketNumber)?.[1];
+  return block ? `SVC-${block.toUpperCase()}` : ticketNumber;
 }

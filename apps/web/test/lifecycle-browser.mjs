@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createSalesOrderFromBrowser } from './sales-browser-flow.mjs';
+
+const shortNumber = (number) => number.slice(0, 12).toUpperCase();
 const root = resolve(import.meta.dirname, '../../..');
 const apiRequire = createRequire(resolve(root, 'apps/api/package.json'));
 const webRequire = createRequire(resolve(root, 'apps/web/package.json'));
@@ -224,13 +226,14 @@ try {
     if (run === 1) assert.deepEqual(intakeRequests[0], intakeRequests[1]);
     assert.equal(await prisma.serviceTicketEvent.count({ where: { ticketId: ticket.id } }), 1);
     await page.unroute('**/api/v1/tickets');
-    await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
-    await page.reload(); await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
+    await page.getByRole('heading', { name: shortNumber(ticket.ticketNumber), exact: true }).waitFor();
+    await page.reload(); await page.getByRole('heading', { name: shortNumber(ticket.ticketNumber), exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), false);
     if (run === 1) {
       await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Uncovered cosmetic work');
       await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
       await page.getByText('Not covered — charge pending assessment', { exact: true }).waitFor();
+      await page.getByText('Correct the coverage scope', { exact: true }).click();
       await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Component replacement');
       await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
       await page.getByText('Covered — customer charge ₹0.00', { exact: true }).waitFor();
@@ -255,10 +258,11 @@ try {
       const planned=await prisma.ticketLine.findFirstOrThrow({where:{ticketId:ticket.id}});
       assert.equal(planned.phase,'PLANNED');assert.equal(planned.unitCost,null);assert.equal(planned.totalCost,null);
       const requiredPart=page.locator(`[data-part-id="${planned.id}"]`);
+      await requiredPart.getByText('Cancel this requirement',{exact:true}).click();
       await requiredPart.getByRole('textbox',{name:'Cancellation reason',exact:true}).fill('Synthetic customer withdrew unused requirement before stock allocation');
       await requiredPart.getByRole('button',{name:'Cancel part requirement',exact:true}).click();
       await page.getByText('Part requirement cancelled.',{exact:true}).waitFor();
-      await requiredPart.getByText('CANCELLED',{exact:true}).waitFor();
+      await requiredPart.getByText('Cancelled',{exact:true}).waitFor();
       assert.deepEqual({moves:await prisma.stockMovement.count(),costs:await prisma.costEntry.count()},beforeParts);
       console.log('PASS real Product/quantity/price requirement exact retry and unused cancellation without stock or expense',planned.id);
       await page.getByRole('checkbox', { name: 'No parts, labour, replacement or financial effects occurred', exact: true }).check();
@@ -285,7 +289,7 @@ try {
     const read = await scoped.request.get(`/api/v1/tickets/${lastTicket.id}`);
     assert.equal(read.status(), role === 'SUPPORT' ? 200 : 403);
     await scopedPage.goto(`/workspace/service?ticket=${lastTicket.id}`);
-    if (role === 'SUPPORT') await scopedPage.getByRole('heading', { name: `Ticket ${lastTicket.ticketNumber}`, exact: true }).waitFor();
+    if (role === 'SUPPORT') await scopedPage.getByRole('heading', { name: shortNumber(lastTicket.ticketNumber), exact: true }).waitFor();
     else await scopedPage.getByText('Your role cannot open this workspace.', { exact: true }).waitFor();
   }
   const anonymous = await browser.newContext({ baseURL: origin }); contexts.push(anonymous);
@@ -373,7 +377,7 @@ try {
   const csvRows = Buffer.concat(chunks).toString('utf8').trim().split(/\r?\n/).map(row => row.split(','));
   const exported = Object.fromEntries(csvRows[0].map((name,i)=>[name.replaceAll('"',''),csvRows[1][i].replaceAll('"','')]));
   for (const field of ['invoicedRevenue','cashReceived','actualCost']) assert.equal(exported[field],summary[field]);
-  await page.getByRole('textbox',{name:'Job ID',exact:true}).fill(lastTicket.jobId);
+  await page.getByRole('combobox',{name:'Job',exact:true}).selectOption(lastTicket.jobId);
   await page.getByRole('button',{name:'Load job',exact:true}).click();
   await page.getByText('Provisional — unfinished',{exact:true}).waitFor();
   await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
@@ -387,7 +391,7 @@ try {
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial.toLowerCase());
   await page.getByRole('button', { name: 'Look up serial' }).click();
   await page.getByRole('heading', { name: `Warranty — ${warrantyUnit.rawSerial}`, exact: true }).waitFor();
-  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('Covered', { exact: true }).waitFor();
   await page.reload();
   await page.getByRole('combobox', { name: 'Equipment product', exact: true }).selectOption(warrantyUnit.productId);
   await page.getByRole('button', { name: 'Save future warranty terms', exact: true }).waitFor();
@@ -422,14 +426,14 @@ try {
   await page.waitForFunction(name => document.querySelector('input[name=policyName]')?.value === name, changedPolicyName);
   await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial);
   await page.getByRole('button', { name: 'Look up serial' }).click();
-  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('Covered', { exact: true }).waitFor();
   const frozen = await context.request.get('/api/v1/warranties/lookup?' + new URLSearchParams({serial:warrantyUnit.rawSerial}));
   assert.equal((await frozen.json()).data.assessment.policyName, oldPolicyName, 'editing future terms does not change sold coverage');
   const supportPage = await rolePage('SUPPORT');
   await supportPage.goto('/workspace/service');
   await supportPage.getByRole('textbox', {name:'Serial number',exact:true}).fill(warrantyUnit.rawSerial);
   await supportPage.getByRole('button',{name:'Look up serial'}).click();
-  await supportPage.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED',{exact:true}).waitFor();
+  await supportPage.locator('section[aria-labelledby=service-workspace-title]').getByText('Covered',{exact:true}).waitFor();
   assert.equal(await supportPage.getByRole('heading',{name:'Configure future warranty terms',exact:true}).count(),0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true,'warranty and policy fit 360px');
   console.log('PASS persisted warranty lookup, future-policy edit and lost-response exact retry',JSON.stringify({unitId:warrantyUnit.id,jobId:lastTicket.jobId,policyKey:lostPolicyKey}));

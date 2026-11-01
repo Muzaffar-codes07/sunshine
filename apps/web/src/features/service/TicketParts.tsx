@@ -4,6 +4,8 @@ import {createTicketPartSchema,cancelTicketPartSchema,ticketPartCommandResponseS
   productListResponseSchema,type ServiceTicket} from '@sunshine/contracts';
 import {useStaffSession} from '../auth/session';
 import {Field} from '../../components/ui/Field';
+import {StatusPill} from '../../components/shared/patterns';
+import {formatInr} from '../dashboard/dashboard-model';
 import {CommandFeedback} from '../../components/shared/CommandFeedback';
 import {apiGet} from '../../lib/api';
 import {checkInput,useRetrySafeCommand} from '../../lib/command';
@@ -38,7 +40,7 @@ function AdminParts({ticket}:{ticket:ServiceTicket}){
     if('problem'in input)return command.setProblem(input.problem);
     command.run(`/tickets/${ticket.id}/parts/${id}/cancel`,input.data);
   }
-  return <section aria-labelledby="ticket-parts-title">
+  return <section className="pattern-card ticket-parts" aria-labelledby="ticket-parts-title">
     <h2 id="ticket-parts-title">Repair part requirements</h2>
     <p>Planning a part does not reserve stock or post an expense. Its catalogue selling price and assessed scope are frozen; actual cost remains unknown until issue.</p>
     {saved&&<p role="status">{saved}</p>}
@@ -48,18 +50,18 @@ function AdminParts({ticket}:{ticket:ServiceTicket}){
       {data?.items.length===0&&<p>No repair parts have been requested.</p>}
       {data?.items.map(part=><article key={part.id} data-part-id={part.id} aria-label={part.product?.name??'Historical part'}>
         <h3>{part.product?.name??'Historical part — product unverified'}</h3>
-        <dl><dt>Status</dt><dd>{part.phase}</dd><dt>Required quantity</dt><dd>{part.quantity}</dd>
-          <dt>Assessed work scope</dt><dd>{part.scope??'Unverified historical scope'}</dd>
-          <dt>Catalogue price per unit</dt><dd>{part.unitPrice===null?'No saved price':`₹${part.unitPrice}`}</dd>
-          <dt>Customer billing</dt><dd>{part.phase==='LEGACY'?'Historical billability — unverified':part.billableToCustomer?'Chargeable after actual work billing':'Covered — no customer charge for this assessed scope'}</dd>
-          <dt>{part.phase==='LEGACY'?'Recorded historical cost':'Actual part cost'}</dt><dd>{part.totalCost===null?'Not issued — no expense':`₹${part.totalCost}`}</dd></dl>
+        <dl className="detail-grid"><div><dt>Status</dt><dd><StatusPill status={part.phase}/></dd></div><div><dt>Required quantity</dt><dd>{Number(part.quantity)}</dd></div>
+          <div><dt>Assessed work scope</dt><dd>{part.scope??'Unverified historical scope'}</dd></div>
+          <div><dt>Catalogue price per unit</dt><dd>{part.unitPrice===null?'No saved price':formatInr(part.unitPrice)}</dd></div>
+          <div><dt>Customer billing</dt><dd>{part.phase==='LEGACY'?'Historical billability — unverified':part.billableToCustomer?'Chargeable after actual work billing':'Covered — no customer charge for this assessed scope'}</dd></div>
+          <div><dt>{part.phase==='LEGACY'?'Recorded historical cost':'Actual part cost'}</dt><dd>{part.totalCost===null?'Not issued — no expense':formatInr(part.totalCost)}</dd></div></dl>
         <p>{part.description}</p>
         {part.phase==='LEGACY'&&<p role="status">This historical row needs source reconciliation. No product or stock movement has been inferred.</p>}
         {part.phase==='CANCELLED'&&<p>Cancelled: {part.cancellationReason}</p>}
-        {editable&&part.phase==='PLANNED'&&<form noValidate onSubmit={event=>cancel(event,part.id,part.version)}>
+        {editable&&part.phase==='PLANNED'&&<details className="fold"><summary>Cancel this requirement</summary><form noValidate onSubmit={event=>cancel(event,part.id,part.version)}>
           <Field label="Cancellation reason" error={lastAction===part.id?command.problem.fields.reason:undefined}>{control=><textarea {...control} name="reason" minLength={5} maxLength={500} required/>}</Field>
           <button type="submit">Cancel part requirement</button>
-        </form>}
+        </form></details>}
       </article>)}
       {data&&data.total>data.pageSize&&<nav aria-label="Part requirement pages"><button disabled={page===1} onClick={()=>setPage(page-1)}>Previous requirements</button><span>Page {page}</span><button disabled={page*data.pageSize>=data.total} onClick={()=>setPage(page+1)}>Next requirements</button></nav>}
     </fieldset>
