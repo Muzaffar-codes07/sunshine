@@ -22,7 +22,9 @@ test('workspace navigation restricts each role and direct links cannot mount una
       ['SUPPORT', '/workspace/warehouse', 'Your role cannot open this workspace.'],
       ['SUPPORT', '/workspace/service', 'Ticket actions are unavailable'],
       ['ADMIN', '/workspace/reports', 'Report period'],
-      ['TECHNICIAN', '/workspace', 'Assigned jobs, installation photos'],
+      ['TECHNICIAN', '/workspace', 'Installation schedule'],
+      ['ADMIN', '/workspace', 'Project performance'],
+      ['SUPPORT', '/workspace', 'Service queue'],
     ]) {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
       client.setQueryData(['staff-session'], { id: '11111111-1111-4111-8111-111111111111', email: 'test@sunshine.test', displayName: 'Test', role });

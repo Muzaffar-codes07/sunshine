@@ -29,6 +29,11 @@ export class SurveysController {
     return this.surveys.listForEnquiry(enquiryId);
   }
 
+  @Get('surveys/awaiting-approval')
+  awaitingApproval() {
+    return this.surveys.awaitingApproval();
+  }
+
   // Declared before surveys/:id so "assigned" is never read as an ID.
   @Get('surveys/assigned')
   @Roles('TECHNICIAN')

@@ -20,5 +20,5 @@ export function FieldJobsPage() {
   if (session.isPending) return <p role="status">Checking your session…</p>;
   if (session.error) return <p role="alert">{describeProblem(session.error).message}</p>;
   if (!session.data || !['TECHNICIAN', 'ADMIN'].includes(session.data.role)) return <p role="alert">Your role cannot use the field workspace.</p>;
-  return <><h1>Field jobs</h1><Jobs assignedOnly={session.data.role === 'TECHNICIAN'} /></>;
+  return <><h1>Installations</h1><Jobs assignedOnly={session.data.role === 'TECHNICIAN'} /></>;
 }

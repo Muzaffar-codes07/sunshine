@@ -80,7 +80,7 @@ async function checkRelease(base) {
   for (const path of ['/', '/sales']) {
     const page = await request(`${base}${path}`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /<title>Sunshine/);
+    assert.match(await page.text(), /<title>Solar OS/);
   }
   const missing = await request(`${base}/api/v1/not-a-route`);
   assert.equal(missing.status, 404, 'API 404 must not return the SPA');

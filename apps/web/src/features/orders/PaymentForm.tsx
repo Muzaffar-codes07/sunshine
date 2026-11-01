@@ -64,7 +64,7 @@ export function PaymentForm({ invoice, onRecorded }: { invoice: Invoice; onRecor
   if (invoice.status === 'PAID' && !uncertain) return <p>This invoice is fully paid.</p>;
   return <section className="pattern-card">
     <h2>Record payment received</h2>
-    <p>Record money already received outside Sunshine. This form does not collect or transfer money.</p>
+    <p>Record money already received outside Solar OS. This form does not collect or transfer money.</p>
     <p>Outstanding balance: <strong>₹{invoice.balance}</strong></p>
     <form key={sequence} onSubmit={submit} noValidate aria-busy={busy}>
       <fieldset disabled={busy || uncertain}>

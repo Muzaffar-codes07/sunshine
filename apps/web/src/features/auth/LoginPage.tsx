@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { BrandMark } from '../../components/shared/Brand';
+import { SolarArt } from '../../components/shared/SolarArt';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { loginRequestSchema, staffSessionResponseSchema } from '@sunshine/contracts';
 import { Field } from '../../components/ui/Field';
@@ -47,11 +49,10 @@ export function LoginPage() {
   if (session.isPending) return <main className="login-scene"><div className="login-glass" role="status">Checking your session…</div></main>;
   if (session.data && !session.isError) return <Navigate to={destination} replace />;
   return <main className="login-scene">
-    <div className="login-landscape" aria-hidden="true"><div className="solar-plane" /></div>
-    <div className="login-frame">
-    <div className="login-topbar"><Link to="/" className="login-brand"><span aria-hidden="true">✳</span> sunshine</Link><span className="login-badge">SOLAR OPERATIONS</span></div>
+        <div className="login-frame">
+    <div className="login-topbar"><Link to="/" className="login-brand"><BrandMark /> Solar OS</Link><span className="login-badge">Solar installation management</span></div>
     <div className="login-layout">
-    <section className="login-intro"><p className="login-kicker">A BRIGHTER WAY TO WORK</p><h1>Good energy.<br />Connected<br /><span>operations.</span></h1><p>From the first enquiry to lasting service.<br />One place to keep it all moving.</p><div className="login-caption"><span aria-hidden="true">↗</span> Built around the work you do.</div></section>
+    <section className="login-intro"><SolarArt className="login-art" /><p className="login-kicker">A BRIGHTER WAY TO WORK</p><h1>Good energy.<br />Connected<br /><span>operations.</span></h1><p>From the first enquiry to lasting service.<br />One place to keep it all moving.</p></section>
     <section className="enquiry-page login-page login-glass" aria-labelledby="login-title">
     <span className="login-card-label">YOUR WORKSPACE</span><h2 id="login-title">Welcome back.</h2>
     <p className="login-description">Sign in with your staff account to continue.</p>
@@ -63,7 +64,7 @@ export function LoginPage() {
     <p className="login-footnote">Need access? Contact your administrator.</p>
     </section>
     </div>
-    <div className="login-bottom"><span>Sunshine · Solar installation management</span><Link to="/enquire">Make an enquiry <span aria-hidden="true">↗</span></Link></div>
+    <div className="login-bottom"><span>From the first enquiry to lasting service</span><Link to="/enquire">Make an enquiry</Link></div>
     </div>
   </main>;
 }

@@ -81,7 +81,7 @@ function SalesQuotes({ enquiryId, actor }: { enquiryId: string; actor: StaffIden
         label="Record quote sent" title="Record manual sending" submitLabel="Record sent" enquiryId={enquiryId}
         path={`/quotes/${latest.id}/send`} schema={sendQuoteSchema} responseSchema={quoteResponseSchema}
         build={form => ({ version: latest.version, channel: form.get('channel') })}>
-        {fields => <><p>Send the quote outside Sunshine, then record the channel used. This does not send a message.</p>
+        {fields => <><p>Send the quote outside Solar OS, then record the channel used. This does not send a message.</p>
           <Field label="Sent by" error={fields.channel?.[0]}>{control => <select {...control} name="channel" defaultValue="" required><option value="">Choose channel</option>{quoteSentChannelSchema.options.map(value => <option key={value} value={value}>{humanize(value)}</option>)}</select>}</Field>
         </>}
       </CommandDrawer>}
