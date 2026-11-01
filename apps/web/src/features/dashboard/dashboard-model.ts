@@ -188,3 +188,6 @@ export function formatInr(amount: string) {
   const value = Number(amount);
   return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: Number.isInteger(value) ? 0 : 2, minimumFractionDigits: Number.isInteger(value) ? 0 : 2 })}`;
 }
+
+/** A calendar date such as a warranty start, shown the same way in every timezone. */
+export const formatDay = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });

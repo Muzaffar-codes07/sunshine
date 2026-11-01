@@ -9,7 +9,12 @@ export const noProblem: Problem = { messages: [], fields: {} };
 /** Lists every reason a command was refused, so staff can fix them all in one go. */
 export function describeFailure(error: unknown): Problem {
   if (!(error instanceof ApiRequestError)) return { messages: [error instanceof Error ? error.message : 'Something went wrong. Try again.'], fields: {} };
-  if (error.reasons.length) return { messages: error.reasons.map((reason) => `${reason.reason} ${reason.nextAction}`), fields: {} };
+  if (error.reasons.length) {
+    // Nine shortages with the same fix read better as nine lines and one instruction. Different fixes stay beside their reasons.
+    const actions = new Set(error.reasons.map((reason) => reason.nextAction));
+    if (error.reasons.length > 1 && actions.size === 1) return { messages: [...error.reasons.map((reason) => reason.reason), ...actions], fields: {} };
+    return { messages: error.reasons.map((reason) => `${reason.reason} ${reason.nextAction}`), fields: {} };
+  }
   const fields = Object.fromEntries(Object.entries(error.fieldErrors).map(([name, messages]) => [name.split('.').pop()!, messages[0] ?? 'Check this field']));
   return { messages: [Object.keys(fields).length ? 'Check the highlighted fields and try again.' : error.message], fields };
 }
