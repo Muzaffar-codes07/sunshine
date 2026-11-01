@@ -117,6 +117,7 @@ function QuoteFacts({ quote }: { quote: Quote }) {
   const decided = !['DRAFT', 'SENT'].includes(quote.status);
   return <DetailPattern title={`Quote revision ${quote.revision}: ${humanize(quote.status)}`} entries={[
     { id: 'package', label: 'Package', value: quote.packageSnapshot.name },
+    { id: 'package-revision', label: 'Package revision', value: String(quote.packageSnapshot.revision) },
     { id: 'sent', label: 'Sent', value: quote.sentAt ? `${formatWhen(quote.sentAt)} via ${humanize(quote.sentChannel!)}` : 'Not recorded' },
     { id: 'decision', label: 'Decision', value: quote.acceptedByName ? `${quote.acceptedByName} via ${humanize(quote.decisionChannel!)}` : quote.decisionReason ?? 'Not recorded' },
   ]}>

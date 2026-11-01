@@ -86,9 +86,9 @@ export class HistoricalDemoImporter {
     if(!unpaid){
       const advance=total.mul('0.30').toDecimalPlaces(2);
       await invoices.recordPayment(tx,invoice.id,{amountInr:advance.toFixed(2),method:row.index%2?'UPI':'BANK_TRANSFER',
-        reference:`SAMPLE-450-${row.index}-ADV`,receivedAt:offset(row.orderAt,1).toISOString()},this.staff.sales);
+        reference:`SAMPLE-450-${row.index}-ADV`,receivedAt:offset(row.orderAt,1).toISOString()},this.staff.admin);
       if(row.stage==='COMPLETED' || row.index%4===0) await invoices.recordPayment(tx,invoice.id,{amountInr:total.sub(advance).toFixed(2),method:'BANK_TRANSFER',
-        reference:`SAMPLE-450-${row.index}-FINAL`,receivedAt:offset(row.orderAt,4).toISOString()},this.staff.sales);
+        reference:`SAMPLE-450-${row.index}-FINAL`,receivedAt:offset(row.orderAt,4).toISOString()},this.staff.admin);
     }
     const schedule = ['ORDER','RESERVED'].includes(row.stage)?offset(at(row.anchor,8),row.index-305):row.startedAt;
     await tx.job.update({where:{id:row.jobId},data:{scheduledStart:schedule,scheduledFinish:offset(schedule,1),version:{increment:1}}});

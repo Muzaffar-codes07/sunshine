@@ -225,8 +225,8 @@ try {
     assert.equal(intakeRequests.length, run === 1 ? 2 : 1);
     if (run === 1) assert.deepEqual(intakeRequests[0], intakeRequests[1]);
     assert.equal(await prisma.serviceTicketEvent.count({ where: { ticketId: ticket.id } }), 1);
-    await page.unroute('**/api/v1/tickets');
     await page.getByRole('heading', { name: shortNumber(ticket.ticketNumber), exact: true }).waitFor();
+    await page.unroute('**/api/v1/tickets');
     await page.reload(); await page.getByRole('heading', { name: shortNumber(ticket.ticketNumber), exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), false);
     if (run === 1) {
