@@ -30,6 +30,14 @@ export function StatusPill({ status }: { status: string }) {
   return <span className={`status-pill${tone ? ` status-pill--${tone}` : ''}`}>{text}</span>;
 }
 
+/** Headline amounts with an optional paid-so-far bar. The figures come from the API; the bar is only their ratio. */
+export function MoneyStrip({ items, progress }: { items: { id: string; label: string; value: string; strong?: boolean }[]; progress?: { label: string; percent: number } }) {
+  return <section className="money-strip" aria-label="Amounts">
+    <dl>{items.map((item) => <div key={item.id} className={item.strong ? 'is-strong' : undefined}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
+    {progress && <div className="money-bar" role="progressbar" aria-label={progress.label} aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${progress.percent}%` }} /></div>}
+  </section>;
+}
+
 export function DetailPattern({ title, entries, children }: { title: string; entries: Entry[]; children?: ReactNode }) {
   return <section className="pattern-card"><h2>{title}</h2><dl className="detail-grid">{entries.map((entry) => <div key={entry.id}><dt>{entry.label}</dt><dd>{entry.value}</dd></div>)}</dl>{children}</section>;
 }
