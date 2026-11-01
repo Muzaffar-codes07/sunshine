@@ -103,44 +103,16 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
 
 ## Task 2.2 service ticket lifecycle
 
-The [service module](../../apps/api/src/service/README.md) implements four POST
-routes returning `{ data: ServiceTicket }`, with strict shared request contracts:
+Production NestJS ticket commands and reads require active ADMIN/SUPPORT cookie sessions. Every POST uses actor-scoped Idempotency-Key replay; changed intent conflicts. Strict shared contracts and no-store responses apply. The exact route/request/response/state/lock details are in the [service API](../../apps/api/src/service/README.md#production-ticket-commands-and-reads).
 
-- `/api/v1/tickets`: `{ unitId, faultDescription }`, 201 OPEN. Customer and job
-  IDs derive from the actual unit installation; client linkage/status overrides
-  are rejected. Missing installation association is 409 `INSTALLATION_REQUIRED`.
-- `/api/v1/tickets/:id/assess`: `{ version, asOfDate, requestedScope }`, 200
-  ASSESSED from OPEN. Input `asOfDate` is a timezone-qualified instant no later
-  than now. Snapshot contains the complete warranty result (including its IST
-  date, saved policy revision/scope/dates and reason), actual requested work scope
-  and server `assessedAt`. Snapshot billability is not a final invoice; component
-  coverage does not promise free unrelated labour. Later policy edits do not
-  recalculate the saved decision.
-- `/api/v1/tickets/:id/resolve`: `{ version, resolutionDetails }`, 200
-  AWAITING_CUSTOMER_CONFIRMATION from ASSESSED or IN_PROGRESS. Requires a saved
-  assessment, records work notes and server `resolvedAt`. Direct ASSESSED to
-  resolution is supported for Task 2.2; IN_PROGRESS is reserved for repair work.
-- `/api/v1/tickets/:id/confirm`: `{ version, confirmerName, channel, confirmedAt,
-  notes? }`, 200 CLOSED from AWAITING_CUSTOMER_CONFIRMATION only. Name must be
-  nonblank, channel is PHONE/WHATSAPP/IN_PERSON and confirmedAt is a timezone-
-  qualified instant at or after resolution and no later than now. Missing facts
-  fail with 400 `INVALID_INPUT`, leaving the ticket open. The response labels
-  these as staff-recorded confirmation facts; it is not a customer portal event.
+- `POST /tickets`: `{unitId,faultDescription}` derives the real delivered installation/customer and creates OPEN/v1.
+- `POST /tickets/:id/assess`: `{version,asOfDate,requestedScope}` saves ASSESSED at immutable complaint intake. `asOfDate` must equal saved `createdAt`. Scope correction from ASSESSED is allowed only before any work/financial/replacement effects; prior decisions remain audited.
+- `POST /tickets/:id/resolve`: `{version,resolutionDetails,noWorkReason?}` requires verified assessment and matching finalized repair billing. Explicit no-work reason is permitted only with zero work, replacement or invoice effects; notes alone cannot resolve a claimed repair.
+- `POST /tickets/:id/confirm`: `{version,confirmerName,channel,confirmedAt,notes?}` records actual staff-confirmed customer acceptance after resolution and closes the ticket. CLOSED is immutable.
+- `GET /tickets/:id` and `GET /tickets?page=1&pageSize=20&status=OPEN&unitId=...` read saved facts; they never reassess on reload.
+- `GET /tickets/:id/events?page=1&pageSize=20` returns actor/time/status and prior/current assessment history, without raw private billing snapshots.
 
-All actions require a positive integer `version`. Status/version compare-and-set
-saves each transition and facts atomically; conflicts return 409 `STALE_VERSION`
-or `INVALID_TICKET_TRANSITION`. CLOSED is terminal. The response contains
-identity/linkage, status/version, fault, nullable assessmentSnapshot,
-resolutionDetails/resolvedAt, nullable `confirmation: CustomerConfirmation`,
-closedAt, createdAt and updatedAt. No raw ORM rows or contact details are exposed.
-
-Saved-ticket GET/list routes verify real ADMIN/SUPPORT sessions. POST commands remain
-behind 503 `SERVICE_AUTH_UNAVAILABLE` until transactional replay, source/state guards,
-billing-before-resolution and real repair adapters are complete under the takeover.
-Unit/Job models and the D4 migration are present. Missing ticket tables/columns
-return `SERVICE_SCHEMA_UNAVAILABLE`. The foundation resolution helper records notes only;
-Task 3.1/3.2 must orchestrate stock/finance with command idempotency and one shared
-transaction. No billing or stock effects are posted by these commands.
+Responses use `{data:ServiceTicket}` with `sourceVerified`, `noWorkReason`, `billingFinalized` alongside the existing identity/version/coverage/resolution/confirmation fields. POST create returns 201, actions 200. Command, ticket and append-only before/after events commit together; exact retries create no extra events. State/source/financial guards are enforced by migration `20261031840000_service_ticket_integrity` as well as services. Old rows retain null creator/source-verification and are never silently adopted; invalid historical links require reconciliation. Actual repair sources and replacement posting remain separate open gates. These commands do not fabricate stock, labour or invoices.
 
 Task 3.2 extends ticket responses with nullable `replacedUnitId` and `newUnitId`.
 The original `unitId` remains the defective unit; lineage is retained through

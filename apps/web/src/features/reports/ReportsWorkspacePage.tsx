@@ -8,6 +8,7 @@ import { formatMoney, overviewCsvUrl, payCsvUrl, profitabilityCsvUrl, subsidyNex
 import { describeD4Error as errorMessage } from '../service/d4-http';
 import { OperationsReport } from './OperationsReport';
 import { CsvDownload } from './CsvDownload';
+import { formatWhen } from '../sales/queries';
 import { InstallationLabourPanel } from './InstallationLabourPanel';
 
 export function ReportsWorkspacePage() {
@@ -59,7 +60,7 @@ export function ReportsWorkspacePage() {
   }))) ?? [];
 
   return <section aria-labelledby="reports-workspace-title">
-    <h1 id="reports-workspace-title">Reports</h1>
+    <h1 id="reports-workspace-title">Finance &amp; reports</h1>
     <p>Posted invoices, cash and costs. Periods use Asia/Kolkata calendar boundaries. Installation pay uses approved frozen rates; service pay is still pending integration. Job contribution stays provisional when costs are incomplete.</p>
     <OperationsReport />
     <InstallationLabourPanel />
@@ -74,7 +75,7 @@ export function ReportsWorkspacePage() {
     {overview.isPending && <p role="status">Loading period summary…</p>}
     {overview.isError && <div role="alert"><p>{errorMessage(overview.error)}</p><button onClick={() => void overview.refetch()}>Retry summary</button></div>}
     {overview.isSuccess && overview.data && <DetailPattern title={`Period summary — ${overview.data.startDate} to ${overview.data.endDate} (end excluded)`} entries={[
-      { id: 'asOf', label: 'Recorded as of', value: overview.data.asOf },
+      { id: 'asOf', label: 'Recorded as of', value: formatWhen(overview.data.asOf) },
       { id: 'invoiced', label: 'Invoiced', value: formatMoney(overview.data.invoicedRevenue) },
       { id: 'cash', label: 'Cash received', value: formatMoney(overview.data.cashReceived) },
       { id: 'cost', label: 'Actual cost', value: formatMoney(overview.data.actualCost) },
@@ -92,7 +93,7 @@ export function ReportsWorkspacePage() {
     {profitability.isFetching && <p role="status">Loading job profitability…</p>}
     {profitability.isError && <div role="alert"><p>{errorMessage(profitability.error)}</p><button onClick={() => void profitability.refetch()}>Retry job</button></div>}
     {profitability.isSuccess && profitability.data && <DetailPattern title={`Job ${profitability.data.jobId}`} entries={[
-      { id: 'asOf', label: 'Recorded as of', value: profitability.data.asOf },
+      { id: 'asOf', label: 'Recorded as of', value: formatWhen(profitability.data.asOf) },
       { id: 'status', label: 'Result status', value: profitability.data.isProvisional ? 'Provisional — unfinished' : 'Completed' },
       { id: 'revenue', label: 'Invoiced revenue', value: formatMoney(profitability.data.invoicedRevenue) },
       { id: 'cash', label: 'Cash received', value: formatMoney(profitability.data.cashReceived) },
@@ -110,7 +111,7 @@ export function ReportsWorkspacePage() {
       columns={[{ id: 'name', label: 'Technician' }, { id: 'hours', label: 'Approved hours' }, { id: 'pay', label: 'Pay' }]}
       rows={(pay.data?.technicians ?? []).map((row) => ({ id: row.technicianId, cells: { name: row.technicianName, hours: row.totalHours, pay: formatMoney(row.totalPay) } }))} />
     {pay.isSuccess && pay.data && <><p role="status">{pay.data.scope === 'INSTALLATION_ONLY' ? 'Installation pay only — service time and unapproved installation work are excluded.' : 'All approved technician time.'}</p>
-      <p>Total: {pay.data.totalHours} hours · {formatMoney(pay.data.totalPay)}. Recorded as of {pay.data.asOf}.</p>
+      <p>Total: {pay.data.totalHours} hours · {formatMoney(pay.data.totalPay)}. Recorded as of {formatWhen(pay.data.asOf)}.</p>
       <CsvDownload key={period} url={payCsvUrl(period)} label="Download pay CSV" /></>}
 
     <ListPattern title="Subsidy milestones" loading={subsidies.isPending} error={subsidies.isError ? errorMessage(subsidies.error) : undefined}

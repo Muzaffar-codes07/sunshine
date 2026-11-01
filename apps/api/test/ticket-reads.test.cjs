@@ -82,6 +82,7 @@ test('HTTP ticket reads require an allowed staff role and cannot access data bef
   const { AuthService } = require('../dist/auth/auth.service');
   const { RolesGuard } = require('../dist/auth/roles.guard');
   const { ServiceReadController } = require('../dist/service/service-read.controller');
+  const { TicketHistoryService } = require('../dist/service/ticket-history.service');
   const { ApiExceptionFilter } = require('../dist/platform/api-exception.filter');
   const saved = row(); let reads = 0;
   const staff = Object.fromEntries(['SUPPORT', 'ADMIN', 'TECHNICIAN'].map((role) => [role, randomUUID()]));
@@ -93,6 +94,7 @@ test('HTTP ticket reads require an allowed staff role and cannot access data bef
       return role ? { id, role, email: 'test@example.com', displayName: role } : null;
     } } },
     RolesGuard,
+    { provide: TicketHistoryService, useValue: { get() { reads++; return { data: { items: [], total: 0, page: 1, pageSize: 20 } }; } } },
     { provide: ServiceService, useValue: {
       getTicket(id) { reads++; return { data: { id } }; },
       listTickets() { reads++; return { data: { items: [], page: 1, pageSize: 20, total: 0 } }; },

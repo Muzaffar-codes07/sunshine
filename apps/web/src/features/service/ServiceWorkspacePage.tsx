@@ -1,22 +1,23 @@
-import { useRef, useState, type FormEvent, type MutableRefObject } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import {
   assessTicketInputSchema,
   confirmTicketInputSchema,
   createTicketInputSchema,
   resolveTicketInputSchema,
   warrantyLookupQuerySchema,
+  serviceTicketResponseSchema,
   type ServiceTicket,
   type WarrantyLookupResponse,
 } from '@sunshine/contracts';
 import { DetailPattern, FormPattern, TimelinePattern } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
-import { newIdempotencyKey } from '../../lib/api';
+import { useRetrySafeCommand } from '../../lib/command';
+import { CommandFeedback } from '../../components/shared/CommandFeedback';
 import { D4RequestError, describeD4Error } from './d4-http';
-import { assessTicket, confirmTicket, createTicket, lookupWarranty, resolveTicket } from './service-api';
+import { lookupWarranty } from './service-api';
 import { coverageLabel, nextTicketAction, warrantyPeriod } from './service-model';
 
 type FormFailure = { message: string; fields: Record<string, string[]> };
-type CommandKey = { fingerprint: string; key: string };
 
 function failure(error: unknown): FormFailure {
   return { message: describeD4Error(error), fields: error instanceof D4RequestError ? error.fieldErrors : {} };
@@ -27,17 +28,9 @@ function localNow(): string {
   return now.toISOString().slice(0, 16);
 }
 
-function commandKey(cache: MutableRefObject<CommandKey | null>, action: string, body: unknown): string {
-  const fingerprint = `${action}:${JSON.stringify(body)}`;
-  if (cache.current?.fingerprint === fingerprint) return cache.current.key;
-  const key = newIdempotencyKey();
-  cache.current = { fingerprint, key };
-  return key;
-}
-
 // Enable only once the backend provides persisted ticket reads and command replay.
-export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTicket = null }: {
-  ticketCommandsEnabled?: boolean; initialTicket?: ServiceTicket | null;
+export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTicket = null, onTicketSaved }: {
+  ticketCommandsEnabled?: boolean; initialTicket?: ServiceTicket | null; onTicketSaved?: (ticket: ServiceTicket) => void;
 } = {}) {
   const [lookup, setLookup] = useState<WarrantyLookupResponse['data'] | null>(null);
   const [lookupFailure, setLookupFailure] = useState<FormFailure | null>(null);
@@ -45,9 +38,11 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
   const [ticket, setTicket] = useState<ServiceTicket | null>(initialTicket);
   const [unitId, setUnitId] = useState('');
   const [ticketFailure, setTicketFailure] = useState<FormFailure | null>(null);
-  const [ticketPending, setTicketPending] = useState(false);
-  const keyCache = useRef<CommandKey | null>(null);
-  const commandPending = useRef(false);
+  const mutation = useRetrySafeCommand(serviceTicketResponseSchema, ['service'], response => { setTicket(response.data); onTicketSaved?.(response.data); });
+  const ticketPending = mutation.busy;
+  const confirmationSuggested = useRef<string | null>(null);
+  if (ticket?.status === 'AWAITING_CUSTOMER_CONFIRMATION') confirmationSuggested.current ??= localNow();
+  else confirmationSuggested.current = null;
   const lookupInFlight = useRef(false);
 
   async function submitLookup(event: FormEvent<HTMLFormElement>) {
@@ -81,28 +76,29 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
     const values = new FormData(event.currentTarget);
     const parsed = createTicketInputSchema.safeParse({ unitId: values.get('unitId'), faultDescription: values.get('faultDescription') });
     if (!parsed.success) return setTicketFailure({ message: 'Check the ticket fields.', fields: zodFields(parsed.error.issues) });
-    await runCommand('create', parsed.data, (key) => createTicket(parsed.data, key));
+    runCommand('/tickets', parsed.data);
   }
 
   async function submitAssess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!ticket) return;
     const values = new FormData(event.currentTarget);
-    const instant = new Date(String(values.get('asOfDate')));
     const parsed = assessTicketInputSchema.safeParse({
       version: ticket.version,
-      asOfDate: Number.isFinite(instant.getTime()) ? instant.toISOString() : '',
+      asOfDate: ticket.createdAt,
       requestedScope: values.get('requestedScope'),
     });
     if (!parsed.success) return setTicketFailure({ message: 'Check the assessment fields.', fields: zodFields(parsed.error.issues) });
-    await runCommand('assess', parsed.data, (key) => assessTicket(ticket.id, parsed.data, key));
+    runCommand(`/tickets/${ticket.id}/assess`, parsed.data);
   }
 
   async function submitResolve(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!ticket) return;
     const values = new FormData(event.currentTarget);
-    const parsed = resolveTicketInputSchema.safeParse({ version: ticket.version, resolutionDetails: values.get('resolutionDetails') });
+    if (!ticket.billingFinalized && values.get('noWork') !== 'on') return setTicketFailure({ message: 'Finalize work billing, or explicitly confirm a no-work resolution.', fields: {} });
+    const parsed = resolveTicketInputSchema.safeParse({ version: ticket.version, resolutionDetails: values.get('resolutionDetails'),
+      ...(values.get('noWork') === 'on' ? { noWorkReason: values.get('noWorkReason') } : {}) });
     if (!parsed.success) return setTicketFailure({ message: 'Check the resolution fields.', fields: zodFields(parsed.error.issues) });
-    await runCommand('resolve', parsed.data, (key) => resolveTicket(ticket.id, parsed.data, key));
+    runCommand(`/tickets/${ticket.id}/resolve`, parsed.data);
   }
 
   async function submitConfirm(event: FormEvent<HTMLFormElement>) {
@@ -113,22 +109,16 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
       version: ticket.version,
       confirmerName: values.get('confirmerName'),
       channel: values.get('channel'),
-      confirmedAt: Number.isFinite(instant.getTime()) ? instant.toISOString() : '',
+      confirmedAt: values.get('confirmedAt') === confirmationSuggested.current ? new Date().toISOString() : Number.isFinite(instant.getTime()) ? instant.toISOString() : '',
       notes: values.get('notes') || undefined,
     });
     if (!parsed.success) return setTicketFailure({ message: 'Check the confirmation fields.', fields: zodFields(parsed.error.issues) });
-    await runCommand('confirm', parsed.data, (key) => confirmTicket(ticket.id, parsed.data, key));
+    runCommand(`/tickets/${ticket.id}/confirm`, parsed.data);
   }
 
-  async function runCommand(action: string, body: unknown, request: (key: string) => Promise<{ data: ServiceTicket }>) {
-    if (!ticketCommandsEnabled || commandPending.current) return;
-    commandPending.current = true;
-    setTicketFailure(null); setTicketPending(true);
-    try {
-      const response = await request(commandKey(keyCache, action, body));
-      setTicket(response.data); keyCache.current = null;
-    } catch (error) { setTicketFailure(failure(error)); }
-    finally { setTicketPending(false); commandPending.current = false; }
+  function runCommand(path: string, body: unknown) {
+    if (!ticketCommandsEnabled || mutation.busy || mutation.uncertain) return;
+    setTicketFailure(null); mutation.run(path, body);
   }
 
   const action = ticket ? nextTicketAction(ticket.status) : null;
@@ -159,8 +149,9 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
     ]} />}
 
     {!ticketCommandsEnabled && <p role="status">Ticket actions are unavailable until command retries, repair billing and replacement posting are verified. Warranty lookup uses the equipment’s recorded delivery and frozen quote terms.</p>}
-    <fieldset disabled={!ticketCommandsEnabled} style={{ border: 0, padding: 0, minWidth: 0 }}>
+    <fieldset disabled={!ticketCommandsEnabled || mutation.busy || mutation.uncertain} style={{ border: 0, padding: 0, minWidth: 0 }}>
     <legend>Service ticket actions</legend>
+    {ticket?.sourceVerified === false && <p role="status">Historical source is unverified. Assessment must verify the delivered equipment before further actions.</p>}
     {!ticket && <FormPattern title="Create service ticket" submitLabel="Create ticket" pending={ticketPending}
       error={ticketFailure?.message} onSubmit={(event) => void submitCreate(event)}>
       <Field label="Installed unit ID" error={ticketFailure?.fields.unitId?.[0]}>
@@ -183,25 +174,31 @@ export function ServiceWorkspacePage({ ticketCommandsEnabled = false, initialTic
         { id: 'new-unit', label: 'New unit', value: ticket.newUnitId ?? 'No replacement recorded' },
       ]} />
       <TimelinePattern title="Ticket timeline" events={ticketEvents(ticket)} />
-      {action === 'ASSESS' && <FormPattern title="Assess coverage" submitLabel="Save assessment" pending={ticketPending}
+      {(action === 'ASSESS' || (ticket.status === 'ASSESSED' && !ticket.billingFinalized)) && <FormPattern title="Assess coverage" submitLabel="Save assessment" pending={ticketPending}
         error={ticketFailure?.message} onSubmit={(event) => void submitAssess(event)}>
-        <Field label="Assessment time (device local time)" error={ticketFailure?.fields.asOfDate?.[0]}>{(control) => <input {...control} name="asOfDate" type="datetime-local" defaultValue={localNow()} required />}</Field>
-        <Field label="Requested scope" hint="For example: inverter repair." error={ticketFailure?.fields.requestedScope?.[0]}>{(control) => <input {...control} name="requestedScope" required />}</Field>
+        <p>Coverage occurrence is the saved complaint intake: <time dateTime={ticket.createdAt}>{ticket.createdAt}</time>. Scope can be corrected before work or financial effects; prior decisions remain audited.</p>
+        <Field label="Requested scope" hint="For example: inverter repair." error={ticketFailure?.fields.requestedScope?.[0]}>{(control) => <input {...control} name="requestedScope" defaultValue={ticket.assessmentSnapshot?.requestedScope ?? ''} required />}</Field>
       </FormPattern>}
       {action === 'RESOLVE' && <FormPattern title="Record resolution" submitLabel="Await customer confirmation" pending={ticketPending}
         error={ticketFailure?.message} onSubmit={(event) => void submitResolve(event)}>
+        {!ticket.billingFinalized && <>
+          <p>Actual repair billing must be finalized before work is resolved. Without billing, only a withdrawal or other legitimate no-work resolution can continue.</p>
+          <label><input type="checkbox" name="noWork" /> No parts, labour, replacement or financial effects occurred</label>
+          <Field label="No-work resolution reason" error={ticketFailure?.fields.noWorkReason?.[0]}>{control => <textarea {...control} name="noWorkReason" rows={3} minLength={5} maxLength={4000} />}</Field>
+        </>}
         <Field label="Resolution details" error={ticketFailure?.fields.resolutionDetails?.[0]}>{(control) => <textarea {...control} name="resolutionDetails" rows={4} required />}</Field>
       </FormPattern>}
       {action === 'CONFIRM' && <FormPattern title="Customer confirmation" submitLabel="Close ticket" pending={ticketPending}
         error={ticketFailure?.message} onSubmit={(event) => void submitConfirm(event)}>
         <Field label="Confirmer name" error={ticketFailure?.fields.confirmerName?.[0]}>{(control) => <input {...control} name="confirmerName" required />}</Field>
         <Field label="Channel" error={ticketFailure?.fields.channel?.[0]}>{(control) => <select {...control} name="channel" defaultValue="PHONE"><option value="PHONE">Phone</option><option value="WHATSAPP">WhatsApp</option><option value="IN_PERSON">In person</option></select>}</Field>
-        <Field label="Confirmed at (device local time)" error={ticketFailure?.fields.confirmedAt?.[0]}>{(control) => <input {...control} name="confirmedAt" type="datetime-local" defaultValue={localNow()} required />}</Field>
+        <Field label="Confirmed at (device local time)" error={ticketFailure?.fields.confirmedAt?.[0]}>{(control) => <input {...control} name="confirmedAt" type="datetime-local" defaultValue={confirmationSuggested.current ?? localNow()} required />}</Field>
         <Field label="Notes (optional)" error={ticketFailure?.fields.notes?.[0]}>{(control) => <textarea {...control} name="notes" rows={3} />}</Field>
       </FormPattern>}
       {action === 'DONE' && <p role="status">Ticket closed with recorded customer confirmation.</p>}
     </>}
     </fieldset>
+    <CommandFeedback problem={mutation.problem} uncertain={mutation.uncertain} busy={mutation.busy} onRetry={mutation.retry} />
   </section>;
 }
 

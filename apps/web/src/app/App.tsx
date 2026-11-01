@@ -10,8 +10,10 @@ import { FieldJobsPage } from '../features/field/FieldJobsPage';
 import { OrderFulfilmentPage } from '../features/warehouse/OrderFulfilmentPage';
 import { WarehousePage } from '../features/warehouse/WarehousePage';
 import { apiGet } from '../lib/api';
+import { BrandMark } from '../components/shared/Brand';
 import { LoginPage } from '../features/auth/LoginPage';
-import { Workspace, WorkspaceOverview } from './Workspace';
+import { Workspace } from './Workspace';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { ServiceWorkspaceRoute } from '../features/service/ServiceWorkspaceRoute';
 import { ReportsWorkspacePage } from '../features/reports';
 import { PatternsPage } from './PatternsPage';
@@ -26,7 +28,7 @@ export function App() {
       <Route path="/enquire" element={<PublicEnquiryPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/workspace" element={<Workspace />}>
-        <Route index element={<WorkspaceOverview />} />
+        <Route index element={<DashboardPage />} />
         <Route path="sales" element={<SalesWorkspacePage />} />
         <Route path="orders" element={<OrderPage />} />
         <Route path="orders/:id" element={<OrderPage />} />
@@ -47,7 +49,7 @@ export function App() {
 }
 
 function NotFound() {
-  return <main className="enquiry-page"><h1>Page not found</h1><p><Link to="/">Go to the Sunshine home page</Link></p></main>;
+  return <main className="enquiry-page"><h1>Page not found</h1><p><Link to="/">Go to the Solar OS home page</Link></p></main>;
 }
 
 function Home() {
@@ -55,7 +57,7 @@ function Home() {
   const database = useQuery({ queryKey: ['readiness'], queryFn: ({ signal }) => apiGet('/health/ready', readinessResponseSchema, signal) });
   return (
     <main className="shell">
-      <header><a className="brand" href="/" aria-label="Sunshine home"><span className="sun">☀</span> sunshine<span className="brand-tag">SOLAR OPERATIONS</span></a><span className="stage">Solar operations</span></header>
+      <header><a className="brand" href="/"><BrandMark /> Solar OS</a><span className="stage">Solar operations</span></header>
       <section className="hero">
         <p className="eyebrow">ONE CUSTOMER. ONE CONNECTED LIFECYCLE.</p>
         <h1>From rooftop enquiry<br />to years of reliable service.</h1>

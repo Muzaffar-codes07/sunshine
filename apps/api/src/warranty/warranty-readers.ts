@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import type { WarrantyEquipment, WarrantyLookupQuery } from '@sunshine/contracts';
+import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../platform/api-error';
 
 /** D3 adapter must join the unit to its installation, not infer ownership from tickets.
  * findBySerial returns at most two scoped matches so ambiguity is explicit. */
 export abstract class WarrantyEquipmentReader {
-  abstract findById(unitId: string): Promise<WarrantyEquipment | null>;
+  abstract findById(unitId: string, tx?: Prisma.TransactionClient): Promise<WarrantyEquipment | null>;
   abstract findBySerial(query: WarrantyLookupQuery): Promise<WarrantyEquipment[]>;
 }
 
