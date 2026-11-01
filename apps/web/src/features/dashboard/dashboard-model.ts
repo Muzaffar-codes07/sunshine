@@ -129,6 +129,13 @@ export function teamFacts(jobs: JobView[], nowAt: Date) {
   };
 }
 
+/** Monday-first whole weeks covering the month, for a calendar grid. */
+export function monthGrid(anchor: Date) {
+  const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0), days: Date[] = [];
+  for (let at = weekStart(new Date(anchor.getFullYear(), anchor.getMonth(), 1)); at <= last || days.length % 7; at = addDays(at, 1)) days.push(at);
+  return days;
+}
+
 export type CrewState = 'ON_SITE' | 'ASSIGNED' | 'FREE';
 const CREW_ORDER: Record<CrewState, number> = { ON_SITE: 0, ASSIGNED: 1, FREE: 2 };
 
