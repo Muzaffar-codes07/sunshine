@@ -32,6 +32,7 @@ test('450-customer import rolls back late failure, resumes, reconciles and prese
     assert.equal(await prisma.file.count(),0,'Failed completed job leaves no file metadata');
     assert.equal((await readdir(process.env.UPLOAD_DIR)).length,0,'New blobs are cleaned after rollback');
     const report=await seedDemo(prisma,options);
+    assert.equal(await prisma.payment.count({where:{recordedBy:{role:{not:'ADMIN'}}}}),0,'Only ADMIN records receipts');
     assert.equal(report.actual.customers,450);assert.equal(report.actual.completedJobs,60);
     assert.equal(report.actual.counts.service_tickets,15);assert.equal(report.reconciliation.financialErrors,0);
     assert.equal(report.reconciliation.stock.ok,true);

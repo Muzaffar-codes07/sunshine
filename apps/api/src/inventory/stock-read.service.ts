@@ -44,32 +44,34 @@ export class StockReadService {
     const productId = query.productId ?? null;
     const locationId = query.locationId ?? null;
     const offset = (query.page - 1) * query.pageSize;
-    const [{ total }] = await this.prisma.$queryRaw<[{ total: bigint }]>`
-      SELECT COUNT(*) AS "total" FROM "stock_on_hand" s
-      WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
-        AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)`;
-    const rows = await this.prisma.$queryRaw<{
-      productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal; reserved: Prisma.Decimal;
-    }[]>`
-      SELECT s."productId", p."sku", p."name" AS "productName", s."locationId", l."code" AS "locationCode", l."kind"::text AS "locationKind",
-             s."quantity" AS "onHand", COALESCE(a."reserved", 0) AS "reserved"
-      FROM "stock_on_hand" s
-      JOIN "products" p ON p."id" = s."productId"
-      JOIN "stock_locations" l ON l."id" = s."locationId"
-      LEFT JOIN (
-        SELECT "productId", "locationId", SUM("quantity") AS "reserved" FROM "allocations" WHERE "status" = 'RESERVED' GROUP BY "productId", "locationId"
-      ) a ON a."productId" = s."productId" AND a."locationId" = s."locationId"
-      WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
-        AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)
-      ORDER BY p."sku", l."code"
-      LIMIT ${query.pageSize}::int OFFSET ${offset}::int`;
-    return stockLevelListResponseSchema.parse({ data: {
-      items: rows.map(({ onHand, reserved, ...row }) => ({
-        ...row, onHand: onHand.toFixed(3), reserved: new Prisma.Decimal(reserved).toFixed(3),
-        free: row.locationKind === 'USABLE' ? onHand.minus(reserved).toFixed(3) : '0.000',
-      })),
-      total: Number(total), page: query.page, pageSize: query.pageSize,
-    } });
+    return this.prisma.$transaction(async (tx) => {
+      const [{ total }] = await tx.$queryRaw<[{ total: bigint }]>`
+        SELECT COUNT(*) AS "total" FROM "stock_on_hand" s
+        WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
+          AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)`;
+      const rows = await tx.$queryRaw<{
+        productId: string; sku: string; productName: string; locationId: string; locationCode: string; locationKind: string; onHand: Prisma.Decimal; reserved: Prisma.Decimal;
+      }[]>`
+        SELECT s."productId", p."sku", p."name" AS "productName", s."locationId", l."code" AS "locationCode", l."kind"::text AS "locationKind",
+               s."quantity" AS "onHand", COALESCE(a."reserved", 0) AS "reserved"
+        FROM "stock_on_hand" s
+        JOIN "products" p ON p."id" = s."productId"
+        JOIN "stock_locations" l ON l."id" = s."locationId"
+        LEFT JOIN (
+          SELECT "productId", "locationId", SUM("quantity") AS "reserved" FROM "allocations" WHERE "status" = 'RESERVED' GROUP BY "productId", "locationId"
+        ) a ON a."productId" = s."productId" AND a."locationId" = s."locationId"
+        WHERE (${productId}::uuid IS NULL OR s."productId" = ${productId}::uuid)
+          AND (${locationId}::uuid IS NULL OR s."locationId" = ${locationId}::uuid)
+        ORDER BY p."sku", l."code"
+        LIMIT ${query.pageSize}::int OFFSET ${offset}::int`;
+      return stockLevelListResponseSchema.parse({ data: {
+        items: rows.map(({ onHand, reserved, ...row }) => ({
+          ...row, onHand: onHand.toFixed(3), reserved: new Prisma.Decimal(reserved).toFixed(3),
+          free: row.locationKind === 'USABLE' ? onHand.minus(reserved).toFixed(3) : '0.000',
+        })),
+        total: Number(total), page: query.page, pageSize: query.pageSize,
+      } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
   /** Newest first by business time. Posting order breaks ties, because a document's lines share one time. */
