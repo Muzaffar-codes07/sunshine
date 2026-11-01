@@ -118,7 +118,7 @@ export function teamFacts(jobs: JobView[], nowAt: Date) {
   const names = new Map(jobs.flatMap((job) => job.crew.map((member) => [member.id, member.displayName] as const)));
   const today = open.filter((job) => onDay(job, nowAt));
   const assignedToday = [...new Set(today.flatMap((job) => job.technicianIds))];
-  const onSite = [...new Set(open.filter((job) => job.status === 'IN_PROGRESS').flatMap((job) => job.technicianIds))];
+  const onSite = [...new Set(open.filter((job) => job.status === 'IN_PROGRESS' && onDay(job, nowAt)).flatMap((job) => job.technicianIds))];
   const days = Array.from({ length: 7 }, (_, index) => { const day = addDays(nowAt, index); return { label: DAYS[(day.getDay() + 6) % 7]!, count: jobs.filter((job) => onDay(job, day)).length }; });
   const start = weekStart(nowAt), thisWeek = jobs.filter((job) => [0, 1, 2, 3, 4, 5, 6].some((index) => onDay(job, addDays(start, index))));
   return {
@@ -144,7 +144,7 @@ export function crewRows<T extends { id: string; displayName: string }>(technici
   const open = jobs.filter((job) => job.status !== 'COMPLETED');
   return technicians.map((member) => {
     const mine = open.filter((job) => job.technicianIds.includes(member.id));
-    const onSite = mine.find((job) => job.status === 'IN_PROGRESS');
+    const onSite = mine.find((job) => job.status === 'IN_PROGRESS' && onDay(job, nowAt));
     const current = onSite ?? mine.find((job) => onDay(job, nowAt));
     const next = mine.filter((job) => job !== current && job.scheduledStart && new Date(job.scheduledStart) > nowAt)
       .sort((a, b) => new Date(a.scheduledStart!).getTime() - new Date(b.scheduledStart!).getTime())[0];

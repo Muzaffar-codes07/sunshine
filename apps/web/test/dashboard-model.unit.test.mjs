@@ -115,18 +115,19 @@ test('each technician is on site, booked or free according to their own open job
   const crew = (id) => ({ crew: [{ id, displayName: id }], technicianIds: [id] });
   const people = [{ id: 'free', displayName: 'Zed' }, { id: 'booked', displayName: 'Bea' }, { id: 'site', displayName: 'Cal' }, { id: 'later', displayName: 'Ana' }];
   const rows = crewRows(people, [
-    job('a', { ...crew('site'), status: 'IN_PROGRESS', scheduledStart: at(3, 9), scheduledEnd: at(3, 15) }),
-    job('b', { ...crew('booked'), scheduledStart: at(4, 14), scheduledEnd: at(4, 16) }),
-    job('c', { ...crew('booked'), scheduledStart: at(6, 9), scheduledEnd: at(6, 12) }),
-    job('d', { ...crew('booked'), scheduledStart: at(5, 9), scheduledEnd: at(5, 12) }),
-    job('e', { ...crew('later'), scheduledStart: at(7, 9), scheduledEnd: at(7, 12) }),
-    job('f', { ...crew('free'), status: 'COMPLETED', scheduledStart: at(4, 9), scheduledEnd: at(4, 11) }),
+    job('a', { ...crew('site'), status: 'IN_PROGRESS', scheduledStart: at(4, 9), scheduledFinish: at(4, 15) }),
+    job('g', { ...crew('free'), status: 'IN_PROGRESS', scheduledStart: at(1, 9), scheduledFinish: at(1, 15) }),
+    job('b', { ...crew('booked'), scheduledStart: at(4, 14), scheduledFinish: at(4, 16) }),
+    job('c', { ...crew('booked'), scheduledStart: at(6, 9), scheduledFinish: at(6, 12) }),
+    job('d', { ...crew('booked'), scheduledStart: at(5, 9), scheduledFinish: at(5, 12) }),
+    job('e', { ...crew('later'), scheduledStart: at(7, 9), scheduledFinish: at(7, 12) }),
+    job('f', { ...crew('free'), status: 'COMPLETED', scheduledStart: at(4, 9), scheduledFinish: at(4, 11) }),
   ], NOW);
   assert.deepEqual(rows.map((row) => [row.member.displayName, row.state, row.current?.id, row.next?.id, row.open]), [
     ['Cal', 'ON_SITE', 'a', undefined, 1],
     ['Bea', 'ASSIGNED', 'b', 'd', 3],
     ['Ana', 'FREE', undefined, 'e', 1],
-    ['Zed', 'FREE', undefined, undefined, 0],
+    ['Zed', 'FREE', undefined, undefined, 1],
   ]);
 });
 
