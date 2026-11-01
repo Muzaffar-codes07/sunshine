@@ -46,8 +46,8 @@
 /* Statement and channels */
 .lp-statement { padding-block: 5.5rem 3rem; }
 .lp-statement p { font-size: clamp(1.5rem, 3.4vw, 2.625rem); line-height: 1.2; letter-spacing: -.02em; font-weight: 500; max-width: 56rem; margin: 0 auto; }
-.lp-hl { background: linear-gradient(transparent 62%, #c6a75e66 62%) no-repeat 0 0 / 0% 100%; transition: background-size 1.2s .3s var(--ease); }
-.is-in .lp-hl { background-size: 100% 100%; }
+.lp-hl { background: linear-gradient(transparent 62%, #c6a75e66 62%) no-repeat 0 0 / 100% 100%; transition: background-size 1.2s .3s var(--ease); }
+.lp-motion [data-reveal]:not(.is-in) .lp-hl { background-size: 0% 100%; }
 .lp-channels { padding-block: 1rem 5rem; }
 .lp-channels p { color: var(--muted); max-width: 38rem; }
 .lp-marquee { margin-top: 2rem; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
@@ -78,6 +78,7 @@
 .lp-rules { position: relative; padding-block: 5.5rem; color: var(--white); background: var(--navy); isolation: isolate; overflow: hidden; }
 .lp-rules-art { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; max-width: none !important; }
 .lp-rules .lp-eyebrow { color: var(--gold); }
+.lp-rules-note { max-width: 38rem; color: var(--on-navy-muted); margin-bottom: 2rem; }
 .lp-rule-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .lp-rule { padding: 1.5rem; border: 1px solid var(--navy-line); border-radius: var(--r-lg); background: #ffffff08; transition: background-color .3s, border-color .3s, transform .3s var(--ease); }
 .lp-rule:hover { background: #ffffff10; border-color: #c6a75e80; transform: translateY(-4px); }
@@ -123,8 +124,8 @@
 .lp-wordmark { margin: 2rem auto 1rem; font-size: clamp(3.5rem, 15vw, 12rem); font-weight: 600; letter-spacing: -.05em; line-height: .9; color: transparent; -webkit-text-stroke: 1px var(--line-strong); white-space: nowrap; overflow: hidden; }
 .lp-footnote { color: var(--muted); font-size: .8125rem; margin: 0 auto; }
 
-/* Scroll reveal: content is visible by default and only hides once JS can bring it back. */
-.lp [data-reveal]:not(.is-in) { opacity: 0; transform: translateY(1.5rem); }
+/* Scroll reveal: content is visible by default; it only hides under .lp-motion, which the page adds once the observer is running. */
+.lp.lp-motion [data-reveal]:not(.is-in) { opacity: 0; transform: translateY(1.5rem); }
 .lp [data-reveal] { transition: opacity .8s var(--ease), transform .8s var(--ease); transition-delay: calc(var(--i, 0) * 80ms); }
 
 @keyframes lp-rise { to { opacity: 1; transform: none; } }
@@ -157,7 +158,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .lp-word, .lp [data-reveal] { opacity: 1 !important; transform: none !important; }
-  .lp-hl { background-size: 100% 100%; }
   .lp-marquee { mask-image: none; }
   .lp-marquee-track { width: auto; flex-wrap: wrap; }
   .lp-marquee-track .lp-chip:nth-child(n + 4) { display: none; }

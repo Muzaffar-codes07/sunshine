@@ -19,14 +19,14 @@ const steps = [
 ];
 
 const rules = [
-  ['All or nothing', 'Stock, money and workflow changes share one database transaction. A failed step leaves no partial write.'],
-  ['Safe to retry', 'Repeating a confirmation, payment or delivery cannot duplicate records, balances or warranty dates.'],
-  ['Stock stays real', 'Duplicate serials and short stock are rejected, and two people can never reserve the same unit.'],
-  ['Every change explained', 'Material transitions keep who, when and why. Financial corrections are reversals, not edits.'],
+  ['All or nothing', 'Each critical command commits its stock, money and workflow effects together, so a failed step leaves no partial write.'],
+  ['Safe to retry', 'A repeated confirmation, payment or delivery must replay, not duplicate records, balances or warranty dates.'],
+  ['Stock stays real', 'Duplicate serials and short stock must be rejected, and concurrent reservations of one unit have one winner.'],
+  ['Every change explained', 'Material transitions must keep who, when and why. Financial corrections are reversals, not edits.'],
 ] as const;
 
 const service = [
-  { icon: Search, title: 'Find it in seconds', body: 'Search by customer name, phone or exact hardware serial, with installation and service history alongside coverage.' },
+  { icon: Search, title: 'Find the right unit', body: 'Search by customer name, phone or exact hardware serial, with installation and service history alongside coverage.' },
   { icon: ShieldCheck, title: 'Covered or chargeable', body: 'Each decision saves the unit, dates, policy and reason. Covered work costs the customer nothing but still counts against the job.' },
   { icon: CheckCircle2, title: 'Closed when it works', body: 'A resolved ticket waits for the customer. Closure records who confirmed, how and when.' },
   { icon: FileText, title: 'Month-end without the scramble', body: 'Today, week and month views of profitability, open repairs, unpaid balances and subsidy milestones, with CSV export.' },
@@ -47,57 +47,68 @@ export function LandingPage() {
   useEffect(() => {
     const page = root.current;
     if (!page) return;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealables = page.querySelectorAll<HTMLElement>('[data-reveal]');
     const counters = page.querySelectorAll<HTMLElement>('[data-count]');
     const stepItems = page.querySelectorAll<HTMLElement>('[data-step]');
+    const canObserve = 'IntersectionObserver' in window;
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    if (reduce || !('IntersectionObserver' in window)) {
-      revealables.forEach((element) => element.classList.add('is-in'));
-      return () => window.removeEventListener('scroll', onScroll);
-    }
+    // The step tracker is content, not decoration, so it runs whatever the motion preference.
+    const stepper = canObserve ? new IntersectionObserver((entries) => {
+      for (const entry of entries) if (entry.isIntersecting) setActiveStep(Number((entry.target as HTMLElement).dataset.step));
+    }, { rootMargin: '-45% 0px -50% 0px' }) : null;
+    stepItems.forEach((element) => stepper?.observe(element));
 
-    const frames: number[] = [];
-    const count = (element: HTMLElement) => {
-      const target = Number(element.dataset.count);
-      const started = performance.now();
-      const tick = (now: number) => {
-        const progress = Math.min(1, (now - started) / 1100);
-        element.textContent = String(Math.round(target * (1 - Math.pow(1 - progress, 3))));
-        if (progress < 1) frames.push(requestAnimationFrame(tick));
+    // Reveals and count-ups only hide content once this has started, and stopping them always restores final values.
+    const startMotion = () => {
+      const frames: number[] = [];
+      const count = (element: HTMLElement) => {
+        const target = Number(element.dataset.count);
+        const started = performance.now();
+        const tick = (now: number) => {
+          const progress = Math.min(1, (now - started) / 1100);
+          element.textContent = String(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+          if (progress < 1) frames.push(requestAnimationFrame(tick));
+        };
+        element.textContent = '0';
+        frames.push(requestAnimationFrame(tick));
       };
-      element.textContent = '0';
-      frames.push(requestAnimationFrame(tick));
+      const reveal = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const element = entry.target as HTMLElement;
+          element.classList.add('is-in');
+          element.querySelectorAll<HTMLElement>('[data-count]').forEach(count);
+          reveal.unobserve(element);
+        }
+      }, { rootMargin: '0px 0px -12% 0px' });
+      page.classList.add('lp-motion');
+      revealables.forEach((element) => { if (!element.classList.contains('is-in')) reveal.observe(element); });
+      return () => {
+        reveal.disconnect();
+        frames.forEach(cancelAnimationFrame);
+        page.classList.remove('lp-motion');
+        revealables.forEach((element) => element.classList.add('is-in'));
+        counters.forEach((element) => { element.textContent = element.dataset.count ?? ''; });
+      };
     };
 
-    const reveal = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const element = entry.target as HTMLElement;
-        element.classList.add('is-in');
-        element.querySelectorAll<HTMLElement>('[data-count]').forEach(count);
-        reveal.unobserve(element);
-      }
-    }, { rootMargin: '0px 0px -12% 0px' });
-    revealables.forEach((element) => reveal.observe(element));
-    // Counters start at their final value in the markup; only reset them once we know they will animate.
-    counters.forEach((element) => { if (!element.closest('.is-in')) element.textContent = '0'; });
-
-    const stepper = new IntersectionObserver((entries) => {
-      for (const entry of entries) if (entry.isIntersecting) setActiveStep(Number((entry.target as HTMLElement).dataset.step));
-    }, { rootMargin: '-45% 0px -50% 0px' });
-    stepItems.forEach((element) => stepper.observe(element));
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    let stopMotion: (() => void) | null = null;
+    const applyPreference = () => {
+      if (reduce.matches || !canObserve) { stopMotion?.(); stopMotion = null; }
+      else stopMotion ??= startMotion();
+    };
+    applyPreference();
+    reduce.addEventListener('change', applyPreference);
 
     return () => {
       window.removeEventListener('scroll', onScroll);
-      reveal.disconnect();
-      stepper.disconnect();
-      frames.forEach(cancelAnimationFrame);
-      revealables.forEach((element) => element.classList.add('is-in'));
-      counters.forEach((element) => { element.textContent = element.dataset.count ?? ''; });
+      reduce.removeEventListener('change', applyPreference);
+      stepper?.disconnect();
+      stopMotion?.();
     };
   }, []);
 
@@ -177,8 +188,9 @@ export function LandingPage() {
       <section id="rules" className="lp-rules" aria-labelledby="lp-rules-title">
         <WaveArt className="lp-rules-art" />
         <div className="lp-section-head" data-reveal>
-          <p className="lp-eyebrow">Built on rules that hold</p>
-          <h2 id="lp-rules-title">The record stays true, even when people retry</h2>
+          <p className="lp-eyebrow">Required controls</p>
+          <h2 id="lp-rules-title">Rules the record is required to hold</h2>
+          <p className="lp-rules-note">From the product requirements: the controls every critical workflow must enforce.</p>
         </div>
         <div className="lp-rule-grid">
           {rules.map(([title, body], index) => <article key={title} className="lp-rule" data-reveal style={{ '--i': index } as React.CSSProperties}>
