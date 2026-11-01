@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { completeInstallationRequestSchema, jobResponseSchema, startInstallationRequestSchema, type JobView } from '@sunshine/contracts';
 import { PhotoCapture, SignaturePad } from '../../components/device';
 import { CommandFeedback } from '../../components/shared/CommandFeedback';
-import { DetailPattern, ListPattern } from '../../components/shared/patterns';
+import { DetailPattern, ListPattern, StatusPill } from '../../components/shared/patterns';
+import { StageHero } from '../../components/shared/StageHero';
 import { Field } from '../../components/ui/Field';
 import { checkInput, describeFailure, useRetrySafeCommand } from '../../lib/command';
 import { useStaffSession } from '../auth/session';
@@ -47,12 +48,12 @@ function EvidenceFiles({ jobId, evidence, onChange, photoError, signatureError }
     finally { setUploading(false); }
   }
   return <>
-    <h3>Roof photos</h3>
+    <h3 className={`step-title${evidence.photos.length ? ' is-done' : ''}`}>Roof photos</h3>
     {evidence.photos.length > 0 && <ul>{evidence.photos.map((photo) => <li key={photo.id}>{photo.name} <button type="button" onClick={() => onChange({ ...evidence, photos: evidence.photos.filter((row) => row.id !== photo.id) })}>Don't use</button></li>)}</ul>}
     <PhotoCapture key={picker} label="Add a roof photo" hint="Each photo uploads straight away." disabled={uploading}
       onChange={(file) => { if (file) void upload(file, file.name, (id) => ({ ...evidence, photos: [...evidence.photos, { id, name: file.name }] })).then(() => setPicker((value) => value + 1)); }} />
     {photoError && <p className="form-error">{photoError}</p>}
-    <h3>Customer signature</h3>
+    <h3 className={`step-title${evidence.signatureId ? ' is-done' : ''}`}>Customer signature</h3>
     {evidence.signatureId
       ? <p role="status">Signature saved. <button type="button" onClick={() => onChange({ ...evidence, signatureId: null })}>Sign again</button></p>
       : <SignaturePad label="Sign here" hint="Ask the customer to sign, then press Export PNG to save it." disabled={uploading}
@@ -96,7 +97,7 @@ function CompleteJob({ job }: { job: JobView }) {
     command.run(`/jobs/${job.id}/complete`, checked.data);
   }
 
-  return <section className="pattern-card"><h2>Complete the job</h2>
+  return <section className="pattern-card job-steps"><h2>Complete the job</h2>
     <EvidenceFiles jobId={job.id} evidence={evidence} onChange={update} photoError={fields.photoFileIds} signatureError={fields.signatureFileId} />
     <form onSubmit={submit} noValidate aria-busy={command.busy}>
       <fieldset disabled={command.busy || command.uncertain}>
@@ -133,7 +134,7 @@ function CompletedEvidence({ job }: { job: JobView }) {
     ]} />
     <ListPattern title="Crew time" columns={[{ id: 'who', label: 'Technician' }, { id: 'from', label: 'From' }, { id: 'to', label: 'To' }]}
       rows={job.timeRecords.map((record) => ({ id: record.id, cells: { who: crew.get(record.technicianId) ?? 'Former crew member', from: formatWhen(record.startedAt), to: formatWhen(record.finishedAt) } }))} />
-    <section className="pattern-card"><h2>Photos and signature</h2>
+    <section className="pattern-card evidence-grid"><h2>Photos and signature</h2>
       {job.photoFileIds.map((id, index) => <img key={id} className="photo-preview" src={`/api/v1/files/${id}`} alt={`Roof photo ${index + 1}`} />)}
       {job.signatureFileId && <img className="photo-preview" src={`/api/v1/files/${job.signatureFileId}`} alt="Customer signature" />}
     </section>
@@ -145,18 +146,20 @@ function Job({ id }: { id: string }) {
   if (query.isPending) return <p role="status">Loading job…</p>;
   if (query.error) return <div role="alert"><p>{describeProblem(query.error).message}</p><button type="button" onClick={() => void query.refetch()}>Retry</button></div>;
   const job = query.data.data;
+  const stage = job.status === 'SCHEDULED' ? 0 : job.status === 'IN_PROGRESS' ? 1 : 3;
   return <>
-    <h1>{job.orderDisplayNumber}</h1>
-    <DetailPattern title="Job" entries={[
-      { id: 'status', label: 'Status', value: humanize(job.status) }, { id: 'customer', label: 'Customer', value: job.contactName },
-      { id: 'site', label: 'Site', value: job.siteAddress }, { id: 'system', label: 'System', value: `${job.soldCapacityKw} kW ${humanize(job.systemType)}` },
-      { id: 'when', label: 'Scheduled', value: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled' },
-      { id: 'crew', label: 'Crew', value: job.crew.map((member) => member.displayName).join(', ') || 'None assigned' },
-    ]} />
+    <p className="back-link"><Link to="/workspace/field-service"><span aria-hidden="true">← </span>Back to your jobs</Link></p>
+    <div className="page-head"><div><h1>{job.orderDisplayNumber}</h1><p className="page-sub"><StatusPill status={job.status} /> {job.contactName} · {job.soldCapacityKw} kW {humanize(job.systemType)}</p></div></div>
+    <StageHero label="Installation progress" stages={['Scheduled', 'On site', 'Completed']} current={stage}
+      next={job.status === 'SCHEDULED' ? 'Start the job when the crew arrives on site.' : job.status === 'IN_PROGRESS' ? 'Add the evidence below, then complete the job.' : 'Nothing more to do. This installation is complete.'}
+      facts={[
+        { id: 'site', label: 'Site', value: job.siteAddress },
+        { id: 'when', label: 'Scheduled', value: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled' },
+        { id: 'crew', label: 'Crew', value: job.crew.map((member) => member.displayName).join(', ') || 'None assigned' },
+      ]} />
     {job.status === 'SCHEDULED' && <StartJob job={job} />}
     {job.status === 'IN_PROGRESS' && <CompleteJob key={job.id} job={job} />}
     {job.status === 'COMPLETED' && <CompletedEvidence job={job} />}
-    <p><Link to="/workspace/field-service">Back to your jobs</Link></p>
   </>;
 }
 

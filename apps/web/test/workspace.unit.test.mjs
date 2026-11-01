@@ -14,14 +14,18 @@ test('workspace navigation restricts each role and direct links cannot mount una
     const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
     const { visibleWorkspaces } = await vite.ssrLoadModule('/src/app/Workspace.tsx');
     assert.deepEqual(Array.from(visibleWorkspaces('TECHNICIAN'), ([path]) => path), ['sales', 'field-service']);
-    assert.deepEqual(Array.from(visibleWorkspaces('WAREHOUSE'), ([path]) => path), ['orders', 'warehouse']);
+    assert.deepEqual(Array.from(visibleWorkspaces('WAREHOUSE'), ([path]) => path), ['orders', 'warehouse', 'equipment']);
     assert.deepEqual(Array.from(visibleWorkspaces('SUPPORT'), ([path]) => path), ['service']);
-    assert.deepEqual(Array.from(visibleWorkspaces('SALES'), ([path]) => path), ['sales', 'orders']);
+    assert.deepEqual(Array.from(visibleWorkspaces('SALES'), ([path]) => path), ['sales', 'orders', 'equipment', 'team']);
     for (const [role, path, expected] of [
       ['TECHNICIAN', '/workspace/reports', 'Your role cannot open this workspace.'],
       ['SUPPORT', '/workspace/warehouse', 'Your role cannot open this workspace.'],
       ['SUPPORT', '/workspace/service', 'Create service ticket'],
       ['ADMIN', '/workspace/reports', 'Report period'],
+      ['ADMIN', '/workspace/team', 'Field technicians'],
+      ['WAREHOUSE', '/workspace/team', 'Your role cannot open this workspace.'],
+      ['WAREHOUSE', '/workspace/equipment', 'Search equipment'],
+      ['TECHNICIAN', '/workspace/equipment', 'Your role cannot open this workspace.'],
       ['TECHNICIAN', '/workspace', 'Installation schedule'],
       ['ADMIN', '/workspace', 'Project performance'],
       ['SUPPORT', '/workspace', 'Service queue'],

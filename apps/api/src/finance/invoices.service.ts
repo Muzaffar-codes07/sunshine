@@ -30,7 +30,11 @@ export class InvoicesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Posts the order's sales invoice once: the quote's PACKAGE and SERVICE charges, never the zero-priced components. */
-  async ensureSalesInvoice(tx: Prisma.TransactionClient, order: { id: string; customerId: string }, quote: Quote): Promise<Invoice> {
+  async ensureSalesInvoice(tx: Prisma.TransactionClient, order: { id: string; customerId: string }, quote: Quote,
+    historical?: { postedAt: Date }): Promise<Invoice> {
+    if (historical && (!Number.isFinite(historical.postedAt.getTime()) || historical.postedAt.getTime() > Date.now())) {
+      throw new ApiError(400, 'INVALID_INPUT', 'Historical invoice time must be a valid past instant');
+    }
     const existing = await tx.invoice.findUnique({
       where: { sourceType_sourceId_kind: { sourceType: 'ORDER', sourceId: order.id, kind: 'SALE' } }, include: invoiceInclude,
     });
@@ -43,7 +47,7 @@ export class InvoicesService {
     const row = await tx.invoice.create({
       data: {
         sourceType: 'ORDER', sourceId: order.id, kind: 'SALE', orderId: order.id, customerId: order.customerId,
-        subtotal, taxAmount: 0, taxNote: TAX_NOTE, total: subtotal,
+        subtotal, taxAmount: 0, taxNote: TAX_NOTE, total: subtotal, postedAt: historical?.postedAt,
         lines: { create: charges.map((line, index) => ({
           position: index + 1, description: line.description, quantity: line.quantity,
           unitPrice: line.unitPrice, lineTotal: line.lineTotal, quoteLineId: line.id,

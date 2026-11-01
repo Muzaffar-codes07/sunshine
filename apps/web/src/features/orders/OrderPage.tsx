@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { orderFulfilmentResponseSchema, orderResponseSchema, type Invoice, type Order, type OrderFulfilment, type StaffIdentity } from '@sunshine/contracts';
-import { DetailPattern, ListPattern } from '../../components/shared/patterns';
+import { AvatarStack } from '../../components/shared/Brand';
+import { DetailPattern, FilterChips, ListPattern, MoneyStrip, StatusPill } from '../../components/shared/patterns';
 import { apiGet } from '../../lib/api';
 import { useStaffSession } from '../auth/session';
 import { useDashboardJobs } from '../dashboard/dashboard-data';
+import { formatInr, statusFilters, type JobFilter } from '../dashboard/dashboard-model';
 import { CrewSchedule } from '../field/CrewSchedule';
 import { describeProblem, formatWhen, humanize } from '../sales/queries';
 import { PaymentForm } from './PaymentForm';
@@ -25,30 +28,35 @@ export function OrderPage({ orderId }: { orderId?: string }) {
 
 /** Every confirmed order has a job, so the job list is the project list. */
 function ProjectList({ role }: { role: StaffIdentity['role'] }) {
-  const jobs = useDashboardJobs(role), items = jobs.data?.items ?? [];
-  return <><h1>Projects</h1>
-    {!!jobs.data && jobs.data.total > items.length && <p>Showing the newest {items.length} of {jobs.data.total} projects.</p>}
+  const jobs = useDashboardJobs(role), all = jobs.data?.items ?? [];
+  const [filter, setFilter] = useState<JobFilter>('ALL');
+  const shown = filter === 'ALL' ? all : all.filter(job => job.status === filter);
+  return <>
+    <div className="page-head">
+      <div><h1>Projects</h1><p className="page-sub">{!!jobs.data && jobs.data.total > all.length ? `Showing the newest ${all.length} of ${jobs.data.total} projects.` : 'Every confirmed order, from survey to handover.'}</p></div>
+      <FilterChips label="Filter projects by status" options={statusFilters(all)} value={filter} onChange={setFilter} />
+    </div>
     <ListPattern title="All projects" loading={jobs.isPending} error={jobs.error ? describeProblem(jobs.error).message : undefined} onRetry={() => void jobs.refetch()}
-      empty="No projects yet. A project starts when an accepted quote is confirmed as an order."
-      columns={[{ id: 'project', label: 'Project' }, { id: 'customer', label: 'Customer' }, { id: 'system', label: 'System' }, { id: 'status', label: 'Status' }, { id: 'crew', label: 'Crew' }, { id: 'when', label: 'Scheduled' }]}
-      rows={items.map(job => ({ id: job.id, cells: {
+      empty={filter === 'ALL' ? 'No projects yet. A project starts when an accepted quote is confirmed as an order.' : 'No projects with this status.'}
+      columns={[{ id: 'project', label: 'Project' }, { id: 'customer', label: 'Customer' }, { id: 'system', label: 'System' }, { id: 'crew', label: 'Crew' }, { id: 'when', label: 'Scheduled' }, { id: 'status', label: 'Status' }]}
+      rows={shown.map(job => ({ id: job.id, cells: {
         project: <Link to={role === 'WAREHOUSE' ? `/workspace/warehouse/orders/${job.orderId}` : `/workspace/orders/${job.orderId}`}>{job.orderDisplayNumber}</Link>,
-        customer: job.contactName, system: `${job.soldCapacityKw} kW ${job.systemType === 'ON_GRID' ? 'On-Grid' : 'Off-Grid'}`, status: humanize(job.status),
-        crew: job.crew.map(member => member.displayName).join(', ') || 'None assigned', when: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled',
+        customer: <span>{job.contactName}<small>{job.siteAddress}</small></span>, system: `${job.soldCapacityKw} kW ${job.systemType === 'ON_GRID' ? 'On-Grid' : 'Off-Grid'}`,
+        crew: job.crew.length ? <AvatarStack names={job.crew.map(member => member.displayName)} size={28} /> : 'None assigned',
+        when: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled', status: <StatusPill status={job.status} />,
       } }))} />
   </>;
 }
 
 function Packing({ order }: { order: OrderFulfilment }) {
   return <ListPattern title="Packing requirements" columns={[{ id: 'item', label: 'Included component' }, { id: 'qty', label: 'Quantity' }]}
-    rows={order.packing.map(item => ({ id: item.id, cells: { item: item.description, qty: item.quantity } }))} />;
+    rows={order.packing.map(item => ({ id: item.id, cells: { item: item.description, qty: String(Number(item.quantity)) } }))} />;
 }
 
-function OrderFacts({ order }: { order: OrderFulfilment }) {
-  return <DetailPattern title={order.displayNumber} entries={[
+function OrderFacts({ order, title = order.displayNumber }: { order: OrderFulfilment; title?: string }) {
+  return <DetailPattern title={title} entries={[
     { id: 'date', label: 'Confirmed', value: formatWhen(order.confirmedAt) },
-    { id: 'release', label: 'Fulfilment', value: order.released ? 'Released after recorded payment' : 'Awaiting advance payment' },
-    { id: 'job', label: 'Job ID', value: order.jobId ?? 'Not available' },
+    { id: 'release', label: 'Status', value: order.released ? 'Released after recorded payment' : 'Awaiting advance payment' },
   ]}><Packing order={order} /></DetailPattern>;
 }
 
@@ -77,27 +85,40 @@ function FinancialOrder({ id, actor }: { id: string; actor: StaffIdentity }) {
       client.invalidateQueries({ queryKey: ['enquiries'] }),
     ]);
   }
+  const paidShare = Number(invoice.total) > 0 ? Math.min(Math.round(Number(invoice.paidAmount) / Number(invoice.total) * 100), 100) : 0;
   return <>
-    <p><Link to={`/workspace/sales/enquiries/${item.enquiryId}`}>Back to enquiry</Link></p>
-    <h1>{item.displayNumber}</h1><button onClick={() => window.print()}>Print order and invoice</button>
-    <OrderFacts order={item} />
-    {item.jobId && <CrewSchedule jobId={item.jobId} enquiryId={item.enquiryId} />}
-    <DetailPattern title={invoice.displayNumber} entries={[
-      { id: 'status', label: 'Status', value: humanize(invoice.status) },
-      { id: 'subtotal', label: 'Subtotal', value: `₹${invoice.subtotal}` },
-      { id: 'tax', label: 'Tax', value: `₹${invoice.taxAmount} — ${invoice.taxNote}` },
-      { id: 'total', label: 'Total', value: `₹${invoice.total}` },
-      { id: 'paid', label: 'Paid', value: `₹${invoice.paidAmount}` },
-      { id: 'balance', label: 'Outstanding balance', value: `₹${invoice.balance}` },
-    ]}>
-      <ListPattern title="Invoice charges" columns={[{ id: 'item', label: 'Description' }, { id: 'qty', label: 'Quantity' }, { id: 'total', label: 'Amount' }]}
-        rows={invoice.lines.map(line => ({ id: line.id, cells: { item: line.description, qty: line.quantity, total: `₹${line.lineTotal}` } }))} />
-    </DetailPattern>
-    <ListPattern title="Recorded receipts" empty="No payment has been recorded." columns={[
-      { id: 'when', label: 'Received' }, { id: 'method', label: 'Method' }, { id: 'reference', label: 'Reference' }, { id: 'kind', label: 'Kind' }, { id: 'amount', label: 'Amount' },
-    ]} rows={invoice.payments.map(payment => ({ id: payment.id, cells: {
-      when: formatWhen(payment.receivedAt), method: humanize(payment.method), reference: payment.reference, kind: humanize(payment.kind), amount: `₹${payment.amount}`,
-    } }))} />
-    {actor.role === 'ADMIN' ? <PaymentForm key={invoice.id} invoice={invoice} onRecorded={recorded} /> : <p>An administrator records payments received.</p>}
+    <p className="back-link"><Link to={`/workspace/sales/enquiries/${item.enquiryId}`}>← Back to enquiry</Link></p>
+    <div className="page-head">
+      <div><h1>{item.displayNumber}</h1><p className="page-sub"><StatusPill status={invoice.status} /> Confirmed {formatWhen(item.confirmedAt)}</p></div>
+      <div className="action-row">
+        {actor.role === 'ADMIN' && item.jobId && <Link className="button-link" to={`/workspace/field-service/jobs/${item.jobId}`}>Open installation job</Link>}
+        <button onClick={() => window.print()}>Print order and invoice</button>
+      </div>
+    </div>
+    <MoneyStrip progress={{ label: 'Share of the invoice paid', percent: paidShare }} items={[
+      { id: 'total', label: 'Invoice total', value: formatInr(invoice.total) },
+      { id: 'paid', label: 'Paid', value: formatInr(invoice.paidAmount) },
+      { id: 'balance', label: 'Outstanding balance', value: formatInr(invoice.balance), strong: true },
+    ]} />
+    <div className="detail-layout">
+      <div className="detail-main">
+        {item.jobId && <CrewSchedule jobId={item.jobId} enquiryId={item.enquiryId} />}
+        <DetailPattern title={invoice.displayNumber} entries={[
+          { id: 'status', label: 'Status', value: <StatusPill status={invoice.status} /> },
+          { id: 'subtotal', label: 'Subtotal', value: formatInr(invoice.subtotal) },
+          { id: 'tax', label: 'Tax', value: <span>{formatInr(invoice.taxAmount)}<small className="value-note">{invoice.taxNote}</small></span> },
+        ]}>
+          <ListPattern title="Invoice charges" columns={[{ id: 'item', label: 'Description' }, { id: 'qty', label: 'Quantity' }, { id: 'total', label: 'Amount' }]}
+            rows={invoice.lines.map(line => ({ id: line.id, cells: { item: line.description, qty: String(Number(line.quantity)), total: formatInr(line.lineTotal) } }))} />
+        </DetailPattern>
+        <ListPattern title="Recorded receipts" empty="No payment has been recorded." columns={[
+          { id: 'when', label: 'Received' }, { id: 'method', label: 'Method' }, { id: 'reference', label: 'Reference' }, { id: 'kind', label: 'Kind' }, { id: 'amount', label: 'Amount' },
+        ]} rows={invoice.payments.map(payment => ({ id: payment.id, cells: {
+          when: formatWhen(payment.receivedAt), method: payment.method === 'UPI' ? 'UPI' : humanize(payment.method), reference: payment.reference, kind: humanize(payment.kind), amount: formatInr(payment.amount),
+        } }))} />
+        {actor.role === 'ADMIN' ? <PaymentForm key={invoice.id} invoice={invoice} onRecorded={recorded} /> : <p>An administrator records payments received.</p>}
+      </div>
+      <aside className="detail-side"><OrderFacts order={item} title="Fulfilment" /></aside>
+    </div>
   </>;
 }

@@ -1,5 +1,10 @@
 # Demo seed ownership and D4 historical scenarios
 
+**450-customer dataset:** use [the bulk seed guide](DEMO450.md) and
+`npm run db:seed:demo`. Its offline historical importer is separate from the
+legacy two-scenario seam described below. The legacy default `db:seed` still
+fails closed; its preview remains available.
+
 D3 coordinates idempotent seed functions from each backend owner. Never reset
 on startup or seed an ordinary database implicitly.
 

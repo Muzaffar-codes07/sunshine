@@ -133,7 +133,7 @@ test('reports render server monetary totals, cutoff and empty states', () => {
   client.setQueryData(['reports', 'pay', 'today'], { ...overview, technicians: [], totalHours: '0.000', totalPay: '0.00' });
   client.setQueryData(['reports', 'subsidies'], { asOf: instant, groups: [] });
   const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(reports.ReportsWorkspacePage)));
-  assert.match(markup, /₹14,000.00/);
+  assert.match(markup, /₹14,000/);
   assert.match(markup, /No approved technician time/);
   assert.match(markup, /No subsidy milestones recorded/);
   assert.match(markup, /end excluded/);

@@ -7,6 +7,7 @@ import { apiGet } from '../lib/api';
 import { useDashboardJobs, useOpenTickets } from '../features/dashboard/dashboard-data';
 import { attentionItems, onDay, projectHref } from '../features/dashboard/dashboard-model';
 import { humanize } from '../features/sales/queries';
+import { shortTicketNumber } from '../features/service/service-model';
 import { AccountChip } from './Sidebar';
 import { workspaceLabel, workspaces } from './Workspace';
 
@@ -52,11 +53,11 @@ function GlobalSearch({ role }: { role: StaffRole }) {
     { title: 'Projects', items: (jobs.data?.items ?? []).filter((job) => `${job.orderDisplayNumber} ${job.contactName} ${job.siteAddress}`.toLowerCase().includes(term)).slice(0, 5).map((job) => ({ id: job.id, title: `${job.orderDisplayNumber} · ${job.contactName}`, detail: job.siteAddress, href: projectHref(job, role) })) },
     { title: 'Customers', items: (enquiries.data?.data.items ?? []).filter((item) => `${item.contactName} ${item.phone}`.toLowerCase().includes(term)).slice(0, 5).map((item) => ({ id: item.id, title: item.contactName, detail: `${item.siteCity} · ${humanize(item.status)}`, href: `/workspace/sales/enquiries/${item.id}` })) },
     { title: 'Serial numbers', items: (units.data ?? []).map((unit) => ({ id: unit.id, title: unit.serial, detail: humanize(unit.status), href: unit.activeAssignment ? `/workspace/warehouse/orders/${unit.activeAssignment.orderId}` : '/workspace/warehouse' })) },
-    { title: 'Service tickets', items: (tickets.data?.items ?? []).filter((ticket) => `${ticket.ticketNumber} ${ticket.faultDescription}`.toLowerCase().includes(term)).slice(0, 5).map((ticket) => ({ id: ticket.id, title: ticket.ticketNumber, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })) },
+    { title: 'Service tickets', items: (tickets.data?.items ?? []).filter((ticket) => `${ticket.ticketNumber} ${ticket.faultDescription}`.toLowerCase().includes(term)).slice(0, 5).map((ticket) => ({ id: ticket.id, title: shortTicketNumber(ticket.ticketNumber), detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })) },
   ].filter((group) => group.items.length > 0);
   return <div className="search" ref={root} role="search">
     <div className="search-box">
-      <span className="pill-icon" aria-hidden="true"><Search size={16} /></span>
+      <span className="pill-icon" aria-hidden="true"><Search size="1rem" /></span>
       <input ref={input} type="search" aria-label="Search projects, customers and serial numbers" placeholder="Search projects, customers, serials…" value={text} onChange={(event) => { setText(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)} />
     </div>
     {open && active && <div className="popover">
@@ -75,11 +76,11 @@ function AttentionMenu({ role }: { role: StaffRole }) {
   const tickets = useOpenTickets(role);
   const items = [
     ...attentionItems(jobs.data?.items ?? [], role, new Date()),
-    ...(tickets.data?.items ?? []).filter((ticket) => ticket.status === 'OPEN').slice(0, 5).map((ticket) => ({ id: ticket.id, title: `${ticket.ticketNumber} is waiting for assessment`, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })),
+    ...(tickets.data?.items ?? []).filter((ticket) => ticket.status === 'OPEN').slice(0, 5).map((ticket) => ({ id: ticket.id, title: `${shortTicketNumber(ticket.ticketNumber)} is waiting for assessment`, detail: ticket.faultDescription, href: `/workspace/service?ticket=${ticket.id}` })),
   ];
   return <div className="menu" ref={root}>
     <button type="button" className="bell" aria-haspopup="true" aria-expanded={open} aria-label={`Needs attention: ${items.length}`} onClick={() => setOpen(!open)}>
-      <Bell size={18} aria-hidden="true" />{items.length > 0 && <span className="bell-count" aria-hidden="true">{items.length > 9 ? '9+' : items.length}</span>}
+      <Bell size="1.125rem" aria-hidden="true" />{items.length > 0 && <span className="bell-count" aria-hidden="true">{items.length > 9 ? '9+' : items.length}</span>}
     </button>
     {open && <div className="popover">
       <p className="popover-title">Needs attention</p>
@@ -93,13 +94,13 @@ export function Topbar({ staff, area, onSignOut, signingOut }: { staff: StaffIde
   const jobs = useDashboardJobs(role);
   const today = (jobs.data?.items ?? []).filter((job) => job.status !== 'COMPLETED' && onDay(job, new Date())).length;
   const entry = workspaces.find(([path]) => path === area);
-  const todayPill = <><span className="pill-icon" aria-hidden="true"><CalendarCheck2 size={16} /></span><span className="pill-count">{today}</span><span className="pill-text">Today's installations</span></>;
+  const todayPill = <><span className="pill-icon" aria-hidden="true"><CalendarCheck2 size="1rem" /></span><span className="pill-count">{today}</span><span className="pill-text">Today's installations</span></>;
   return <header className="topbar">
     {area
       ? <p className="crumb">Solar OS / <strong>{entry ? workspaceLabel(entry[0], entry[1], role) : 'Page'}</strong></p>
       : <h1 className="topbar-title"><span>Solar OS /</span> Overview</h1>}
     <div className="top-actions">
-      {(role === 'ADMIN' || role === 'SALES') && <Link className="pill pill--new" to="/enquire"><span className="pill-icon" aria-hidden="true"><Plus size={18} /></span><span className="pill-text">New project</span></Link>}
+      {(role === 'ADMIN' || role === 'SALES') && <Link className="pill pill--new" to="/enquire"><span className="pill-icon" aria-hidden="true"><Plus size="1.125rem" /></span><span className="pill-text">New project</span></Link>}
       {role !== 'SUPPORT' && (role === 'ADMIN' || role === 'TECHNICIAN'
         ? <Link className="pill pill--today" to="/workspace/field-service">{todayPill}</Link>
         : <span className="pill pill--today">{todayPill}</span>)}

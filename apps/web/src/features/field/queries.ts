@@ -6,12 +6,20 @@ import { apiGet, apiUpload } from '../../lib/api';
 export const fieldRoot = ['field'] as const;
 const assignedResponseSchema = z.object({ data: z.array(jobResponseSchema.shape.data) });
 
-/** A technician's own work; an ADMIN sees every job. */
+const JOB_PAGE_LIMIT = 20;
+/** A technician's own work; an ADMIN sees every job, across as many pages as that takes. */
 export const useFieldJobs = (assignedOnly: boolean) => useQuery({
   queryKey: [...fieldRoot, 'jobs', assignedOnly],
-  queryFn: async ({ signal }): Promise<JobView[]> => assignedOnly
-    ? (await apiGet('/jobs/assigned', assignedResponseSchema, signal)).data
-    : (await apiGet('/jobs?pageSize=100', jobListResponseSchema, signal)).data.items,
+  queryFn: async ({ signal }): Promise<JobView[]> => {
+    if (assignedOnly) return (await apiGet('/jobs/assigned', assignedResponseSchema, signal)).data;
+    const items: JobView[] = [];
+    for (let page = 1; page <= JOB_PAGE_LIMIT; page += 1) {
+      const { data } = await apiGet(`/jobs?pageSize=100&page=${page}`, jobListResponseSchema, signal);
+      items.push(...data.items);
+      if (items.length >= data.total || !data.items.length) break;
+    }
+    return items;
+  },
 });
 export const useFieldJob = (id: string) => useQuery({ queryKey: [...fieldRoot, 'job', id], queryFn: ({ signal }) => apiGet(`/jobs/${id}`, jobResponseSchema, signal) });
 

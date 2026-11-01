@@ -26,7 +26,7 @@ export function SurveyPanel({ enquiry }: { enquiry: EnquiryDetail }) {
       {canSchedule && <SchedulingDrawer enquiryId={enquiry.id} label={latest ? 'Schedule a new survey' : 'Schedule survey'} />}
       {latest?.status === 'SCHEDULED' && <SchedulingDrawer enquiryId={enquiry.id} survey={latest} label="Reschedule" />}
       {latest?.status === 'SUBMITTED' && <>
-        <CommandButton label="Approve survey" enquiryId={enquiry.id} path={`/surveys/${latest.id}/approve`} body={{ version: latest.version }} responseSchema={surveyResponseSchema} />
+        <CommandButton primary label="Approve survey" enquiryId={enquiry.id} path={`/surveys/${latest.id}/approve`} body={{ version: latest.version }} responseSchema={surveyResponseSchema} />
         <CommandDrawer label="Reject survey" title="Reject this survey" submitLabel="Reject survey" enquiryId={enquiry.id}
           path={`/surveys/${latest.id}/reject`} schema={rejectSurveySchema} responseSchema={surveyResponseSchema}
           build={(form) => ({ version: latest.version, reason: form.get('reason') })}>
@@ -43,7 +43,7 @@ export function SurveyPanel({ enquiry }: { enquiry: EnquiryDetail }) {
 }
 
 function SurveyFacts({ survey }: { survey: Survey }) {
-  return <DetailPattern title={`Revision ${survey.revision}: ${humanize(survey.status)}`} entries={[
+  return <DetailPattern title={`Revision ${survey.revision}: ${humanize(survey.status)}`} entries={([
     { id: 'technician', label: 'Technician', value: survey.technician.displayName },
     { id: 'when', label: 'Scheduled for', value: formatWhen(survey.scheduledFor) },
     { id: 'direction', label: 'Roof direction', value: survey.roofDirection ?? '—' },
@@ -52,7 +52,7 @@ function SurveyFacts({ survey }: { survey: Survey }) {
     { id: 'area', label: 'Usable roof area', value: survey.usableRoofAreaSqm ? `${survey.usableRoofAreaSqm} m²` : '—' },
     { id: 'notes', label: 'Notes', value: survey.notes ?? '—' },
     { id: 'decision', label: 'Decision', value: survey.decidedBy ? `${survey.decidedBy.displayName}, ${formatWhen(survey.decidedAt)}${survey.decisionReason ? `: ${survey.decisionReason}` : ''}` : '—' },
-  ]} />;
+  ]).filter((entry) => entry.value !== '—')} />;
 }
 
 function SchedulingDrawer({ enquiryId, survey, label }: { enquiryId: string; survey?: Survey; label: string }) {
@@ -63,7 +63,7 @@ function SchedulingDrawer({ enquiryId, survey, label }: { enquiryId: string; sur
       {technicians.isError ? `${label} (technician list unavailable)` : label}
     </button>;
   }
-  return <CommandDrawer label={label} title={survey ? 'Reschedule the survey' : 'Schedule a site survey'} submitLabel={survey ? 'Reschedule' : 'Schedule'}
+  return <CommandDrawer primary={!survey && label === 'Schedule survey'} label={label} title={survey ? 'Reschedule the survey' : 'Schedule a site survey'} submitLabel={survey ? 'Reschedule' : 'Schedule'}
     enquiryId={enquiryId} path={survey ? `/surveys/${survey.id}/reschedule` : `/enquiries/${enquiryId}/surveys`}
     schema={survey ? rescheduleSurveySchema : scheduleSurveySchema} responseSchema={surveyResponseSchema}
     build={(form) => ({ ...(survey && { version: survey.version }), technicianId: form.get('technicianId'), scheduledFor: localToIso(form.get('scheduledFor')) })}>
@@ -91,7 +91,7 @@ export function AssignedSurveysPage() {
     <h1>My site surveys</h1>
     {surveys.isPending && <p role="status">Loading your surveys…</p>}
     {surveys.error && <div role="alert"><p>{describeProblem(surveys.error).message}</p><button onClick={() => void surveys.refetch()}>Retry</button></div>}
-    {surveys.isSuccess && !items.length && <p>No surveys are assigned to you.</p>}
+    {surveys.isSuccess && !items.length && <p className="pattern-card">No surveys are assigned to you.</p>}
     {items.map((survey) => <section key={survey.id} className="pattern-card">
       <h2>{survey.site.contactName}, {survey.site.city}</h2>
       <p>{formatWhen(survey.scheduledFor)} · {humanize(survey.status)} · <a href={`tel:${survey.site.phone}`}>{survey.site.phone}</a></p>
@@ -102,7 +102,7 @@ export function AssignedSurveysPage() {
 }
 
 function MeasurementsDrawer({ survey }: { survey: Survey }) {
-  return <CommandDrawer label="Record measurements" title="Site measurements" submitLabel="Submit survey" enquiryId={survey.enquiryId}
+  return <CommandDrawer primary label="Record measurements" title="Site measurements" submitLabel="Submit survey" enquiryId={survey.enquiryId}
     path={`/surveys/${survey.id}/submit`} schema={submitSurveySchema} responseSchema={surveyResponseSchema}
     build={(form) => ({
       version: survey.version, roofDirection: form.get('roofDirection'), roofTiltDeg: form.get('roofTiltDeg'),

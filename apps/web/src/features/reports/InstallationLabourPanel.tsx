@@ -9,6 +9,15 @@ import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { checkInput, useRetrySafeCommand } from '../../lib/command';
 import { describeD4Error } from '../service/d4-http';
+import { useDashboardJobs } from '../dashboard/dashboard-data';
+import { formatInr } from '../dashboard/dashboard-model';
+import { formatWhen } from '../sales/queries';
+
+/** Staff know jobs by order number and customer. Only ADMIN reaches this panel. */
+function JobLink({ jobId }: { jobId: string }) {
+  const job = useDashboardJobs('ADMIN').data?.items.find((item) => item.id === jobId);
+  return <Link to={`/workspace/field-service/jobs/${jobId}`}>{job ? `${job.orderDisplayNumber} · ${job.contactName}` : 'Open job'}</Link>;
+}
 
 function TimeReview({ id, onHeld }: { id: string; onHeld: (value: boolean) => void }) {
   const client = useQueryClient();
@@ -42,8 +51,8 @@ function TimeReview({ id, onHeld }: { id: string; onHeld: (value: boolean) => vo
     {time.error && <div role="alert"><p>{describeD4Error(time.error)}</p><button onClick={() => void time.refetch()}>Retry time record</button></div>}
     {row && <>
       <DetailPattern title="Recorded installation time" entries={[
-        { id:'technician',label:'Technician',value:row.technicianName }, { id:'job',label:'Job',value:<Link to={`/workspace/field-service/jobs/${row.jobId}`}>{row.jobId}</Link> },
-        { id:'start',label:'Started',value:row.startedAt }, { id:'finish',label:'Finished',value:row.finishedAt },
+        { id:'technician',label:'Technician',value:row.technicianName }, { id:'job',label:'Job',value:<JobLink jobId={row.jobId} /> },
+        { id:'start',label:'Started',value:formatWhen(row.startedAt) }, { id:'finish',label:'Finished',value:formatWhen(row.finishedAt) },
         { id:'status',label:'Approval',value:row.approval ? 'Approved and posted' : 'Pending rate approval' },
       ]} />
       {row.approval ? <DetailPattern title="Frozen labour cost" entries={[
@@ -85,7 +94,7 @@ export function InstallationLabourPanel() {
   const records = useQuery({ queryKey:['labour','list',status,page],retry:false, refetchOnWindowFocus:false, refetchOnReconnect:false,
     queryFn:({signal})=>apiGet(`/time-entries?status=${status}&page=${page}&pageSize=10`,installationTimeListSchema,signal) });
   const data=records.data?.data;
-  return <section aria-labelledby="installation-labour-title"><h2 id="installation-labour-title">Installation time approval</h2>
+  return <section className="pattern-card" aria-labelledby="installation-labour-title"><h2 id="installation-labour-title">Installation time approval</h2>
     <p>Only approved installation time posts a labour cost. Service-time pay remains pending its own integration.</p>
     <Field label="Time approval status">{control=><select {...control} value={status} disabled={held} onChange={event=>{setStatus(event.target.value);setPage(1);}}>
       <option value="PENDING">Pending approval</option><option value="APPROVED">Approved</option><option value="ALL">All recorded installation time</option>
@@ -93,8 +102,8 @@ export function InstallationLabourPanel() {
     <ListPattern title="Recorded installation time entries" loading={records.isPending} error={records.error ? describeD4Error(records.error) : undefined}
       onRetry={()=>void records.refetch()} empty="No installation time matches this filter."
       columns={[{id:'technician',label:'Technician'},{id:'job',label:'Job'},{id:'finish',label:'Finished'},{id:'approval',label:'Approval'},{id:'action',label:'Action'}]}
-      rows={(data?.items??[]).map(row=>({id:row.id,cells:{technician:row.technicianName,job:row.jobId,finish:row.finishedAt,
-        approval:row.approval ? `₹${row.approval.amount}` : 'Pending',action:<button disabled={held} onClick={()=>setSelected(row.id)}>Review time {row.id}</button>}}))} />
+      rows={(data?.items??[]).map(row=>({id:row.id,cells:{technician:row.technicianName,job:<JobLink jobId={row.jobId} />,finish:formatWhen(row.finishedAt),
+        approval:row.approval ? formatInr(row.approval.amount) : <span className="status-pill status-pill--active">Pending</span>,action:<button disabled={held} onClick={()=>setSelected(row.id)} aria-label={`Review time ${row.id}`}>Review</button>}}))} />
     {data && data.total>data.pageSize && <nav aria-label="Installation time pagination"><button disabled={held || page===1} onClick={()=>setPage(page-1)}>Previous time records</button>
       <span>Page {page}</span><button disabled={held || page*data.pageSize>=data.total} onClick={()=>setPage(page+1)}>Next time records</button></nav>}
     {selected && <TimeReview key={selected} id={selected} onHeld={setHeld} />}

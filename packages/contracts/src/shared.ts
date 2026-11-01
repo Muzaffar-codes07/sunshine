@@ -6,6 +6,12 @@ export const moneySchema = z.string().regex(
   'Expected a nonnegative decimal string with at most two decimal places',
 );
 
+// Internal unit costs retain the existing bulk moving-average precision. Posted money remains cents.
+export const unitCostRateSchema = z.string().regex(
+  /^(0|[1-9]\d{0,11})(\.\d{1,6})?$/,
+  'Expected a nonnegative unit cost with at most six decimal places',
+);
+
 export const signedMoneySchema = z.string().regex(
   /^-?(0|[1-9]\d{0,11})(\.\d{1,2})?$/,
   'Expected a decimal string with at most two decimal places',

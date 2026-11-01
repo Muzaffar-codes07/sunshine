@@ -100,6 +100,16 @@ test('covered repair reduces original job contribution by actual costs and adds 
   assert.equal(f.state.lines.length, 2); assert.ok(f.state.ticket.billingSnapshot);
 });
 
+test('fractional parts retain six-decimal internal rates until the posted total rounds to cents', async()=>{
+  const f=setup(false),part=f.facts.find(row=>row.type==='PART');
+  part.quantity='1.500';part.unitCost='12.345678';part.unitPrice='20.00';
+  const result=await f.run([{type:'PART',sourceId:part.sourceId}]);
+  assert.equal(result.internalCost,'18.52');assert.equal(result.customerCharge,'30.00');
+  assert.equal(result.lines[0].unitCost,'12.345678');assert.equal(f.state.costs[0].amount,'18.52');
+  // Rounding the rate to 12.35 before multiplication would overstate this expense as 18.53.
+  assert.equal(f.state.lines[0].totalCost,'18.52');
+});
+
 test('all uncovered outcomes post actual costs and call D2 once with separate selling prices', async () => {
   for (const status of ['EXPIRED', 'VOID', 'NOT_STARTED', 'OUT_OF_SCOPE', 'NO_WARRANTY']) {
     const f = setup(false), snapshot = f.state.ticket.assessmentSnapshot; snapshot.coverageStatus = status;

@@ -129,10 +129,42 @@ export function teamFacts(jobs: JobView[], nowAt: Date) {
   };
 }
 
+/** Monday-first whole weeks covering the month, for a calendar grid. */
+export function monthGrid(anchor: Date) {
+  const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0), days: Date[] = [];
+  for (let at = weekStart(new Date(anchor.getFullYear(), anchor.getMonth(), 1)); at <= last || days.length % 7; at = addDays(at, 1)) days.push(at);
+  return days;
+}
+
+export type CrewState = 'ON_SITE' | 'ASSIGNED' | 'FREE';
+const CREW_ORDER: Record<CrewState, number> = { ON_SITE: 0, ASSIGNED: 1, FREE: 2 };
+
+/** Each technician's day, from the open jobs they're crewed on. Busiest first, then by name. */
+export function crewRows<T extends { id: string; displayName: string }>(technicians: T[], jobs: JobView[], nowAt: Date) {
+  const open = jobs.filter((job) => job.status !== 'COMPLETED');
+  return technicians.map((member) => {
+    const mine = open.filter((job) => job.technicianIds.includes(member.id));
+    const onSite = mine.find((job) => job.status === 'IN_PROGRESS');
+    const current = onSite ?? mine.find((job) => onDay(job, nowAt));
+    const next = mine.filter((job) => job !== current && job.scheduledStart && new Date(job.scheduledStart) > nowAt)
+      .sort((a, b) => new Date(a.scheduledStart!).getTime() - new Date(b.scheduledStart!).getTime())[0];
+    const state: CrewState = onSite ? 'ON_SITE' : current ? 'ASSIGNED' : 'FREE';
+    return { member, state, current, next, open: mine.length };
+  }).sort((a, b) => CREW_ORDER[a.state] - CREW_ORDER[b.state] || a.member.displayName.localeCompare(b.member.displayName));
+}
+
 export function projectHref(job: Pick<JobView, 'id' | 'orderId'>, role: StaffRole) {
   if (role === 'ADMIN' || role === 'TECHNICIAN') return `/workspace/field-service/jobs/${job.id}`;
   if (role === 'WAREHOUSE') return `/workspace/warehouse/orders/${job.orderId}`;
   return `/workspace/orders/${job.orderId}`;
+}
+
+export type JobFilter = 'ALL' | JobView['status'];
+
+/** Filter options with live counts. A status with no jobs drops out, so nobody picks an empty list. */
+export function statusFilters(jobs: JobView[]): { id: JobFilter; label: string; count: number }[] {
+  const rows: { id: JobView['status']; label: string }[] = [{ id: 'SCHEDULED', label: 'Scheduled' }, { id: 'IN_PROGRESS', label: 'In progress' }, { id: 'COMPLETED', label: 'Completed' }];
+  return [{ id: 'ALL', label: 'All', count: jobs.length }, ...rows.map((row) => ({ ...row, count: jobs.filter((job) => job.status === row.id).length })).filter((row) => row.count > 0)];
 }
 
 export type DocumentRow = { id: string; name: string; detail: string; status: string; href: string };
@@ -177,6 +209,9 @@ export function linePath(values: number[], width: number, height: number, pad = 
 }
 
 export function formatInr(amount: string) {
-  const value = Number(amount);
-  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: Number.isInteger(value) ? 0 : 2, minimumFractionDigits: Number.isInteger(value) ? 0 : 2 })}`;
+  const value = Number(amount), whole = Number.isInteger(value), digits = whole ? 0 : 2;
+  return `${value < 0 ? '−' : ''}₹${Math.abs(value).toLocaleString('en-IN', { maximumFractionDigits: digits, minimumFractionDigits: digits })}`;
 }
+
+/** A calendar date such as a warranty start, shown the same way in every timezone. */
+export const formatDay = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });

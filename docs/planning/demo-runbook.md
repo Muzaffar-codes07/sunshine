@@ -1,5 +1,13 @@
 # Demo operator runbook and evaluator walkthrough
 
+**Current seeded dataset:** the [450-customer guide](../../prisma/seed/DEMO450.md)
+and `var/demo450/operator.md` identify the implemented preparation. Its D case
+is a 3 kW On-Grid installation at 18 months; E is a 5 kW Off-Grid battery case
+at 28 months. Use the persisted reports for actual money. The older D/E sizes,
+30-month age and fixed financial oracle below are presentation planning examples,
+not the bulk dataset's runtime amounts. Physical service repair/replacement
+still requires the production adapters described in the seed guide.
+
 **Planned, not implemented or rehearsed yet.** This is the target for the build, not a claim that the scaffold can perform it. A three-minute presentation and a complete evaluator walkthrough are different artifacts. Both use the same real APIs and PostgreSQL; there is no fake demonstration backend.
 
 ## 1. Story and record preparation

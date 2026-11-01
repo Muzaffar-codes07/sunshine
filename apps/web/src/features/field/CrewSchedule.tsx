@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { jobResponseSchema, scheduleJobRequestSchema, type JobView } from '@sunshine/contracts';
-import { DetailPattern } from '../../components/shared/patterns';
+import { DetailPattern, StatusPill } from '../../components/shared/patterns';
 import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { CommandDrawer } from '../sales/CommandDrawer';
-import { describeProblem, formatWhen, humanize, isoToLocal, localToIso, salesKeys, useStaff } from '../sales/queries';
+import { describeProblem, formatWhen, isoToLocal, localToIso, salesKeys, useStaff } from '../sales/queries';
 
 const ORDERED = 'Scheduled finish must be after start';
 const toIso = (value: FormDataEntryValue | null) => {
@@ -23,7 +23,7 @@ export function CrewSchedule({ jobId, enquiryId }: { jobId: string; enquiryId: s
   const item = job.data.data;
   const names = new Map(technicians.data?.data.items.map((person) => [person.id, person.displayName]));
   return <DetailPattern title="Crew schedule" entries={[
-    { id: 'status', label: 'Job status', value: humanize(item.status) },
+    { id: 'status', label: 'Job status', value: <StatusPill status={item.status} /> },
     { id: 'start', label: 'Starts', value: item.scheduledStart ? formatWhen(item.scheduledStart) : 'Not scheduled' },
     { id: 'finish', label: 'Finishes', value: item.scheduledFinish ? formatWhen(item.scheduledFinish) : 'Not scheduled' },
     { id: 'crew', label: 'Crew', value: item.technicianIds.map((id) => names.get(id) ?? 'Former technician').join(', ') || 'None assigned' },
@@ -36,7 +36,7 @@ export function CrewSchedule({ jobId, enquiryId }: { jobId: string; enquiryId: s
 }
 
 function ScheduleForm({ job, enquiryId, people }: { job: JobView; enquiryId: string; people: { id: string; displayName: string }[] }) {
-  return <CommandDrawer label={job.scheduledStart ? 'Change schedule' : 'Schedule crew'} title="Schedule crew" submitLabel="Save schedule" enquiryId={enquiryId}
+  return <CommandDrawer primary={!job.scheduledStart} label={job.scheduledStart ? 'Change schedule' : 'Schedule crew'} title="Schedule crew" submitLabel="Save schedule" enquiryId={enquiryId}
     path={`/jobs/${job.id}/schedule`} schema={scheduleJobRequestSchema} responseSchema={jobResponseSchema}
     build={(form) => ({
       expectedVersion: job.version, scheduledStart: toIso(form.get('scheduledStart')), scheduledFinish: toIso(form.get('scheduledFinish')), technicianIds: form.getAll('technicianId'),
