@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { logoutResponseSchema, type StaffRole } from '@sunshine/contracts';
 import { apiPost, ApiRequestError } from '../lib/api';
 import { WorkspaceBoundary } from '../components/shared/WorkspaceBoundary';
 import { sessionKey, useStaffSession } from '../features/auth/session';
+import { Sidebar } from './Sidebar';
+import { Topbar } from './Topbar';
+import './shell.css';
 
 export const workspaces = [
-  ['sales', 'Sales'], ['orders', 'Orders'], ['warehouse', 'Warehouse'],
-  ['field-service', 'Field jobs'], ['service', 'Warranty & service'], ['reports', 'Reports'],
+  ['sales', 'CRM'], ['orders', 'Projects'], ['warehouse', 'Inventory'],
+  ['field-service', 'Installations'], ['service', 'Service'], ['reports', 'Finance'],
 ] as const;
 
 export const workspaceRoles: Record<string, readonly StaffRole[]> = {
@@ -19,12 +22,8 @@ export const workspaceRoles: Record<string, readonly StaffRole[]> = {
 export function visibleWorkspaces(role: StaffRole) {
   return workspaces.filter(([path]) => (workspaceRoles[path]?.includes(role) ?? false));
 }
-const descriptions: Record<string, string> = {
-  sales: 'Enquiries, assigned surveys and quotations.', orders: 'Confirmed orders, invoices, receipts and crew scheduling.',
-  warehouse: 'Receive stock, inspect the ledger and fulfil orders.', 'field-service': 'Assigned jobs, installation photos and customer acceptance.',
-  service: 'Equipment coverage and repair records. Some actions await backend integration.',
-  reports: 'Posted revenue, costs and operational queues. Pay and subsidy actions await integration.',
-};
+/** A technician opens this area for their own site surveys, not for sales. */
+export const workspaceLabel = (path: string, label: string, role: StaffRole) => path === 'sales' && role === 'TECHNICIAN' ? 'Surveys' : label;
 
 export function Workspace() {
   const session = useStaffSession();
@@ -33,12 +32,20 @@ export function Workspace() {
   const client = useQueryClient();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('solar-os:sidebar') === 'collapsed'; } catch { return false; } });
   const from = location.pathname + location.search;
   const content = useRef<HTMLElement>(null);
-  useEffect(() => { content.current?.focus(); }, [location.pathname, location.search, session.data?.id]);
+  // Saved-ticket navigation changes the query string without changing the workspace path.
+  useEffect(() => { content.current?.focus({ preventScroll: true }); }, [location.pathname, location.search, session.data?.id]);
+  useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
   const area = location.pathname.split('/')[2];
   const allowed = !area || !workspaceRoles[area] || (session.data && workspaceRoles[area].includes(session.data.role));
 
+  function toggleSidebar() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem('solar-os:sidebar', next ? 'collapsed' : 'open'); } catch { /* Only a convenience. */ }
+  }
   async function logout() {
     if (pending) return;
     setPending(true); setError('');
@@ -56,22 +63,13 @@ export function Workspace() {
   if (session.isPending) return <main className="enquiry-page" role="status">Checking your session…</main>;
   if (session.isError) return <main className="enquiry-page"><h1>Unable to check session</h1><p role="alert">{session.error.message}</p><button onClick={() => void session.refetch()}>Retry</button><p><Link to="/login">Go to sign in</Link></p></main>;
   if (!session.data) return <Navigate to="/login" state={{ from }} replace />;
-  return <div className="staff-shell">
+  return <div className="app-frame" data-collapsed={collapsed}>
     <a className="skip-link" href="#workspace-content">Skip to content</a>
-    <header className="staff-header"><Link className="brand" to="/workspace"><span className="sun" aria-hidden="true">☀</span> sunshine</Link>
-      <div className="staff-account"><span>{session.data.displayName} · {session.data.role}</span><button disabled={pending} onClick={() => void logout()}>{pending ? 'Signing out…' : 'Sign out'}</button></div>
-    </header>
-    {error && <p className="form-error" role="alert">{error}</p>}
-    <nav className="workspace-nav" aria-label="Staff workspaces">
-      <NavLink to="/workspace" end>Overview</NavLink>
-      {visibleWorkspaces(session.data.role).map(([path, label]) => <NavLink key={path} to={`/workspace/${path}`}>{label}</NavLink>)}
-    </nav>
-    <main ref={content} id="workspace-content" tabIndex={-1}>{allowed ? <WorkspaceBoundary key={location.pathname + location.search}><Outlet /></WorkspaceBoundary> : <section role="alert"><h1>Access unavailable</h1><p>Your role cannot open this workspace.</p><Link to="/workspace">Choose an available workspace</Link></section>}</main>
+    <Sidebar staff={session.data} collapsed={collapsed} onToggle={toggleSidebar} onSignOut={() => void logout()} signingOut={pending} />
+    <div className="app-page">
+      <Topbar staff={session.data} area={area} onSignOut={() => void logout()} signingOut={pending} />
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <main ref={content} id="workspace-content" tabIndex={-1}>{allowed ? <WorkspaceBoundary key={location.pathname + location.search}><Outlet /></WorkspaceBoundary> : <section role="alert"><h1>Access unavailable</h1><p>Your role cannot open this workspace.</p><p><Link to="/workspace">Back to your overview</Link></p></section>}</main>
+    </div>
   </div>;
-}
-
-export function WorkspaceOverview() {
-  const session = useStaffSession();
-  if (!session.data) return null;
-  return <><h1>Your workspace</h1><p>Signed in as {session.data.displayName}. Choose the next step for your role.</p><div className="workspace-cards">{visibleWorkspaces(session.data.role).map(([path, label]) => <section key={path}><h2><Link to={`/workspace/${path}`}>{label}</Link></h2><p>{descriptions[path]}</p></section>)}</div></>;
 }

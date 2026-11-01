@@ -29,6 +29,8 @@ Stated foreign-key exceptions (keep the reason next to the relation in `schema.p
 
 ## Migration queue
 
+`20261031800000_files_freeze_guard` and `20261031810000_invoice_source_snapshot` landed in #70. The warranty takeover follows them with `20261031820000_warranty_facts`; applied migrations are unchanged. It validates calendar-month intervals and freezes warranty identity, terms and dates, permitting only a versioned one-way void. Existing inconsistent rows stop migration for review rather than receiving guessed corrections.
+
 The D3 release-audit follow-up uses `20261031250000_allocation_release`, after job scheduling (`240000`). It adds audit fields and a guarded release transition to the existing Allocation model; it does not add placeholder ticket relations.
 
 `20261031260000_d4` is active after Files 255000, with real Unit/Job/File relations and canonical integrity rules. D3 approved it subject to refreshing this branch onto main (PR #8, comment 6547800820). `20261031270000_dispatch_scans` follows release audit and adds the actual Dispatch draft and DispatchScan evidence models. Posting status, issue/cost linkage and delivery are not implemented by this migration. New scans reference real allocations, retain immutable source identity and require their order's reserved unit.
@@ -53,6 +55,9 @@ One shared `prisma/schema.prisma`, with each owner's models kept in their own se
 | 7 | Stock state, `Unit`, movements, `Allocation`, `Dispatch`, scan records | D3 | `20261031200000_inventory` holds locations, documents, movements, `Unit` and cost basis; `20261031210000_stock_transfers_counts` adds count fields and a draft's planned units; `20261031230000_allocations` adds `Allocation`; `20261031270000_dispatch_scans` adds `Dispatch` and scan records; `20261031300000_dispatch_posting` adds dispatch status and its posted facts. Derived ledger, with no stored balance; see the [data model](data-model.md) |
 | 8 | `Warranty`, `ServiceTicket`, `TicketLine`, `SubsidyMilestone` | D4 | Same D4 migration at 260000 with real Unit/Job/File evidence FKs; D3 allocation ticket-line/XOR follows by coordination |
 | 9 | `ProductWarrantyPolicy` | D4 | `20261031310000_warranty_policies`, below D2's reserved `20261031800000` and `20261031810000` |
+| 10 | Warranty calendar/fact guards | Tuhin/Codex takeover | `20261031820000_warranty_facts`, after the merged file/invoice migrations; four canonical rules |
+| 11 | Frozen technician rates / installation labour approvals | Tuhin/Codex takeover | `20261031830000_installation_labour`; append-only revisions, actual time/cost FK and source guards; no historical rate backfill |
+| 12 | Verified service commands and immutable audit | Tuhin/Codex takeover | `20261031840000_service_ticket_integrity`; real delivered source, actor/state/version/assessment/billing guards; old rows keep null verification/creator; twelve canonical rules |
 
 **To land a migration:**
 

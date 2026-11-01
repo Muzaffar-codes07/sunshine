@@ -226,7 +226,7 @@ test('HTTP lookup enforces access before reads, validates query, and emits stand
   } finally { await app.close(); }
 });
 
-test('production AppModule registers lookup with unavailable authorization and boots without a DB query', async () => {
+test('production AppModule rejects anonymous and forged-role warranty requests without an equipment query', async () => {
   process.env.SESSION_SECRET ??= 'test-only-session-secret-at-least-32-characters';
   process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:1/test';
   const { NestFactory } = require('@nestjs/core');
@@ -240,7 +240,7 @@ test('production AppModule registers lookup with unavailable authorization and b
     const response = await fetch(`${await app.getUrl()}/api/v1/warranties/lookup?serial=INV-001`, {
       headers: { 'x-role': 'ADMIN' },
     });
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).error.code, 'WARRANTY_AUTH_UNAVAILABLE');
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
   } finally { await app.close(); }
 });

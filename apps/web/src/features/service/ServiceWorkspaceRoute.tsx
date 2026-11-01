@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { serviceTicketResponseSchema, ticketListResponseSchema, ticketStatusSchema } from '@sunshine/contracts';
@@ -8,15 +8,19 @@ import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { describeD4Error } from './d4-http';
 import { ServiceWorkspacePage } from './ServiceWorkspacePage';
+import { WarrantyPolicies } from './WarrantyPolicies';
+import { TicketHistory } from './TicketHistory';
 
 function SavedTicket({ id }: { id: string }) {
   const ticket = useQuery({ queryKey: ['service', 'ticket', id], retry: false,
     queryFn: ({ signal }) => apiGet(`/tickets/${id}`, serviceTicketResponseSchema, signal) });
   return <>
     <p><Link to="/workspace/service">Back to saved tickets</Link></p>
+    <button disabled={ticket.isFetching} onClick={() => void ticket.refetch()}>Reload saved ticket</button>
     {ticket.isPending && <p role="status">Loading saved ticket…</p>}
     {ticket.error && <div role="alert"><p>{describeD4Error(ticket.error)}</p><button onClick={() => void ticket.refetch()}>Retry ticket</button></div>}
-    {ticket.data && <ServiceWorkspacePage key={`${id}:${ticket.data.data.version}`} initialTicket={ticket.data.data} />}
+    {ticket.data && <ServiceWorkspacePage ticketCommandsEnabled key={`${id}:${ticket.data.data.version}`} initialTicket={ticket.data.data} />}
+    {ticket.data && <TicketHistory id={id} />}
   </>;
 }
 
@@ -45,8 +49,9 @@ function SavedTickets() {
 }
 
 export function ServiceWorkspaceRoute() {
+  const navigate = useNavigate();
   const [search] = useSearchParams();
   const id = search.get('ticket');
   if (id && !z.uuid().safeParse(id).success) return <div role="alert"><h1>Invalid ticket link</h1><Link to="/workspace/service">Back to saved tickets</Link></div>;
-  return id ? <SavedTicket id={id} /> : <><ServiceWorkspacePage /><SavedTickets /></>;
+  return id ? <SavedTicket id={id} /> : <><ServiceWorkspacePage ticketCommandsEnabled onTicketSaved={ticket => navigate(`/workspace/service?ticket=${ticket.id}`)} /><SavedTickets /><WarrantyPolicies /></>;
 }

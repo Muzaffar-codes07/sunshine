@@ -82,7 +82,7 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
         React.createElement(WarehousePage, null),
         { id: 'user-2', email: 'wh@sunshine.test', displayName: 'Warehouse Manager', role: 'WAREHOUSE' }
       );
-      assert.ok(html.includes('Warehouse &amp; Stock Management'), 'displays warehouse title');
+      assert.ok(html.includes('Inventory'), 'displays warehouse title');
       assert.ok(html.includes('Stock Balances'), 'displays Stock Balances tab');
       assert.ok(html.includes('Movement Ledger'), 'displays Movement Ledger tab');
       assert.ok(html.includes('Integrity &amp; Audit'), 'displays Integrity tab');
@@ -117,7 +117,7 @@ test('Warehouse Workspace UI contracts, role views and pattern rendering via Vit
         ['/workspace/warehouse']
       );
       assert.ok(!html.includes('This workspace is planned'), 'does not render PlannedWorkspace');
-      assert.ok(html.includes('Warehouse &amp; Stock Management'), 'renders real WarehousePage in App routes');
+      assert.ok(html.includes('Inventory'), 'renders real WarehousePage in App routes');
     }
   } finally {
     await vite.close();

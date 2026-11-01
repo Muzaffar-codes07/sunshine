@@ -27,7 +27,7 @@ export function EnquiryQueuePage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return <>
-    <h1>Sales</h1>
+    <h1>CRM</h1>
     <p><Link to="/enquire">Open the public enquiry form</Link> to take an enquiry by phone.</p>
     <Field label="Show enquiries">
       {(control) => <select {...control} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>

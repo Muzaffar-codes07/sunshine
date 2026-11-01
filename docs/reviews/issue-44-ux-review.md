@@ -1,13 +1,12 @@
-# Issue #44 takeover UX and accessibility review
+# Issue #44 workspace focus and warehouse review
 
-Reviewed the production routes on `main` at `74c2429` for the F01 review item. The review covers the public enquiry and staff sign-in, the shared staff shell, and the sales, orders, warehouse, field, service and reports workspaces. It checks route access, headings and landmarks, keyboard focus, form labels and errors, loading/refusal/retry states, table semantics and the responsive rules. The existing [frontend acceptance report](issue-44-frontend-acceptance.md) records the production-browser and 360 px runs for the integrated flows.
+The original review used `main` at `74c2429`. This candidate now includes the Solar OS shell from #75 and ticket command lifecycle from #77 on `main` at `ffa3622`. The shell's sidebar, topbar, role-filtered navigation, route boundary and path-change scroll behavior are retained. The warehouse section controls remain within its current workspace layout.
 
-## Findings addressed in this change
+## Findings addressed
 
-- The overview described report sources as pending after #69 connected posted financial reads. Its description now distinguishes live financial and queue reads from pay and subsidy work that remains open.
-- Staff navigation moved focus to the content for path changes, but selecting a saved service ticket changes only the query string. Focus now follows that change so keyboard and screen-reader users reach the selected ticket.
-- Warehouse section controls exposed a pressed state but no programmatic relationship to the changing content. They now form a named control group and point to a named content region. The selected state remains on the active button.
+- Selecting a saved service ticket changes the query string without changing the workspace path. The main region now receives focus for either change. Path changes still scroll to the top; selecting another ticket does not unexpectedly reset scroll.
+- Warehouse section buttons expose a pressed state and a programmatic relationship to the changing, named content region. The controls are grouped as one warehouse section chooser.
 
-## Remaining acceptance
+## Acceptance still open
 
-This review does not establish a physical phone, camera or scanner result. The F02 and F08P device checks in #44 remain open. Service writes, payroll, subsidy actions, covered/chargeable repair scenes and the whole-lifecycle rehearsals also remain open under #44 and #53. The #44 legend reserves checked boxes for implementation verified on `main`; this change is a review candidate until merged and checked there.
+The Solar OS redesign in #75 themed all screens, but its own coverage matrix calls for a layout pass on CRM, projects, inventory, service and finance. This scoped change is not a final all-screen accessibility or mobile acceptance. Issue #44's per-screen state matrix, actual phone camera and physical scanner evidence, covered and chargeable repair scenes, service pay, subsidy actions and three whole-lifecycle demo rehearsals remain open. The [frontend acceptance report](issue-44-frontend-acceptance.md) records earlier production-browser and 360 px flows; the phone evidence is in separate PR #73 and reports the insecure-context camera limitation.

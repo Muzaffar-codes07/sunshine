@@ -43,6 +43,7 @@ function fixture() {
     async create(input: NewTicket) {
       const row: TicketRow = { ...input, id: randomUUID(), status: 'OPEN', version: 1,
         assessmentSnapshot: null, billingSnapshot: null, replacementSnapshot: null, replacedUnitId: null, newUnitId: null,
+        sourceVerifiedAt: null, createdById: null, noWorkReason: null,
         resolutionDetails: null, resolvedAt: null, confirmedBy: null, confirmationChannel: null,
         confirmedAt: null, confirmationNotes: null, closedAt: null, createdAt: new Date(), updatedAt: new Date() };
       rows.set(row.id, row); return structuredClone(row);

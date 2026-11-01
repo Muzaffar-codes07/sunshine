@@ -59,6 +59,12 @@ export class SurveysService {
     }
   }
 
+  /** Surveys a person still has to decide, oldest first. */
+  async awaitingApproval() {
+    const rows = await this.prisma.survey.findMany({ where: { status: 'SUBMITTED' }, include: surveyInclude, orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }], take: 20 });
+    return surveyListResponseSchema.parse({ data: { items: rows.map(toSurvey) } });
+  }
+
   async listForEnquiry(enquiryId: string) {
     const enquiry = await this.prisma.enquiry.findUnique({ where: { id: enquiryId }, select: { id: true } });
     if (!enquiry) throw new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Enquiry not found');

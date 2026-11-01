@@ -50,7 +50,7 @@ function errorBody(code, reasons) {
 }
 
 test('ticket mutations are disabled by default while warranty lookup remains usable', () => {
-  const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage));
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(service.ServiceWorkspacePage)));
   assert.match(markup, /Ticket actions are unavailable/);
   assert.match(markup, /<fieldset disabled=""/);
   assert.match(markup, /Look up serial/);
@@ -58,9 +58,9 @@ test('ticket mutations are disabled by default while warranty lookup remains usa
 });
 
 test('ticket view shows saved coverage, lineage and only the current lifecycle action', () => {
-  const markup = renderToStaticMarkup(createElement(service.ServiceWorkspacePage, {
+  const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(service.ServiceWorkspacePage, {
     initialTicket: { ...ticket, status: 'ASSESSED', assessmentSnapshot: assessment, replacedUnitId: unitId, newUnitId: jobId },
-  }));
+  })));
   assert.match(markup, /Covered — customer charge ₹0.00/);
   assert.match(markup, /Inside saved policy dates/);
   assert.match(markup, /Replaced unit/);
@@ -137,7 +137,7 @@ test('reports render server monetary totals, cutoff and empty states', () => {
   assert.match(markup, /No approved technician time/);
   assert.match(markup, /No subsidy milestones recorded/);
   assert.match(markup, /end excluded/);
-  assert.match(markup, /2026-11-01T00:00:00.000Z/);
+  assert.match(markup, /1 Nov 2026/);
   assert.match(markup, /Download this period as CSV/);
   client.clear();
 });

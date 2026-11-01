@@ -1,12 +1,11 @@
-import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { orderFulfilmentResponseSchema, orderResponseSchema, type Invoice, type Order, type OrderFulfilment, type StaffIdentity } from '@sunshine/contracts';
 import { DetailPattern, ListPattern } from '../../components/shared/patterns';
-import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { useStaffSession } from '../auth/session';
+import { useDashboardJobs } from '../dashboard/dashboard-data';
 import { CrewSchedule } from '../field/CrewSchedule';
 import { describeProblem, formatWhen, humanize } from '../sales/queries';
 import { PaymentForm } from './PaymentForm';
@@ -19,21 +18,24 @@ export function OrderPage({ orderId }: { orderId?: string }) {
   const actor = session.data;
   if (!actor) return <p><Link to="/login">Sign in to view an order</Link></p>;
   if (!['SALES', 'ADMIN', 'WAREHOUSE'].includes(actor.role)) return <p role="alert">Your role cannot view orders.</p>;
-  if (!id) return <OrderLookup />;
-  if (!z.uuid().safeParse(id).success) return <p role="alert">Enter a valid order ID. <Link to="/workspace/orders">Open another order</Link></p>;
+  if (!id) return <ProjectList role={actor.role} />;
+  if (!z.uuid().safeParse(id).success) return <p role="alert">This isn't a valid order link. <Link to="/workspace/orders">Back to projects</Link></p>;
   return actor.role === 'WAREHOUSE' ? <WarehouseOrder id={id} actor={actor} /> : <FinancialOrder id={id} actor={actor} />;
 }
 
-function OrderLookup() {
-  const [error, setError] = useState(''); const navigate = useNavigate();
-  function open(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const id = String(new FormData(event.currentTarget).get('orderId') ?? '').trim();
-    if (!z.uuid().safeParse(id).success) { setError('Enter the order ID from its enquiry or fulfilment handoff.'); return; }
-    navigate(`/workspace/orders/${id}`);
-  }
-  return <><h1>Orders</h1><p>Open an order from its enquiry or enter its ID.</p>
-    <p><Link to="/workspace/sales">Go to the enquiry queue</Link></p>
-    <form onSubmit={open} noValidate><Field label="Order ID" error={error || undefined}>{control => <input {...control} name="orderId" required />}</Field><button type="submit">Open order</button></form>
+/** Every confirmed order has a job, so the job list is the project list. */
+function ProjectList({ role }: { role: StaffIdentity['role'] }) {
+  const jobs = useDashboardJobs(role), items = jobs.data?.items ?? [];
+  return <><h1>Projects</h1>
+    {!!jobs.data && jobs.data.total > items.length && <p>Showing the newest {items.length} of {jobs.data.total} projects.</p>}
+    <ListPattern title="All projects" loading={jobs.isPending} error={jobs.error ? describeProblem(jobs.error).message : undefined} onRetry={() => void jobs.refetch()}
+      empty="No projects yet. A project starts when an accepted quote is confirmed as an order."
+      columns={[{ id: 'project', label: 'Project' }, { id: 'customer', label: 'Customer' }, { id: 'system', label: 'System' }, { id: 'status', label: 'Status' }, { id: 'crew', label: 'Crew' }, { id: 'when', label: 'Scheduled' }]}
+      rows={items.map(job => ({ id: job.id, cells: {
+        project: <Link to={role === 'WAREHOUSE' ? `/workspace/warehouse/orders/${job.orderId}` : `/workspace/orders/${job.orderId}`}>{job.orderDisplayNumber}</Link>,
+        customer: job.contactName, system: `${job.soldCapacityKw} kW ${job.systemType === 'ON_GRID' ? 'On-Grid' : 'Off-Grid'}`, status: humanize(job.status),
+        crew: job.crew.map(member => member.displayName).join(', ') || 'None assigned', when: job.scheduledStart ? formatWhen(job.scheduledStart) : 'Not scheduled',
+      } }))} />
   </>;
 }
 

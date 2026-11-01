@@ -3,9 +3,9 @@
 Health/readiness, public enquiries, staff authentication, the staff enquiry queue,
 catalogue/package reads, and quote snapshots with recorded sending/acceptance
 are implemented. Warranty assessment and
-`GET /api/v1/warranties/lookup` are implemented with injected interfaces;
-production lookup returns 503 until staff authorization, Unit/Job reads and the
-coordinated warranty migration are integrated. Task 2.2 ticket commands and Task
+`GET /api/v1/warranties/lookup` use real ADMIN/SUPPORT sessions and persisted equipment/delivery/frozen-quote evidence.
+ADMIN policy configuration uses `GET/POST /api/v1/warranty-policies/:productId`; POST requires a saved fingerprint and Idempotency-Key.
+Task 2.2 ticket commands and Task
 4.1 report calculations/routes are implemented with the integration gates
 described below. Other routes below remain planned and need shared schemas and
 tests before use. The readiness endpoint checks DB connectivity, not completion
@@ -25,7 +25,7 @@ Use 400 invalid input, 401 unauthenticated, 403 unauthorized, 404 unavailable re
 | D3 | `/stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/documents/:id` with `validate` and `cancel`, `/stock`, `/stock/movements`, `/stock/as-of`, `/stock/value`, `/stock/integrity`, `/stock/locations`, `/units`, `/orders/:id/allocations`, `/jobs`, `/jobs/assigned`, `/jobs/:id` and `schedule`, `start`, `complete` (implemented); `/dispatches` and scan/dispatch/deliver actions, `/warranties` |
 | D4 | `/time-entries`, `/tickets` and assess/resolve/confirm actions, `/reports` and CSV |
 
-I06 draft/scans are implemented at `POST /orders/:id/dispatches`, `GET /orders/:id/dispatch`, `GET /dispatches/:id`, `POST /dispatches/:id/scans`, `POST /dispatches/:id/dispatch` and `POST /dispatches/:id/deliver`. They retain DRAFT status and expose scan completeness only. Stock/cost dispatch posting and delivery routes remain pending D4 integration; complete scans alone never move stock.
+I06 draft/scans, actual stock/cost dispatch and delivery are implemented at `POST /orders/:id/dispatches`, `GET /orders/:id/dispatch`, `GET /dispatches/:id`, `POST /dispatches/:id/scans`, `POST /dispatches/:id/dispatch` and `POST /dispatches/:id/deliver`. Complete scans alone never move stock; the posting command performs the atomic issue and costs. Delivery activates configured frozen quote terms. Delivery detail coverage distinguishes ACTIVE, NOT_STARTED, EXPIRED, VOID and NO_POLICY.
 
 ## H1.5 interfaces
 
@@ -96,50 +96,23 @@ types use PascalCase (`WarrantyPolicy`, `SubsidyMilestone`). See the implementat
   legacy saved results without it remain replayable.
 - `WarrantyPolicy` contains `policyName`, `revision`, `scope`, and positive integer `durationMonths`. `WarrantyStatus` describes lifecycle state separately from `WarrantyAssessmentResult.isCovered` and its explanation; the assessment payload does not require a status field.
 - Task 2.1 extends `WarrantyAssessmentResult` with required `asOfDate`, `policyRevision`, `scope`, `coverageStatus` (`COVERED`, `EXPIRED`, `VOID`, `NOT_STARTED`, `NO_WARRANTY`, `OUT_OF_SCOPE`), and `chargeStatus`. Policy name/revision/scope/start/expiry are null together only for `NO_WARRANTY`. Covered work returns `customerCharge: "0.00"` and `chargeStatus: "FREE"`; all other lookup outcomes return null charge and `PENDING_ASSESSMENT` until Task 3.1 assesses billable parts/labour. This is an intentional Task 1.1 contract revision; do not interpret null as a zero invoice. `isCovered` concerns only the returned saved scope; repair orchestration must evaluate its actual work scope separately.
-- `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization currently returns 503 `WARRANTY_AUTH_UNAVAILABLE`; the default equipment reader also rejects with 503. See the [warranty integration gate](../../apps/api/src/warranty/README.md).
+- `WarrantyLookupQuery` accepts a required serial (trimmed, uppercased, maximum 128 characters) and optional manufacturer/product UUIDs. `GET /api/v1/warranties/lookup` returns `{ data: { unit: { id, serial, manufacturerId, productId }, customer: { id, name } | null, job: { id } | null, assessment } }`. It uses server time; clients cannot override the assessment date, coverage or charge through query fields. Scoped duplicates return 409 `AMBIGUOUS_SERIAL`; unknown units return 404 `UNIT_NOT_FOUND`. Production authorization verifies active ADMIN/SUPPORT sessions (401 anonymous/revoked, 403 other roles). Persisted allocation/order/delivery and frozen quote facts are validated before coverage; corrupt sources fail closed with 503. Replacement coverage remains gated on actual service issue/billing evidence. See [warranty runtime](../../apps/api/src/warranty/README.md).
 - Warranty boundaries and `DateRangeFilter` are date-only strings (`YYYY-MM-DD`). Warranty expiry and report end dates are exclusive. Report ranges describe IST calendar midnights in `Asia/Kolkata`; the query service converts them to UTC. Confirmation and subsidy event timestamps require a timezone (`Z` or an explicit offset).
 - `JobProfitability` describes lifetime `invoicedRevenue`, `cashReceived`, `outstanding`, `actualCost`, and signed `contribution` as of the query cutoff, with `isCompleted` separating provisional work. `PaySummary` supplies technician identity, `totalHours`, and `totalPay` aggregated from frozen entry rates.
 - `SubsidyMilestone` is a read projection containing `id`, `jobId`, `stage`, `status`, nullable `submissionDate`/`approvalDate`, decimal `amount`, and nullable `evidenceFileId`. Stage/status are workflow labels, not legal eligibility assertions. Milestone amounts do not imply installer receipts.
 
 ## Task 2.2 service ticket lifecycle
 
-The [service module](../../apps/api/src/service/README.md) implements four POST
-routes returning `{ data: ServiceTicket }`, with strict shared request contracts:
+Production NestJS ticket commands and reads require active ADMIN/SUPPORT cookie sessions. Every POST uses actor-scoped Idempotency-Key replay; changed intent conflicts. Strict shared contracts and no-store responses apply. The exact route/request/response/state/lock details are in the [service API](../../apps/api/src/service/README.md#production-ticket-commands-and-reads).
 
-- `/api/v1/tickets`: `{ unitId, faultDescription }`, 201 OPEN. Customer and job
-  IDs derive from the actual unit installation; client linkage/status overrides
-  are rejected. Missing installation association is 409 `INSTALLATION_REQUIRED`.
-- `/api/v1/tickets/:id/assess`: `{ version, asOfDate, requestedScope }`, 200
-  ASSESSED from OPEN. Input `asOfDate` is a timezone-qualified instant no later
-  than now. Snapshot contains the complete warranty result (including its IST
-  date, saved policy revision/scope/dates and reason), actual requested work scope
-  and server `assessedAt`. Snapshot billability is not a final invoice; component
-  coverage does not promise free unrelated labour. Later policy edits do not
-  recalculate the saved decision.
-- `/api/v1/tickets/:id/resolve`: `{ version, resolutionDetails }`, 200
-  AWAITING_CUSTOMER_CONFIRMATION from ASSESSED or IN_PROGRESS. Requires a saved
-  assessment, records work notes and server `resolvedAt`. Direct ASSESSED to
-  resolution is supported for Task 2.2; IN_PROGRESS is reserved for repair work.
-- `/api/v1/tickets/:id/confirm`: `{ version, confirmerName, channel, confirmedAt,
-  notes? }`, 200 CLOSED from AWAITING_CUSTOMER_CONFIRMATION only. Name must be
-  nonblank, channel is PHONE/WHATSAPP/IN_PERSON and confirmedAt is a timezone-
-  qualified instant at or after resolution and no later than now. Missing facts
-  fail with 400 `INVALID_INPUT`, leaving the ticket open. The response labels
-  these as staff-recorded confirmation facts; it is not a customer portal event.
+- `POST /tickets`: `{unitId,faultDescription}` derives the real delivered installation/customer and creates OPEN/v1.
+- `POST /tickets/:id/assess`: `{version,asOfDate,requestedScope}` saves ASSESSED at immutable complaint intake. `asOfDate` must equal saved `createdAt`. Scope correction from ASSESSED is allowed only before any work/financial/replacement effects; prior decisions remain audited.
+- `POST /tickets/:id/resolve`: `{version,resolutionDetails,noWorkReason?}` requires verified assessment and matching finalized repair billing. Explicit no-work reason is permitted only with zero work, replacement or invoice effects; notes alone cannot resolve a claimed repair.
+- `POST /tickets/:id/confirm`: `{version,confirmerName,channel,confirmedAt,notes?}` records actual staff-confirmed customer acceptance after resolution and closes the ticket. CLOSED is immutable.
+- `GET /tickets/:id` and `GET /tickets?page=1&pageSize=20&status=OPEN&unitId=...` read saved facts; they never reassess on reload.
+- `GET /tickets/:id/events?page=1&pageSize=20` returns actor/time/status and prior/current assessment history, without raw private billing snapshots.
 
-All actions require a positive integer `version`. Status/version compare-and-set
-saves each transition and facts atomically; conflicts return 409 `STALE_VERSION`
-or `INVALID_TICKET_TRANSITION`. CLOSED is terminal. The response contains
-identity/linkage, status/version, fault, nullable assessmentSnapshot,
-resolutionDetails/resolvedAt, nullable `confirmation: CustomerConfirmation`,
-closedAt, createdAt and updatedAt. No raw ORM rows or contact details are exposed.
-
-Production routes return 503 `SERVICE_AUTH_UNAVAILABLE` before reading tickets
-until D2 integrates verified cross-customer staff permission. Unit/Job reads and
-the coordinated D4 migration are also outstanding. Missing ticket tables/columns
-return `SERVICE_SCHEMA_UNAVAILABLE`. Resolution in this task records notes only;
-Task 3.1/3.2 must orchestrate stock/finance with command idempotency and one shared
-transaction. No billing or stock effects are posted by these commands.
+Responses use `{data:ServiceTicket}` with `sourceVerified`, `noWorkReason`, `billingFinalized` alongside the existing identity/version/coverage/resolution/confirmation fields. POST create returns 201, actions 200. Command, ticket and append-only before/after events commit together; exact retries create no extra events. State/source/financial guards are enforced by migration `20261031840000_service_ticket_integrity` as well as services. Old rows retain null creator/source-verification and are never silently adopted; invalid historical links require reconciliation. Actual repair sources and replacement posting remain separate open gates. These commands do not fabricate stock, labour or invoices.
 
 Task 3.2 extends ticket responses with nullable `replacedUnitId` and `newUnitId`.
 The original `unitId` remains the defective unit; lineage is retained through
@@ -154,10 +127,9 @@ stock/source/auth/migration integration before production. See the
 
 ## Task 4.1 director reports
 
-Report routes and calculations are implemented with injectable upstream readers;
-production routes return 503 `REPORTING_AUTH_UNAVAILABLE` until verified ADMIN
-authorization is integrated. Job/Invoice/Payment models are absent and their
-default reader returns `REPORTING_SOURCE_UNAVAILABLE`. Pending migrations return
+Report routes verify actual ADMIN sessions and read persisted Job/Invoice/Payment,
+cost and approved installation-time sources. Service-time pay is excluded explicitly.
+Pending migrations return
 `REPORTING_SCHEMA_UNAVAILABLE`. See the [reporting handoff](../../apps/api/src/reporting/README.md).
 
 - `GET /api/v1/reports/profitability?jobId=<uuid>` returns `JobProfitabilityReport`:
@@ -193,8 +165,9 @@ do not create invoiced revenue.
   and grand `totalHours`/`totalPay`. Hours are exact three-place decimal strings;
   pay is nonnegative two-place decimal strings with aggregate precision. Only
   approved work in the half-open period, occurred and approved by the cutoff,
-  counts. Each entry's hours times frozen rate rounds half-up to cents before
-  summing; current technician rates never reprice prior work. No ledger writes.
+  counts. Each production entry's exact elapsed milliseconds times its frozen hourly
+  rate rounds half-up to cents before summing; display hours are rounded separately
+  to three places. Current technician rates never reprice prior work. Reads post no ledger entries.
 - `GET /api/v1/reports/export.csv?report=overview&period=month` returns a UTF-8
   CSV attachment; `export-csv` is an alias. The strict report selector is required:
   `overview` and `pay` accept only an optional period (default today);
@@ -205,12 +178,8 @@ do not create invoiced revenue.
   contain headers only. Downloads have a fixed filename, no-store and nosniff.
   Failures before streaming retain standard JSON envelopes.
 
-Both routes require the existing verified ADMIN guard. Until upstream TimeEntry
-storage, approval timestamps and frozen rate snapshots exist, the production time
-reader throws `REPORTING_TIME_SOURCE_UNAVAILABLE` (503) after authorization. The
-default authorization still throws `REPORTING_AUTH_UNAVAILABLE`. Injected unit/HTTP
-tests do not prove real PostgreSQL integration. See the reporting handoff above.
+Both routes require the verified ADMIN guard. Installation-time approval and rates now use real persisted sources; pay JSON/CSV identify `INSTALLATION_ONLY` because service time is not yet integrated. Pay uses recorded milliseconds × the frozen rate rounded half-up to cents; rounded display hours are not multiplied to calculate pay. Unsupported or corrupt source facts fail closed rather than becoming a zero rate. See the [labour approval API](../../apps/api/src/labour/README.md).
 
 ### Reporting runtime follow-up
 
-ADMIN-only `GET /reports/operations?jobsPage=1&ticketsPage=1&pageSize=20` returns `{data:{asOf,jobs:{items,total,page,pageSize},tickets:{items,total,page,pageSize}}}`. Lists contain current unfinished jobs/open tickets, with separate page controls (1–10000), page size 1–50 and deterministic ordering. This portfolio queue is independent of financial period filters. Financial overview/profitability/CSV now consume persisted sources; payroll remains unavailable until approved frozen rates are configured. Completed jobs with incomplete labour/service costing remain explicitly provisional.
+ADMIN-only `GET /reports/operations?jobsPage=1&ticketsPage=1&pageSize=20` returns `{data:{asOf,jobs:{items,total,page,pageSize},tickets:{items,total,page,pageSize}}}`. Lists contain current unfinished jobs/open tickets, with separate page controls (1–10000), page size 1–50 and deterministic ordering. This portfolio queue is independent of financial period filters. Financial overview/profitability/CSV consume persisted sources. Installation pay consumes approved frozen rates; service-time pay remains excluded explicitly. Completed jobs with unapproved/reversed labour, missing historical time or unfinished service costing remain provisional.

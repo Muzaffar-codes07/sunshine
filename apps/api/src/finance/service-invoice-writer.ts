@@ -9,7 +9,7 @@ export type ServiceInvoiceInput = {
   subtotal: string;
 };
 
-/** D2 implements this port using FinanceService.ensureServiceInvoice(tx, input).
+/** D2 implements this port through InvoicesService.ensureServiceInvoice(tx, input).
  * One official posted invoice per TICKET:<id>:REPAIR; same facts replay, changed
  * facts conflict. Preserve line-rounded subtotal, calculate tax separately and
  * return that subtotal. Do not commit, receive payments or perform network IO.

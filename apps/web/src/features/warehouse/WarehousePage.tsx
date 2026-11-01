@@ -56,9 +56,9 @@ export function WarehousePage() {
     <div className="warehouse-workspace">
       <header className="warehouse-header">
         <div>
-          <h1>Warehouse & Stock Management</h1>
+          <h1>Inventory</h1>
           <p className="field-hint">
-            Live inventory ledger, movement history, unit serial traceability, and invariant verification.
+            Stock levels, movements, serial numbers and orders to fulfil.
           </p>
         </div>
         <div className="warehouse-header-actions">

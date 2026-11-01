@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { createSalesOrderFromBrowser } from './sales-browser-flow.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const apiRequire = createRequire(resolve(root, 'apps/api/package.json'));
@@ -14,6 +15,13 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_PACKA
 const db = process.env.TEST_DATABASE_URL;
 if (!db || !new URL(db).pathname.endsWith('_test')) throw Error('Explicit disposable _test database required');
 process.env.DATABASE_URL = db;
+// Keep setup inside the same explicit test-database boundary as the browser run.
+// A separate `npm run db:deploy` can otherwise pick up an unrelated local .env.
+if (process.argv.includes('--migrate')) {
+  const migration = spawnSync('npm', ['run', 'db:deploy'], { cwd: root, env: process.env, stdio: 'inherit' });
+  if (migration.error) throw migration.error;
+  if (migration.status !== 0) throw Error('Disposable browser database migration failed');
+}
 process.env.SESSION_SECRET = 'issue44-browser-only-test-session-secret';
 process.env.SESSION_COOKIE_SECURE = 'false';
 const origin = 'http://127.0.0.1:5145';
@@ -25,6 +33,7 @@ const { ApiExceptionFilter } = apiRequire('./dist/platform/api-exception.filter'
 const { AuthRuntime } = apiRequire('./dist/auth/auth.runtime');
 const { hashPassword } = apiRequire('./dist/auth/passwords');
 const { seedCatalogue } = apiRequire('./dist/catalog/seed-catalogue');
+const { seedWarrantyPolicies } = apiRequire('./dist/warranty/seed-warranty-policies');
 const { catalogueDemoId } = apiRequire('./dist/catalog/demo-catalogue');
 const { SurveysService } = apiRequire('./dist/sales/surveys.service');
 const { QuotesService } = apiRequire('./dist/quotes/quotes.service');
@@ -45,6 +54,7 @@ try {
   await app.listen(useVite ? 0 : 5145, '127.0.0.1');
   const prisma = app.get(PrismaService);
   await seedCatalogue(prisma);
+  await seedWarrantyPolicies(prisma);
   if (useVite) vite = await webRequire('vite').createServer({ root: resolve(root, 'apps/web'), cacheDir: resolve(root, 'apps/web/node_modules/.vite-browser'), server: {
     host: '127.0.0.1', port: 5145, strictPort: true, proxy: { '/api': await app.getUrl() },
   } });
@@ -110,8 +120,24 @@ try {
     activePage = fulfilmentPage;
     fulfilmentPage.on('response', async response => { if (response.request().method() === 'POST' && response.status() >= 400) console.error('COMMAND REFUSED', response.status(), await response.text()); });
     await fulfilmentPage.goto(`/workspace/warehouse/orders/${order.id}`);
+    // Hold only the job readback while allocations refresh, reproducing the reservation/prepare race.
+    let releaseJobReadback;
+    const jobReadbackGate = new Promise(resolve => { releaseJobReadback = resolve; });
+    let jobReadbackHeld;
+    const jobReadbackStarted = new Promise(resolve => { jobReadbackHeld = resolve; });
+    await fulfilmentPage.getByRole('button', { name: 'Reserve all stock' }).waitFor();
+    if (run === 1) await fulfilmentPage.route(`**/api/v1/jobs/${job.id}`, async route => {
+      const response = await route.fetch(); jobReadbackHeld(); await jobReadbackGate; await route.fulfill({ response });
+    });
     await fulfilmentPage.getByRole('button', { name: 'Reserve all stock' }).click();
+    if (run === 1) {
+      await jobReadbackStarted;
+      await fulfilmentPage.getByRole('button', { name: 'Prepare dispatch', exact: true }).waitFor();
+      try { assert.equal(await fulfilmentPage.getByRole('button', { name: 'Prepare dispatch', exact: true }).isDisabled(), true); }
+      finally { releaseJobReadback(); }
+    }
     await fulfilmentPage.getByRole('button', { name: 'Prepare dispatch', exact: true }).click();
+    if (run === 1) await fulfilmentPage.unroute(`**/api/v1/jobs/${job.id}`);
     await fulfilmentPage.getByRole('heading', { name: 'Scan equipment' }).waitFor();
     const allocated = await prisma.allocation.findMany({ where: { jobId: job.id, unitId: { not: null } }, include: { unit: true } });
     // Typed input is persisted but never qualifies as physical scan evidence.
@@ -173,13 +199,58 @@ try {
     assert.equal(await prisma.stockDocument.count({ where: { reference: `DISPATCH:${(await prisma.dispatch.findUniqueOrThrow({ where: { orderId: order.id } })).id}` } }), 1);
     results.push({ run, seconds: ((Date.now() - begin) / 1000).toFixed(1), jobId: job.id, orderId: order.id, serialUnits: allocated.length, status: saved.status });
     console.log('Completed persisted run', JSON.stringify(results.at(-1)));
-    const ticket = await prisma.serviceTicket.create({ data: { ticketNumber: `B44-${randomUUID().slice(0, 12)}`, unitId: allocated[0].unitId, jobId: job.id, customerId: customer.id, faultDescription: 'Explicit synthetic saved ticket for read/refresh acceptance' } });
-    lastTicket = ticket;
     await page.goto('/workspace/service');
-    await page.getByRole('link', { name: ticket.ticketNumber, exact: true }).click();
+    await page.getByRole('textbox', { name: 'Installed unit ID', exact: true }).fill(allocated[0].unitId);
+    await page.getByRole('textbox', { name: 'Fault description', exact: true }).fill('Explicit synthetic complaint; no repair performed in this browser case');
+    const intakeRequests = []; let loseIntake = run === 1;
+    await page.route('**/api/v1/tickets', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      intakeRequests.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+      const response = await route.fetch(); assert.equal(response.status(), 201);
+      if (loseIntake) { loseIntake = false; return route.abort('failed'); }
+      return route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: 'Create ticket', exact: true }).click();
+    if (run === 1) {
+      await page.getByRole('button', { name: 'Retry this request', exact: true }).waitFor();
+      assert.equal(await page.getByRole('textbox', { name: 'Fault description', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: 'Retry this request', exact: true }).click();
+    }
+    await page.waitForURL(/\/workspace\/service\?ticket=/);
+    const ticket = await prisma.serviceTicket.findUniqueOrThrow({ where: { id: new URL(page.url()).searchParams.get('ticket') } });
+    lastTicket = ticket;
+    assert.equal(ticket.customerId, customer.id); assert.equal(ticket.jobId, job.id); assert.ok(ticket.sourceVerifiedAt);
+    assert.equal(intakeRequests.length, run === 1 ? 2 : 1);
+    if (run === 1) assert.deepEqual(intakeRequests[0], intakeRequests[1]);
+    assert.equal(await prisma.serviceTicketEvent.count({ where: { ticketId: ticket.id } }), 1);
+    await page.unroute('**/api/v1/tickets');
     await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
     await page.reload(); await page.getByRole('heading', { name: `Ticket ${ticket.ticketNumber}`, exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Save assessment', exact: true }).isDisabled(), false);
+    if (run === 1) {
+      await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Uncovered cosmetic work');
+      await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
+      await page.getByText('Not covered — charge pending assessment', { exact: true }).waitFor();
+      await page.getByRole('textbox', { name: 'Requested scope', exact: true }).fill('Component replacement');
+      await page.getByRole('button', { name: 'Save assessment', exact: true }).click();
+      await page.getByText('Covered — customer charge ₹0.00', { exact: true }).waitFor();
+      await page.getByRole('checkbox', { name: 'No parts, labour, replacement or financial effects occurred', exact: true }).check();
+      await page.getByRole('textbox', { name: 'No-work resolution reason', exact: true }).fill('Synthetic customer withdrew complaint before any work');
+      await page.getByRole('textbox', { name: 'Resolution details', exact: true }).fill('Complaint withdrawn; equipment was not repaired in this scenario');
+      await page.getByRole('button', { name: 'Await customer confirmation', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Confirmer name', exact: true }).fill(customer.name);
+      await page.getByRole('button', { name: 'Close ticket', exact: true }).click();
+      await page.getByText('Ticket closed with recorded customer confirmation.', { exact: true }).waitFor();
+      await page.reload(); await page.getByText('Ticket closed with recorded customer confirmation.', { exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Audited service history', exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'service fits 360px');
+      const historyResponse = await context.request.get(`/api/v1/tickets/${ticket.id}/events`); assert.equal(historyResponse.status(), 200);
+      const history = (await historyResponse.json()).data; assert.equal(history.total, 5);
+      assert.ok(history.items.some(row => row.previousAssessment?.coverageStatus === 'OUT_OF_SCOPE' && row.assessment?.coverageStatus === 'COVERED'));
+      assert.equal(await prisma.ticketLine.count({ where: { ticketId: ticket.id } }), 0);
+      assert.equal(await prisma.invoice.count({ where: { sourceType: 'TICKET', sourceId: ticket.id } }), 0);
+      console.log('PASS real ticket intake exact retry, audited scope correction and explicit no-work confirmed closure', ticket.id);
+    }
   }
   for (const role of ['SALES', 'WAREHOUSE', 'TECHNICIAN', 'SUPPORT']) {
     const scopedPage = await rolePage(role), scoped = scopedPage.context();
@@ -220,10 +291,44 @@ try {
   await page.getByText('✓ System Invariants Healthy', { exact: true }).waitFor();
   await page.setViewportSize({ width: 1280, height: 800 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'desktop fits');
-  // Real unavailable adapters stay visible as errors, never as fabricated coverage or finance.
+  // Finance and warranty use persisted sources. Service work posting and payroll remain separate gates.
+  await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/workspace/reports');
   await page.getByRole('heading', { name: /Period summary/ }).waitFor();
   await page.getByRole('heading', { name: 'Open work across all dates' }).waitFor();
+  const timeRecord = await prisma.installationTimeRecord.findFirstOrThrow({where:{jobId:lastTicket.jobId}});
+  await page.getByRole('button',{name:`Review time ${timeRecord.id}`,exact:true}).click();
+  await page.getByRole('textbox',{name:'Hourly rate (INR)',exact:true}).fill('36000.00');
+  await page.getByRole('textbox',{name:'Rate approval reference',exact:true}).fill('Explicit fictional browser-test rate; no real wage assumption');
+  await page.getByRole('button',{name:'Save approved rate revision',exact:true}).click();
+  const rateRevision = await page.waitForFunction(()=>{
+    const select=document.querySelector('select[name=rateRevisionId]'); return select?.options.length>1 ? select.options[1].value : null;
+  });
+  await page.getByRole('combobox',{name:'Approved rate revision',exact:true}).selectOption(await rateRevision.jsonValue());
+  await page.getByRole('textbox',{name:'Time approval note',exact:true}).fill('Approved recorded browser fixture work');
+  let approvalKey, approvalBody;
+  await page.route(`**/api/v1/time-entries/${timeRecord.id}/approve`,async route=>{
+    const request=route.request();
+    if(!approvalKey){approvalKey=request.headers()['idempotency-key'];approvalBody=request.postData();const committed=await route.fetch();assert.equal(committed.status(),201);return route.abort('failed');}
+    assert.equal(request.headers()['idempotency-key'],approvalKey);assert.equal(request.postData(),approvalBody);return route.continue();
+  });
+  await page.getByRole('button',{name:'Approve time and post cost',exact:true}).click();
+  await page.getByRole('button',{name:'Retry this request',exact:true}).waitFor();
+  assert.equal(await page.getByRole('combobox',{name:'Time approval status',exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'Retry this request',exact:true}).click();
+  await page.getByRole('heading',{name:'Frozen labour cost',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'labour approval fits actual 360px viewport');
+  assert.equal(await prisma.costEntry.count({where:{uniqueSourceId:'TIME_RECORD:'+timeRecord.id,costType:'INSTALLATION_LABOUR'}}),1);
+  await page.reload();
+  await page.getByRole('combobox',{name:'Time approval status',exact:true}).selectOption('APPROVED');
+  await page.getByRole('button',{name:`Review time ${timeRecord.id}`,exact:true}).click();
+  await page.getByRole('heading',{name:'Frozen labour cost',exact:true}).waitFor();
+  await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
+  const payResponse=await context.request.get('/api/v1/reports/pay-summary?period=today');assert.equal(payResponse.status(),200);
+  const pay=(await payResponse.json()).data;assert.equal(pay.scope,'INSTALLATION_ONLY');
+  const storedPay=await prisma.installationLabourApproval.aggregate({where:{timeRecord:{technicianId:timeRecord.technicianId}},_sum:{amount:true}});
+  assert.equal(pay.technicians.find(row=>row.technicianId===timeRecord.technicianId).totalPay,storedPay._sum.amount.toFixed(2));
+  console.log('PASS labour approval exact retry/pay source reconciliation',JSON.stringify({timeRecordId:timeRecord.id,approvalKey,scope:pay.scope}));
   const reportResponse = await context.request.get('/api/v1/reports/overview?period=today'); assert.equal(reportResponse.status(),200);
   const summary = (await reportResponse.json()).data;
   const cutoff = new Date(summary.asOf), start = new Date(summary.startUtc), end = new Date(summary.endUtc);
@@ -243,19 +348,69 @@ try {
   await page.getByRole('textbox',{name:'Job ID',exact:true}).fill(lastTicket.jobId);
   await page.getByRole('button',{name:'Load job',exact:true}).click();
   await page.getByText('Provisional — unfinished',{exact:true}).waitFor();
-  await page.getByRole('alert').filter({hasText:/approved time entries and frozen rates/}).waitFor();
+  await page.getByText('Installation pay only — service time and unapproved installation work are excluded.',{exact:true}).waitFor();
   console.log('PASS persisted report JSON/CSV/source reconciliation',JSON.stringify(summary));
   await page.goto('/workspace/service');
-  assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), true);
-  await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill('TEST-UNAVAILABLE');
+  assert.equal(await page.getByRole('button', { name: 'Create ticket', exact: true }).isDisabled(), false);
+  await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill('ABSENT-' + randomUUID());
   await page.getByRole('button', { name: 'Look up serial' }).click();
-  await page.getByRole('alert').filter({ hasText: /unavailable|integration/i }).waitFor();
+  await page.getByRole('alert').filter({ hasText: /No unit matches/i }).waitFor();
+  const warrantyUnit = await prisma.unit.findUniqueOrThrow({ where: { id: lastTicket.unitId } });
+  await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial.toLowerCase());
+  await page.getByRole('button', { name: 'Look up serial' }).click();
+  await page.getByRole('heading', { name: `Warranty — ${warrantyUnit.rawSerial}`, exact: true }).waitFor();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Equipment product', exact: true }).selectOption(warrantyUnit.productId);
+  await page.getByRole('button', { name: 'Save future warranty terms', exact: true }).waitFor();
+  const policyName = page.getByRole('textbox', { name: 'Policy name', exact: true });
+  const oldPolicyName = await policyName.inputValue();
+  const changedPolicyName = 'Demo browser policy ' + randomUUID().slice(0, 8);
+  await policyName.fill(changedPolicyName);
+  await page.getByRole('textbox', { name: 'Policy revision', exact: true }).fill('browser-' + randomUUID().slice(0, 8));
+  let lostPolicyBody, lostPolicyKey;
+  await page.route(`**/api/v1/warranty-policies/${warrantyUnit.productId}`, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const request = route.request();
+    if (!lostPolicyBody) {
+      lostPolicyBody = request.postData(); lostPolicyKey = request.headers()['idempotency-key'];
+      const committed = await route.fetch(); assert.equal(committed.status(), 201);
+      return route.abort('failed');
+    }
+    assert.equal(request.postData(), lostPolicyBody); assert.equal(request.headers()['idempotency-key'], lostPolicyKey);
+    return route.continue();
+  });
+  await page.getByRole('button', { name: 'Save future warranty terms', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry saved policy request', exact: true }).waitFor();
+  assert.equal(await page.getByRole('combobox', { name: 'Equipment product', exact: true }).isDisabled(), true);
+  assert.equal(await policyName.isDisabled(), true);
+  await page.getByRole('button', { name: 'Retry saved policy request', exact: true }).click();
+  await page.waitForFunction(name => document.querySelector('input[name=policyName]')?.value === name &&
+    !document.querySelector('input[name=policyName]')?.disabled, changedPolicyName);
+  assert.notEqual(changedPolicyName, oldPolicyName);
+  assert.equal(await prisma.command.count({ where: { actorId: staff.ADMIN.id, idempotencyKey: lostPolicyKey } }), 1);
+  await page.reload();
+  await page.getByRole('combobox', { name: 'Equipment product', exact: true }).selectOption(warrantyUnit.productId);
+  await page.waitForFunction(name => document.querySelector('input[name=policyName]')?.value === name, changedPolicyName);
+  await page.getByRole('textbox', { name: 'Serial number', exact: true }).fill(warrantyUnit.rawSerial);
+  await page.getByRole('button', { name: 'Look up serial' }).click();
+  await page.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED', { exact: true }).waitFor();
+  const frozen = await context.request.get('/api/v1/warranties/lookup?' + new URLSearchParams({serial:warrantyUnit.rawSerial}));
+  assert.equal((await frozen.json()).data.assessment.policyName, oldPolicyName, 'editing future terms does not change sold coverage');
+  const supportPage = await rolePage('SUPPORT');
+  await supportPage.goto('/workspace/service');
+  await supportPage.getByRole('textbox', {name:'Serial number',exact:true}).fill(warrantyUnit.rawSerial);
+  await supportPage.getByRole('button',{name:'Look up serial'}).click();
+  await supportPage.locator('section[aria-labelledby=service-workspace-title]').getByText('COVERED',{exact:true}).waitFor();
+  assert.equal(await supportPage.getByRole('heading',{name:'Configure future warranty terms',exact:true}).count(),0);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true,'warranty and policy fit 360px');
+  console.log('PASS persisted warranty lookup, future-policy edit and lost-response exact retry',JSON.stringify({unitId:warrantyUnit.id,jobId:lastTicket.jobId,policyKey:lostPolicyKey}));
   // Keyboard navigation focuses content after a client-side route change.
   await page.getByRole('link', { name: 'Overview', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.id === 'workspace-content');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'workspace-content');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; Live reports and CSV reconcile; payroll/warranty gates verified. No physical phone/scanner or complete after-sales demo claim.' }, null, 2));
+  console.log(JSON.stringify({ results, browserErrors: errors, mode: useVite ? 'development' : 'production', scope: 'Persisted warehouse-to-field runs; sales fixtures via real services; ticket intake exact retry, audited scope corrections and legitimate no-work confirmed closure; installation pay approval/exact retry and source reconciliation; live financial JSON/CSV, warranty lookup and policy-edit replay. Actual repair-parts, replacement and service-time payroll gates remain. No physical phone/scanner or complete after-sales repair demo claim.' }, null, 2));
 } catch (error) {
   console.error('FAIL', error);
   if (activePage && !activePage.isClosed()) console.error((await activePage.locator('body').innerText()).slice(0, 6000));

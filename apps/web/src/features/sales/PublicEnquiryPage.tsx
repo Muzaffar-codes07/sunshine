@@ -47,7 +47,7 @@ export function PublicEnquiryPage() {
   }
 
   return <main className="enquiry-page">
-    <Link to="/">Sunshine home</Link>
+    <Link to="/">Solar OS home</Link>
     <h1>Solar enquiry</h1>
     {submitted ? <p role="status">Your enquiry has been received. Thank you.</p> : <form onSubmit={(event) => void submit(event)} noValidate>
       <fieldset disabled={pending}>

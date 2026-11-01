@@ -125,6 +125,7 @@ export const technicianPaySummarySchema = paySummarySchema.extend({
 export const technicianPayReportSchema = periodSummarySchema.omit({
   invoicedRevenue: true, cashReceived: true, actualCost: true, costBreakdown: true,
 }).extend({
+  scope: z.enum(['INSTALLATION_ONLY', 'ALL_TIME']).default('ALL_TIME'),
   technicians: z.array(technicianPaySummarySchema),
   totalHours: reportHoursSchema,
   totalPay: reportAmountSchema.refine((value) => !value.startsWith('-')),

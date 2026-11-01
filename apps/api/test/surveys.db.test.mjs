@@ -244,10 +244,15 @@ test('HTTP: sales schedules and decides, the assigned technician submits', async
   assert.equal(blank.status, 400);
   assert.ok((await blank.json()).error.fieldErrors.roofTiltDeg?.length);
   assert.equal((await post(`/surveys/${survey.id}/submit`, salesCookie, { version: 1, ...facts })).status, 403);
+  const waiting = async () => (await (await fetch(`${base}/surveys/awaiting-approval`, { headers: { cookie: salesCookie } })).json()).data.items.map((item) => item.id);
+  assert.equal((await waiting()).includes(survey.id), false, 'scheduled but not measured yet');
   assert.equal((await post(`/surveys/${survey.id}/submit`, techCookie, { version: 1, ...facts })).status, 201);
+  assert.equal((await waiting()).includes(survey.id), true, 'measured, so someone has to decide');
+  assert.equal((await fetch(`${base}/surveys/awaiting-approval`, { headers: { cookie: techCookie } })).status, 403);
 
   assert.equal((await post(`/surveys/${survey.id}/approve`, techCookie, { version: 2 })).status, 403);
   const approved = await post(`/surveys/${survey.id}/approve`, salesCookie, { version: 2 });
+  assert.equal((await waiting()).includes(survey.id), false, 'decided, so it leaves the list');
   assert.equal(approved.status, 201);
   assert.equal((await approved.json()).data.status, 'APPROVED');
 

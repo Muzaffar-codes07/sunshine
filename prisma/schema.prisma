@@ -54,6 +54,11 @@ model User {
   quotesDecided Quote[] @relation("QuoteDecider")
   ordersConfirmed Order[] @relation("OrderConfirmer")
   paymentsRecorded Payment[] @relation("PaymentRecorder")
+  technicianRates TechnicianRateRevision[] @relation("RateTechnician")
+  technicianRatesCreated TechnicianRateRevision[] @relation("RateCreator")
+  labourApproved InstallationLabourApproval[] @relation("LabourApprover")
+  ticketsCreated ServiceTicket[] @relation("TicketCreator")
+  ticketEvents ServiceTicketEvent[]
 
   @@map("users")
 }
@@ -393,6 +398,7 @@ model CostEntry {
   reversal       CostEntry? @relation("CostReversal")
   postedAt       DateTime @default(now()) @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  installationApproval InstallationLabourApproval?
 
   @@unique([uniqueSourceId, costType])
   @@index([jobId, occurredAt])
@@ -426,6 +432,9 @@ model ServiceTicket {
   version             Int                  @default(1)
   createdAt           DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
+  sourceVerifiedAt    DateTime?            @db.Timestamptz(3)
+  createdById         String?              @db.Uuid
+  noWorkReason        String?              @db.VarChar(4000)
 
   customer Customer     @relation("CustomerServiceTickets", fields: [customerId], references: [id], onDelete: Restrict)
   lines    TicketLine[] @relation("ServiceTicketLines")
@@ -433,6 +442,8 @@ model ServiceTicket {
   job Job @relation("JobServiceTickets", fields: [jobId], references: [id], onDelete: Restrict)
   replacedUnit Unit? @relation("ReplacedUnitTickets", fields: [replacedUnitId], references: [id], onDelete: Restrict)
   newUnit Unit? @relation("NewUnitTickets", fields: [newUnitId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  events ServiceTicketEvent[]
 
   @@index([customerId])
   @@index([unitId, status])
@@ -440,7 +451,22 @@ model ServiceTicket {
   @@index([replacedUnitId])
   @@index([newUnitId])
   @@index([status, createdAt])
+  @@index([createdById])
   @@map("service_tickets")
+}
+
+model ServiceTicketEvent {
+  id String @id @default(uuid()) @db.Uuid
+  ticketId String @db.Uuid
+  actorId String @db.Uuid
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
+  beforeSnapshot Json?
+  afterSnapshot Json
+  ticket ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([ticketId, occurredAt])
+  @@index([actorId])
+  @@map("service_ticket_events")
 }
 
 model TicketLine {
@@ -864,6 +890,8 @@ model Invoice {
   orderId     String?           @db.Uuid
   customerId  String            @db.Uuid
   status      InvoiceStatus     @default(POSTED)
+  // Private canonical repair posting facts; sales invoices retain null.
+  sourceSnapshot Json?
   subtotal    Decimal           @db.Decimal(14, 2)
   // Pre-tax management example: tax is not configured, so it is zero with an explicit note (TRD money rules).
   taxAmount   Decimal           @default(0) @db.Decimal(14, 2)
@@ -1152,8 +1180,47 @@ model InstallationTimeRecord {
   job Job @relation(fields: [jobId], references: [id], onDelete: Restrict)
   technician User @relation("InstallationTimeTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
   recordedBy User @relation("InstallationTimeRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  labourApproval InstallationLabourApproval?
   @@index([jobId])
   @@index([technicianId, startedAt])
   @@index([recordedById])
   @@map("installation_time_records")
+}
+
+// Approved, append-only rate revisions. Later revisions never reprice approved work.
+model TechnicianRateRevision {
+  id String @id @default(uuid()) @db.Uuid
+  technicianId String @db.Uuid
+  hourlyRate Decimal @db.Decimal(14, 2)
+  reference String @db.VarChar(500)
+  createdById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  technician User @relation("RateTechnician", fields: [technicianId], references: [id], onDelete: Restrict)
+  createdBy User @relation("RateCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  approvals InstallationLabourApproval[]
+  @@index([technicianId, createdAt])
+  @@index([createdById])
+  @@map("technician_rate_revisions")
+}
+
+// Work occurrence, frozen rate and one posted cost are committed together by ADMIN approval.
+model InstallationLabourApproval {
+  timeRecordId String @id @db.Uuid
+  rateRevisionId String @db.Uuid
+  costEntryId String @unique @db.Uuid
+  elapsedMs BigInt
+  hours Decimal @db.Decimal(12, 3)
+  hourlyRate Decimal @db.Decimal(14, 2)
+  amount Decimal @db.Decimal(14, 2)
+  approvedById String @db.Uuid
+  approvedAt DateTime @default(now()) @db.Timestamptz(3)
+  note String @db.VarChar(500)
+  timeRecord InstallationTimeRecord @relation(fields: [timeRecordId], references: [id], onDelete: Restrict)
+  rateRevision TechnicianRateRevision @relation(fields: [rateRevisionId], references: [id], onDelete: Restrict)
+  costEntry CostEntry @relation(fields: [costEntryId], references: [id], onDelete: Restrict)
+  approvedBy User @relation("LabourApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  @@index([approvedAt])
+  @@index([rateRevisionId])
+  @@index([approvedById])
+  @@map("installation_labour_approvals")
 }

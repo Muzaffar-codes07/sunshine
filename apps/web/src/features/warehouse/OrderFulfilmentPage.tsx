@@ -73,7 +73,7 @@ function Delivered({ dispatch }: { dispatch: Dispatch }) {
     <ListPattern title="Warranty cover" empty="No serial units on this order."
       columns={[{ id: 'serial', label: 'Serial' }, { id: 'cover', label: 'Cover' }, { id: 'from', label: 'From' }, { id: 'to', label: 'Until' }]}
       rows={dispatch.coverage.map((row) => ({ id: row.unitId, cells: {
-        serial: <Serial unitId={row.unitId} />, cover: row.status === 'ACTIVE' ? row.policyName : 'No warranty terms on the quote',
+        serial: <Serial unitId={row.unitId} />, cover: row.status === 'NO_POLICY' ? 'No warranty terms on the quote' : `${row.status}: ${row.policyName}`,
         from: row.startDate ?? 'Not started', to: row.expiryDate ?? 'Not started',
       } }))} />
   </section>;
@@ -116,19 +116,19 @@ function ScanForm({ dispatch }: { dispatch: Dispatch }) {
   </section>;
 }
 
-function Actions({ order, version, hasAllocations, dispatch }: { order: OrderFulfilment; version: number; hasAllocations: boolean; dispatch: Dispatch | null }) {
+function Actions({ order, version, hasAllocations, dispatch, syncing }: { order: OrderFulfilment; version: number; hasAllocations: boolean; dispatch: Dispatch | null; syncing: boolean }) {
   const reserve = useStockCommand(allocationListResponseSchema);
   const prepare = useStockCommand(dispatchResponseSchema);
   if (!hasAllocations) {
     return <section className="pattern-card"><h2>Reserve stock</h2>
       <p>Reserves every component on this order, or none if anything is short.</p>
-      <button type="button" disabled={reserve.busy || reserve.uncertain} onClick={() => reserve.run(`/orders/${order.id}/allocations`, { expectedVersion: version })}>{reserve.busy ? 'Reserving…' : 'Reserve all stock'}</button>
+      <button type="button" disabled={syncing || reserve.busy || reserve.uncertain} onClick={() => reserve.run(`/orders/${order.id}/allocations`, { expectedVersion: version })}>{reserve.busy ? 'Reserving…' : 'Reserve all stock'}</button>
       <CommandFeedback problem={reserve.problem} uncertain={reserve.uncertain} busy={reserve.busy} onRetry={reserve.retry} />
     </section>;
   }
   if (!dispatch) {
     return <section className="pattern-card"><h2>Dispatch</h2>
-      <button type="button" disabled={prepare.busy || prepare.uncertain} onClick={() => prepare.run(`/orders/${order.id}/dispatches`, { expectedVersion: version })}>{prepare.busy ? 'Preparing…' : 'Prepare dispatch'}</button>
+      <button type="button" disabled={syncing || reserve.busy || reserve.uncertain || prepare.busy || prepare.uncertain} onClick={() => prepare.run(`/orders/${order.id}/dispatches`, { expectedVersion: version })}>{prepare.busy ? 'Preparing…' : 'Prepare dispatch'}</button>
       <CommandFeedback problem={prepare.problem} uncertain={prepare.uncertain} busy={prepare.busy} onRetry={prepare.retry} />
     </section>;
   }
@@ -154,7 +154,9 @@ function Fulfilment({ id }: { id: string }) {
       { id: 'payment', label: 'Payment', value: item.released ? 'Released after recorded payment' : 'Awaiting advance payment' },
       { id: 'job', label: 'Job status', value: humanize(job.data.data.status) },
     ]} />
-    <Actions order={item} version={job.data.data.version} hasAllocations={rows.length > 0} dispatch={dispatch.data?.data ?? null} />
+    {/* Readbacks arrive independently. Do not submit a new command with an older cached job version. */}
+    <Actions order={item} version={job.data.data.version} hasAllocations={rows.length > 0} dispatch={dispatch.data?.data ?? null}
+      syncing={order.isFetching || job.isFetching || allocations.isFetching || dispatch.isFetching} />
     {rows.length > 0
       ? <Reserved order={item} allocations={rows} dispatch={dispatch.data?.data ?? null} />
       : <ListPattern title="Packing requirements" columns={[{ id: 'item', label: 'Component' }, { id: 'quantity', label: 'Quantity' }]}

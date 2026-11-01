@@ -7,6 +7,7 @@ import { ReportingSourceReader, type FinancialActivity, type JobFinancialSnapsho
   type ReportCost, type ReportWindow, type ReportTimeEntry } from './reporting-readers';
 
 export abstract class ReportingReader {
+  readonly payScope?: 'INSTALLATION_ONLY' | 'ALL_TIME';
   abstract readOperations(query: OperationsQuery): Promise<unknown>;
   abstract readJob(jobId: string, asOf: Date): Promise<(JobFinancialSnapshot & { costs: ReportCost[] }) | null>;
   abstract readPeriod(window: ReportWindow): Promise<FinancialActivity & { costs: ReportCost[] }>;
@@ -16,7 +17,8 @@ export abstract class ReportingReader {
 
 @Injectable()
 export class PrismaReportingReader extends ReportingReader {
-  constructor(private readonly prisma: PrismaService, private readonly source: ReportingSourceReader) { super(); }
+  override readonly payScope;
+  constructor(private readonly prisma: PrismaService, private readonly source: ReportingSourceReader) { super(); this.payScope = source.payScope; }
 
   readOperations(query: OperationsQuery) {
     return this.read(async tx => {

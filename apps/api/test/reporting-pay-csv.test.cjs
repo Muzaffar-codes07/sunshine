@@ -53,6 +53,15 @@ test('pay respects IST work window and server approval cutoff, with empty and la
   assert.equal(large.totalHours, '1999999999.998'); assert.equal(large.totalPay, '1999999999997980000000.00');
 });
 
+test('exact elapsed-time pay reconciles a sub-millihour entry without multiplying rounded display hours', async () => {
+  const row = entry(1, { hours: '0.000', elapsedMs: '50', frozenHourlyRate: '36000.00', frozenAmount: '0.50' });
+  const report = await serviceFor([row]).getTechnicianPaySummary('today', asOf);
+  assert.equal(report.totalHours, '0.000'); assert.equal(report.totalPay, '0.50');
+  for (const changed of [{ frozenAmount: '0.51' }, { hours: '0.001' }, { elapsedMs: undefined }]) {
+    await assert.rejects(serviceFor([{ ...row, ...changed }]).getTechnicianPaySummary('today', asOf), code(503, 'INVALID_REPORT_RECORD'));
+  }
+});
+
 test('invalid persisted time fails with structured errors and duplicate IDs never double pay', async () => {
   for (const invalid of [null, undefined, {}, [null], [entry(1, { hours: '0' })], [entry(1, { hours: 1 })],
     [entry(1, { frozenHourlyRate: '-1' })], [entry(1, { frozenHourlyRate: '1.001' })],
