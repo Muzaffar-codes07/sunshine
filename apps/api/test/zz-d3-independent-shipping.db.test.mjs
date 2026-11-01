@@ -1,4 +1,5 @@
 // Independent #60/#65 regression. Real Nest services, HTTP identity, PostgreSQL, stock and costs.
+// Sort after stock suites: immutable receipt/movement fixtures cannot be deleted to reset their starting balances.
 // Failure injection only wraps the caller transaction after real work, to prove rollback.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +32,7 @@ const { catalogueDemoId } = require('../dist/catalog/demo-catalogue');
 const { hashPassword } = require('../dist/auth/passwords');
 const { Prisma } = require('../dist/generated/prisma/client');
 let app, prisma, root, commands, posting, scans, ledger, policies, main;
-const staff = {}, cookies = {};
+const staff = {}, cookies = {}, originalPolicies = new Map();
 const identity = row => ({ id: row.id, email: row.email, displayName: row.displayName, role: row.role });
 const origin = 'http://127.0.0.1:3001', password = 'independent-test-password-2026';
 before(async () => {
@@ -52,7 +53,16 @@ before(async () => {
     assert.equal(response.status, 200); cookies[role] = response.headers.get('set-cookie').split(';')[0];
   }
 });
-after(async () => { await app?.close(); });
+after(async () => {
+  try {
+    // Other suites use the same catalogue IDs. Restore only the policies this file actually changed.
+    for (const [productId, original] of originalPolicies) {
+      if (original) await prisma.productWarrantyPolicy.upsert({ where: { productId }, create: original,
+        update: { policyName: original.policyName, revision: original.revision, scope: original.scope, durationMonths: original.durationMonths } });
+      else await prisma.productWarrantyPolicy.deleteMany({ where: { productId } });
+    }
+  } finally { await app?.close(); }
+});
 const send = (path, body, role = 'WAREHOUSE', key = randomUUID()) => fetch(root + path, {
   method: 'POST', headers: { origin, 'content-type': 'application/json', cookie: cookies[role], 'idempotency-key': key },
   body: JSON.stringify(body),
@@ -67,11 +77,12 @@ const refused = async (request, status, code) => {
 const exactEffect = async order => {
   const allocations = await prisma.allocation.findMany({ where: { jobId: order.jobId }, orderBy: { id: 'asc' } });
   const document = await prisma.stockDocument.findUnique({ where: { kind_reference: { kind: 'ISSUE', reference: 'DISPATCH:' + order.dispatch.id } },
-    include: { lines: { include: { movement: true } } } });
+    include: { lines: { include: { movement: { include: { unitLinks: { include: { unit: true } } } } } } } });
   const costs = await prisma.costEntry.findMany({ where: { jobId: order.jobId, costType: 'MATERIAL_DISPATCH' } });
   return { allocations, document, costs };
 };
 async function policy(productId, months) {
+  if (!originalPolicies.has(productId)) originalPolicies.set(productId, await prisma.productWarrantyPolicy.findUnique({ where: { productId } }));
   const previous = (await policies.get(productId)).data;
   await policies.save(productId, {
     expectedFingerprint: previous.fingerprint, policyName: 'Independent persisted cover', revision: randomUUID(),
@@ -127,6 +138,9 @@ async function ready(order) {
 test('real current policies cannot replace sold warranty terms; dispatch sources reconcile exactly', async () => {
   const order = await fixture(), draft = await ready(order);
   for (const row of order.products.filter(product => product.trackingMode === 'SERIALIZED')) await policy(row.id, 36);
+  const basis = new Map((await prisma.productCostBasis.findMany({ where: { productId: { in: order.products.map(row => row.id) } } })).map(row => [row.productId, row.averageCost]));
+  const integrityCounts = report => Object.fromEntries(report.data.checks.map(row => [row.code, row.count]));
+  const integrityBefore = integrityCounts(await app.get(StockIntegrityService).report());
   const posted = await ok(send('/dispatches/' + draft.id + '/dispatch', { expectedVersion: draft.version }));
   order.dispatch = posted;
   const effects = await exactEffect(order);
@@ -137,7 +151,10 @@ test('real current policies cannot replace sold warranty terms; dispatch sources
     assert.ok(line.movement);
     const cost = effects.costs.find(row => row.uniqueSourceId === 'STOCK_MOVEMENT:' + line.movement.id);
     assert.ok(cost); assert.equal(cost.jobId, order.jobId);
-    assert.ok(cost.amount.equals(line.quantity.mul('11.23').toDecimalPlaces(2)), 'exact frozen acquisition/average basis');
+    const sourceCost = line.movement.unitLinks.length
+      ? line.movement.unitLinks.reduce((sum, link) => sum.add(link.unit.acquisitionCost), new Prisma.Decimal(0))
+      : line.quantity.mul(basis.get(line.productId)).toDecimalPlaces(2);
+    assert.ok(cost.amount.equals(sourceCost), 'exact persisted serial acquisition or pre-dispatch bulk average basis');
     assert.equal(cost.occurredAt.getTime(), line.movement.occurredAt.getTime());
   }
   const delivered = await ok(send('/dispatches/' + draft.id + '/deliver', { expectedVersion: posted.version, deliveredAt: new Date().toISOString() }));
@@ -145,7 +162,8 @@ test('real current policies cannot replace sold warranty terms; dispatch sources
   const warranties = await prisma.warranty.findMany({ where: { unitId: { in: order.units.map(row => row.unitId) } } });
   assert.equal(warranties.length, order.units.length);
   assert.ok(warranties.every(row => row.durationMonths === 24), 'accepted 24 months retained despite current 36-month configuration');
-  assert.ok((await app.get(StockIntegrityService).report()).data.ok);
+  assert.deepEqual(integrityCounts(await app.get(StockIntegrityService).report()), integrityBefore,
+    'this real dispatch and delivery add no integrity findings to the shared fixture database');
 });
 
 test('late delivery caller failure rolls back actual coverage, allocation and command record; retry succeeds once', async () => {
