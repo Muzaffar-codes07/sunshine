@@ -40,7 +40,7 @@ Evidence:
 | Final affected frontend verification | After the warehouse readback fix: web tests/build, production browser, 198-rule checker, empty schema drift and both smoke modes pass |
 | Final warranty suite | 13 persisted PostgreSQL/HTTP scenarios pass, including the additional direct-SQL invalid-date/leap-month case; this test-only addition follows the broad 285-case run |
 | Populated upgrade | 22 → 26 migrations, exact pre/post hashes unchanged for 17 warranties, 379 units, 831 allocations, 73 files, 139 invoice source records and 372 cost entries; the newly added nullable invoice field is excluded from comparison |
-| Final production browser | Three persisted installation runs, ADMIN/SUPPORT coverage, hidden SUPPORT policy controls, lost policy-save response/exact retry, frozen sold policy after future edits, delayed job readback, reload/360px containment; zero uncaught browser errors |
+| Final production browser | Three persisted installation runs, ADMIN/SUPPORT coverage, hidden SUPPORT policy controls, lost policy-save response/exact retry, frozen sold policy after future edits, delayed job readback, reload and 360px field/warehouse containment; zero uncaught browser errors. The subsequent labour acceptance explicitly restores a 360px viewport before the report/policy screens. |
 
 Local logs: `/tmp/sunshine-warranty-acceptance.log`, `/tmp/sunshine-warranty-final-db.log`, `/tmp/sunshine-warranty-final-ui.log`, `/tmp/sunshine-warranty-upgrade.log`, `/tmp/sunshine-warranty-browser.log`. Each successful process exited 0. A previous guarded browser run found the stale-version race; `/tmp/sunshine-warranty-browser-readback-race.log` records that failed run and is not counted as acceptance.
 
