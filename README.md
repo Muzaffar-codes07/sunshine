@@ -46,12 +46,19 @@ The API fails startup if `DATABASE_URL` or a strong `SESSION_SECRET` is absent.
 Readiness returns 503 if PostgreSQL is unavailable; liveness remains independent
 of the DB. Staff login/logout/me use PostgreSQL-backed sessions. Demo accounts
 are created only by the explicit staff seed command below; startup never seeds
-them. Historical D4 demo seed preparation is available via
-`npm run db:seed -- --preview`; persisted seeding remains blocked on the real
-historical installation/source adapter. The coordinated D4 migration is now in
-the reviewed PR queue; see the [migration guide](docs/architecture/d4-migration.md). See the
+them. The legacy two-case D4 seed preview is available via
+`npm run db:seed -- --preview`; that legacy persisted entry point remains guarded.
+The separate complete dataset below uses the implemented historical import.
+See the [migration guide](docs/architecture/d4-migration.md) and
 [seed handoff](prisma/seed/README.md). `db:deploy` applies migrations only and
 never seeds.
+
+For the complete 450-customer dataset, use the separate guarded
+`npm run db:seed:demo` command and [450-customer setup](prisma/seed/DEMO450.md).
+It imports synthetic CRM, sales, stock, completed installation and OPEN service
+history into an explicitly designated disposable database. It does not enable
+the physical repair/replacement adapters. `npm run db:verify:demo` reconciles the
+persisted rows; `npm run demo:450` uses the private `.env.demo450.local` settings.
 
 Shared contracts are built before development starts. If you edit them, run `npm run build -w @sunshine/contracts`; dependent processes then need to reload. Frontend requests go through Vite's `/api` proxy, avoiding a separate development CORS policy.
 

@@ -34,6 +34,18 @@ export class QuotesService {
     }, { timeout: 15000 });
   }
 
+  /** Offline historical import only; no HTTP route exposes occurrence overrides.
+   * Uses the same approval, catalogue, policy and snapshot validation as a new quote. */
+  async importDraft(tx: Prisma.TransactionClient, enquiryId: string, command: CreateQuote,
+    actor: StaffIdentity, recorded: { id: string; createdAt: Date }) {
+    if (!Number.isFinite(recorded.createdAt.getTime()) || recorded.createdAt.getTime() > Date.now()) {
+      throw new ApiError(400, 'INVALID_INPUT', 'Historical quote time must be a valid past instant');
+    }
+    await this.lockEnquiry(tx, enquiryId);
+    if (await tx.quote.count({ where: { enquiryId } })) throw blocked('QUOTE_ALREADY_EXISTS', 'The import enquiry already has a quote.', 'Review the saved import instead of replacing it.');
+    return this.snapshot(tx, enquiryId, command, actor, 1, undefined, undefined, recorded);
+  }
+
   async revise(id: string, command: ReviseQuote, actor: StaffIdentity) {
     return this.prisma.$transaction(async tx => {
       const current = await this.currentForCommand(tx, id, command.version);
@@ -129,6 +141,7 @@ export class QuotesService {
   private async snapshot(
     tx: Prisma.TransactionClient, enquiryId: string, command: CreateQuote, actor: StaffIdentity,
     revision: number, supersedesQuoteId?: string, revisionReason?: string,
+    recorded?: { id: string; createdAt: Date },
   ): Promise<Quote> {
     const survey = await this.surveys.requireApprovedSurvey(tx, command.surveyId);
     if (survey.enquiryId !== enquiryId) throw new ApiError(400, 'INVALID_INPUT', 'Some fields need attention', { surveyId: ['Choose a survey belonging to this enquiry'] });
@@ -142,7 +155,7 @@ export class QuotesService {
     for (const item of kit.items) lines.push(await this.productLine(tx, 'COMPONENT', lines.length + 1, item.product, item.quantity, '0.00'));
     lines.push(await this.productLine(tx, 'SERVICE', lines.length + 1, kit.installationProduct, '1.000', kit.installationPrice));
     const row = await tx.quote.create({ data: {
-      enquiryId, surveyId: survey.id, packageId: kit.id, customerId: enquiry.customerId, revision, supersedesQuoteId, revisionReason,
+      ...recorded, enquiryId, surveyId: survey.id, packageId: kit.id, customerId: enquiry.customerId, revision, supersedesQuoteId, revisionReason,
       customerSnapshot: { contactName: enquiry.contactName, phone: enquiry.customer.phone, addressLine: enquiry.siteAddressLine, city: enquiry.siteCity, pincode: enquiry.sitePincode },
       packageSnapshot: { code: kit.code, name: kit.name, capacityKw: kit.capacityKw, systemType: kit.systemType, revision: kit.revision },
       hardwarePrice: kit.hardwarePrice, installationPrice: kit.installationPrice, totalPrice: kit.totalPrice,
