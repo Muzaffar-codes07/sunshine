@@ -8,6 +8,7 @@ import { Field } from '../../components/ui/Field';
 import { apiGet } from '../../lib/api';
 import { describeD4Error } from './d4-http';
 import { ServiceWorkspacePage } from './ServiceWorkspacePage';
+import { WarrantyPolicies } from './WarrantyPolicies';
 
 function SavedTicket({ id }: { id: string }) {
   const ticket = useQuery({ queryKey: ['service', 'ticket', id], retry: false,
@@ -48,5 +49,5 @@ export function ServiceWorkspaceRoute() {
   const [search] = useSearchParams();
   const id = search.get('ticket');
   if (id && !z.uuid().safeParse(id).success) return <div role="alert"><h1>Invalid ticket link</h1><Link to="/workspace/service">Back to saved tickets</Link></div>;
-  return id ? <SavedTicket id={id} /> : <><ServiceWorkspacePage /><SavedTickets /></>;
+  return id ? <SavedTicket id={id} /> : <><ServiceWorkspacePage /><SavedTickets /><WarrantyPolicies /></>;
 }

@@ -1,7 +1,7 @@
 # Warranty module
 
 Owners: **D4** assessment and the activation helper; **D3** calls the helper from delivery. Status: **assessment implemented;
-production lookup awaits upstream integration**.
+production lookup and future-policy configuration use persisted adapters**.
 
 Delivery-triggered coverage activation and equipment history. D4 owns coverage decisions.
 
@@ -9,7 +9,7 @@ Delivery-triggered coverage activation and equipment history. D4 owns coverage d
 
 `product_warranty_policies` holds what each product's warranty promises today. `PrismaQuoteWarrantyPolicyReader` supplies a quote's frozen terms from it, so a later edit never changes cover already sold. `activateFromDelivery` starts the warranty from those frozen terms and refuses the delivery (503 `POLICY_DATA_INVALID`) if they are damaged.
 
-`npm run seed:catalogue -w @sunshine/api` also inserts the synthetic demo terms: 240 months for panels (requirement R12's example), and 24 months for inverters, batteries and charge controllers (R12's example and the runbook's normal component duration). Rows are insert-only, so a rerun never overwrites an edited term. Quotes created before a term exists stay UNCONFIGURED. There is no screen for editing terms yet.
+`npm run seed:catalogue -w @sunshine/api` also inserts the synthetic demo terms: 240 months for panels (requirement R12's example), and 24 months for inverters, batteries and charge controllers (R12's example and the runbook's normal component duration). Rows are insert-only, so a rerun never overwrites an edited term. Quotes created before a term exists stay UNCONFIGURED. ADMIN can edit future terms at `/workspace/service`. No real vendor terms are invented: enter the approved name, revision, scope and duration. Existing quoted coverage never changes with catalogue edits.
 
 `WarrantyService.evaluateWarranty(unitId, asOfDate, requestedScope?)` reads the
 saved policy, evaluates its half-open IST calendar interval, and returns the policy
@@ -32,33 +32,23 @@ through finance. A missing warranty returns null policy/dates, never invented
 dates. This service writes no warranty, ticket snapshot, invoice or cost; Task 2.2
 persists the returned assessment on tickets. Supplier recovery is separate.
 
-## Integration gate
+## Production access and provenance
 
-Unit/Job models, staff authentication and the coordinated D4 migration are now
-present, but the domain-specific authorization and equipment adapters below
-remain unavailable; schema availability alone does not wire production access.
-`WarrantyModule` is registered, but its default `WarrantyLookupAccess` rejects
-requests with 503 `WARRANTY_AUTH_UNAVAILABLE` before any equipment read. Replace
-it with D2's verified staff authorization adapter (401/403 as appropriate). Never
-authorize from a caller-supplied role header or unverified `request.user`.
+`StaffWarrantyLookupAccess` checks the actual active staff session before serial reads. ADMIN and SUPPORT can look up equipment; SALES, WAREHOUSE and TECHNICIAN receive 403 and anonymous/forged-header requests receive 401. Responses are `Cache-Control: no-store` and expose only unit identity, customer ID/name and job ID.
 
-Replace `WarrantyEquipmentReader` with D3's persisted adapter. It must return
-bounded unit/customer/job projections from actual allocation/installation joins,
-apply manufacturer/product scope, and return at most two serial matches. Null
-customer/job means no installation association. Staff access must authorize this
-cross-customer lookup; assigned-technician access needs record scoping before
-returning any customer information. No fabricated database tables or fixtures
-are wired into production. Until supplied, the adapter returns 503
-`WARRANTY_EQUIPMENT_UNAVAILABLE`.
+`PersistedWarrantyEquipmentReader` follows delivered/installed allocation → job → order/accepted quote/customer, validates source identity and delivery, and ignores reservations/releases as customer installation evidence. Scoped serial lookup returns at most two matches; ambiguity is 409 before either customer's installation is inspected. UUID inputs are canonicalized. `ValidatedWarrantyReader` compares saved terms and interval to the frozen quote and recorded delivery, never today's product policy; damaged or missing promised cover returns 503 `INVALID_WARRANTY_RECORD` for review. A successor pointer makes the old serial VOID for lookup even if an incomplete historical migration left `active=true`. A pointer alone does not prove actual replacement consumption/billing; successor coverage remains 503 `WARRANTY_REPLACEMENT_UNAVAILABLE` until that service writer is verified. This slice does not activate ticket commands or claim completed replacement work.
 
-`PrismaWarrantyReader` uses the actual Warranty model, including inactive rows.
-Its storage requires the D3-coordinated migration described in the
-[schema handoff](../../../../docs/architecture/d4-schema-handoff.md); missing
-table/column errors become 503 `WARRANTY_SCHEMA_UNAVAILABLE`.
+Migration `20261031820000_warranty_facts` validates a 1–1200 month calendar interval with month-end clamping and supported dates, freezes identity/terms/dates and blocks deletion/truncation/reactivation. Only `active=true → false` with `version+1` may change a warranty. Existing invalid intervals stop the upgrade for review; no historical facts are silently rewritten. The production reader additionally checks sale/delivery provenance; calendar validity alone is not proof of entitlement.
+
+## Future-policy configuration
+
+`GET /api/v1/warranty-policies/:productId` (ADMIN) returns `{data:{productId,policy,fingerprint}}`, with null policy/fingerprint when unconfigured. `POST` requires `Idempotency-Key` and `{expectedFingerprint,policyName,revision,scope,durationMonths}`. Limits are 200/100/2000 characters and 1–1200 whole months. Active serialized hardware only; strict inputs reject extra fields. Product UUIDs are canonicalized before hashing. A product row lock serializes absent-row creation and edits; a stale fingerprint returns 409 `STALE_POLICY`, changed terms with the old revision return `POLICY_REVISION_REQUIRED`, and identical actor/key/body replays its saved result even after later policy edits. Command results, new policy and key commit or roll back together. This configures future quotes and never edits existing snapshots or warranties.
+
+The editor uses the shared retry-safe command: after an uncertain response it disables edits/product switching and retries the saved exact key/body. Reload before retrying a rejected stale edit. Ordinary lookup cannot accept a caller-selected historical date; the internal assessment service accepts an auditable occurrence supplied by service orchestration.
 
 Run `npm run build -w @sunshine/contracts` then `npm test -w @sunshine/api`.
 The warranty test suite checks date/leap/month-end boundaries, missing/void/scope
 cases, serial ambiguity, the Prisma reader and real Nest HTTP routing using
-injected adapters. It does not claim a migrated PostgreSQL/Unit/Job integration.
+injected adapters. The PostgreSQL warranty-policy suite additionally exercises real sales-to-delivery commands, roles, policy races/replay/rollback, scoped lookup, 18-month and expiry boundaries, SQL freeze/void guards and corrupt provenance. Its predecessor-pointer fixture is explicitly not a consumed/costed replacement.
 See [roles](../../../../docs/team/roles.md) and
 [API contracts](../../../../docs/architecture/api-contracts.md).

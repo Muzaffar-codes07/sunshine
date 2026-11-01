@@ -10,7 +10,7 @@ export const quoteSentChannelSchema = z.enum(['EMAIL', 'WHATSAPP', 'PRINT', 'OTH
 export const quoteDecisionChannelSchema = z.enum(['IN_PERSON', 'PHONE', 'EMAIL', 'WHATSAPP']);
 export const quotePolicySnapshotSchema = z.object({
   policyName: z.string().trim().min(1).max(200), revision: z.string().trim().min(1).max(100),
-  scope: z.string().trim().min(1).max(2000), durationMonths: z.number().int().positive(),
+  scope: z.string().trim().min(1).max(2000), durationMonths: z.number().int().min(1).max(1200),
 }).strict();
 export type QuotePolicySnapshot = z.infer<typeof quotePolicySnapshotSchema>;
 

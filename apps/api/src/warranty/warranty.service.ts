@@ -16,6 +16,7 @@ export class WarrantyService {
    * Repair orchestration must pass the actual scope; component cover does not imply free labour. */
   async evaluateWarranty(unitId: string, asOfDate: Date, requestedScope?: string): Promise<WarrantyAssessmentResult> {
     if (!z.uuid().safeParse(unitId).success) throw new ApiError(400, 'INVALID_INPUT', 'A valid unit ID is required');
+    unitId = unitId.toLowerCase();
     if (requestedScope !== undefined && typeof requestedScope !== 'string') {
       throw new ApiError(400, 'INVALID_INPUT', 'A valid requested scope string is required');
     }
