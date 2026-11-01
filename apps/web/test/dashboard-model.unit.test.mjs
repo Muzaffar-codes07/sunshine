@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { attentionItems, barsFor, crewRows, documentRows, formatDay, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
+import { attentionItems, barsFor, crewRows, documentRows, monthGrid, formatDay, formatInr, hasClash, isLate, linePath, performance, pickSpotlight, projectHref, rangeFor, shiftAnchor, statusFilters, teamFacts } from '../src/features/dashboard/dashboard-model.ts';
 
 const NOW = new Date(2026, 10, 4, 12, 0);
 const at = (day, hour) => new Date(2026, 10, day, hour).toISOString();
@@ -128,4 +128,14 @@ test('each technician is on site, booked or free according to their own open job
     ['Ana', 'FREE', undefined, 'e', 1],
     ['Zed', 'FREE', undefined, undefined, 0],
   ]);
+});
+
+test('the calendar shows whole Monday-first weeks covering the month', () => {
+  const november = monthGrid(new Date(2026, 10, 18));
+  assert.equal(november.length, 42);
+  assert.deepEqual([november[0].getMonth(), november[0].getDate(), november[0].getDay()], [9, 26, 1]);
+  assert.deepEqual([november.at(-1).getMonth(), november.at(-1).getDate(), november.at(-1).getDay()], [11, 6, 0]);
+  const february = monthGrid(new Date(2027, 1, 1));
+  assert.equal(february.length, 28);
+  assert.deepEqual([february[0].getDate(), february.at(-1).getDate()], [1, 28]);
 });
