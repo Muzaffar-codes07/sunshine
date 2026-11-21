@@ -1,0 +1,7 @@
+---
+description: Use Auric to preserve Sunshine workspace continuity
+alwaysApply: true
+---
+
+Follow the Auric continuity instructions in the repository's `AGENTS.md`.
+The exact Auric project ID is `sunshine`.
